@@ -12,7 +12,12 @@ export default {
     theme: {
         extend: {
             fontFamily: {
-                sans: ['Figtree', ...defaultTheme.fontFamily.sans],
+                'maven': ['"Maven Pro"', 'sans-serif'],
+                'inter': ['Inter', 'sans-serif'],
+            },
+            colors: {
+                'gkr-dark': '#011936',    // Je knop-kleur
+                'gkr-accent': '#94b8ff',  // Je accent-kleur
             },
         },
     },

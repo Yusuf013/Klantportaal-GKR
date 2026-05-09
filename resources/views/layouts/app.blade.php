@@ -15,22 +15,46 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="font-sans antialiased">
-        <div class="min-h-screen bg-gray-100">
-            @include('layouts.navigation')
+       <div class="min-h-screen bg-white">
+    @include('layouts.navigation')
 
-            <!-- Page Heading -->
-            @isset($header)
-                <header class="bg-white shadow">
-                    <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+    <div class="flex">
+        
+        <aside class="w-64 min-h-[calc(100vh-64px)] bg-gkr-dark hidden md:flex flex-col border-r border-gray-100">
+            <div class="p-6 space-y-4">
+                <p class="text-xs font-semibold text-gkr-accent uppercase tracking-widest">Project Management</p>
+                
+                <nav class="space-y-1">
+                    <a href="{{ route('dashboard') }}" class="flex items-center px-4 py-3 text-white rounded-lg bg-white/10 font-maven">
+                        Dashboard
+                    </a>
+                    <a href="#" class="flex items-center px-4 py-3 text-white/70 hover:text-white hover:bg-white/5 rounded-lg transition font-inter text-sm">
+                        Mijn Projecten
+                    </a>
+                    <a href="#" class="flex items-center px-4 py-3 text-white/70 hover:text-white hover:bg-white/5 rounded-lg transition font-inter text-sm">
+                        Bestanden & Media
+                    </a>
+                    <a href="#" class="flex items-center px-4 py-3 text-white/70 hover:text-white hover:bg-white/5 rounded-lg transition font-inter text-sm">
+                        Facturatie
+                    </a>
+                </nav>
+            </div>
+        </aside>
+
+        <main class="flex-1">
+            @if (isset($header))
+                <header class="bg-white shadow-sm border-b border-gray-100">
+                    <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 font-maven text-black">
                         {{ $header }}
                     </div>
                 </header>
-            @endisset
+            @endif
 
-            <!-- Page Content -->
-            <main>
+            <div class="py-12 px-4 sm:px-6 lg:px-8">
                 {{ $slot }}
-            </main>
-        </div>
+            </div>
+        </main>
+    </div>
+</div>
     </body>
 </html>

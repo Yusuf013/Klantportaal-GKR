@@ -51,4 +51,12 @@ class ProjectController extends Controller
 
     return back()->with('success', 'Document is toegevoegd aan het project!');
 }
+
+public function show(Project $project)
+{
+    // We laden het project inclusief de documenten die er al bij horen
+    $project->load('documents');
+
+    return view('admin.projects.show', compact('project'));
+}
 }

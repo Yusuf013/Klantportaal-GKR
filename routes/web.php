@@ -2,8 +2,8 @@
 
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Admin\ProjectController as AdminProjectController; // Naam veranderd om verwarring te voorkomen
-use App\Http\Controllers\ProjectController; // De controller voor de klant toegevoegd
+use App\Http\Controllers\Admin\ProjectController as AdminProjectController;
+use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\DashboardController;
 
 Route::get('/', function () {
@@ -15,12 +15,17 @@ Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['au
 // De klant gaat naar de gewone ProjectController
 Route::get('/projects/{project}', [ProjectController::class, 'show'])->name('projects.show')->middleware(['auth']);
 
-Route::post('/admin/projects/{project}/upload', [AdminProjectController::class, 'uploadDocument'])->name('admin.projects.upload');
-
+// --- ADMIN SECTIE ---
 Route::middleware(['auth', 'verified'])->group(function () {
-    // De Admin gebruikt de AdminProjectController
+    // Overzicht en Creatie
     Route::get('/admin/projects/create', [AdminProjectController::class, 'create'])->name('admin.projects.create');
     Route::post('/admin/projects', [AdminProjectController::class, 'store'])->name('admin.projects.store');
+    
+    // Specifieke projectbeheer pagina (Stap 5)
+    Route::get('/admin/projects/{project}', [AdminProjectController::class, 'show'])->name('admin.projects.show');
+    
+    // De upload route (Stap 4)
+    Route::post('/admin/projects/{project}/upload', [AdminProjectController::class, 'uploadDocument'])->name('admin.projects.upload');
 });
 
 Route::middleware('auth')->group(function () {

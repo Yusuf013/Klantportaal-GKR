@@ -1,4 +1,14 @@
 <x-app-layout>
+@if ($errors->any())
+    <div class="bg-red-100 text-red-700 p-4 rounded mb-4">
+        <ul>
+            @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    </div>
+@endif
+
     <x-slot name="header">
         <h2 class="font-maven font-bold text-xl text-[#011936] leading-tight">
             Beheer Project: {{ $project->name }}

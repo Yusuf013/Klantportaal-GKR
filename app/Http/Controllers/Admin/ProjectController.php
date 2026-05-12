@@ -34,23 +34,24 @@ class ProjectController extends Controller
 
 public function uploadDocument(Request $request, $projectId)
 {
-    $request->validate([
+$request->validate([
         'document_name' => 'required|string|max:255',
-        'file' => 'required|mimes:pdf,png,jpg,jpeg|max:10240',
+        'file' => 'required|mimes:pdf,png,jpg,jpeg,webp|max:10240',
     ]);
 
     $path = $request->file('file')->store('documents', 'public');
 
-    // We slaan het resultaat op in een variabele $newDoc
-    $newDoc = \App\Models\Document::create([
+    \App\Models\Document::create([
         'project_id' => $projectId,
         'name' => $request->document_name,
         'file_path' => $path,
         'status' => 'Verzonden',
     ]);
 
-    // DIT GAAN WE TESTEN:
-    dd($newDoc->toArray()); 
+    // Verwijder de dd($newDoc->toArray()); die hier stond!
+    
+    // Stuur de admin terug naar de projectpagina met een groen vinkje (melding)
+    return back()->with('success', 'Document is succesvol geüpload en zichtbaar voor de klant.');
 }
 
 public function show(Project $project)

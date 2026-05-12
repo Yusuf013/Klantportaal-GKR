@@ -2,20 +2,25 @@
 
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Admin\ProjectController;
+use App\Http\Controllers\Admin\ProjectController as AdminProjectController; // Naam veranderd om verwarring te voorkomen
+use App\Http\Controllers\ProjectController; // De controller voor de klant toegevoegd
+use App\Http\Controllers\DashboardController;
 
 Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
+
+// De klant gaat naar de gewone ProjectController
+Route::get('/projects/{project}', [ProjectController::class, 'show'])->name('projects.show')->middleware(['auth']);
+
+Route::post('/admin/projects/{project}/upload', [AdminProjectController::class, 'uploadDocument'])->name('admin.projects.upload');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    // Alleen toegankelijk voor admins (we voegen later een extra check toe)
-    Route::get('/admin/projects/create', [ProjectController::class, 'create'])->name('admin.projects.create');
-    Route::post('/admin/projects', [ProjectController::class, 'store'])->name('admin.projects.store');
+    // De Admin gebruikt de AdminProjectController
+    Route::get('/admin/projects/create', [AdminProjectController::class, 'create'])->name('admin.projects.create');
+    Route::post('/admin/projects', [AdminProjectController::class, 'store'])->name('admin.projects.store');
 });
 
 Route::middleware('auth')->group(function () {

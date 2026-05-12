@@ -32,24 +32,25 @@ class ProjectController extends Controller
         return redirect()->route('dashboard')->with('success', 'Project succesvol gekoppeld aan klant!');
     }
 
-    public function uploadDocument(Request $request, $projectId)
+public function uploadDocument(Request $request, $projectId)
 {
     $request->validate([
         'document_name' => 'required|string|max:255',
-        'file' => 'required|mimes:pdf,png,jpg,jpeg|max:10240', // Max 10MB
+        'file' => 'required|mimes:pdf,png,jpg,jpeg|max:10240',
     ]);
 
-    // Sla het bestand op in de map storage/app/public/documents
     $path = $request->file('file')->store('documents', 'public');
 
-    \App\Models\Document::create([
+    // We slaan het resultaat op in een variabele $newDoc
+    $newDoc = \App\Models\Document::create([
         'project_id' => $projectId,
         'name' => $request->document_name,
         'file_path' => $path,
         'status' => 'Verzonden',
     ]);
 
-    return back()->with('success', 'Document is toegevoegd aan het project!');
+    // DIT GAAN WE TESTEN:
+    dd($newDoc->toArray()); 
 }
 
 public function show(Project $project)

@@ -11,13 +11,7 @@ class Document extends Model
      * De velden die via een formulier gevuld mogen worden.
      * Dit is belangrijk voor de veiligheid van je database.
      */
-    protected $fillable = [
-        'project_id',
-        'name',
-        'file_path',
-        'status',
-        'approved_at',
-    ];
+ protected $fillable = ['project_id', 'name', 'file_path', 'status', 'approved_at'];
 
     /**
      * Relatie: Een document hoort bij één specifiek project.

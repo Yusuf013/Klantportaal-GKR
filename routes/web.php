@@ -16,7 +16,7 @@ Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['au
 Route::get('/projects/{project}', [ProjectController::class, 'show'])->name('projects.show')->middleware(['auth']);
 
 // --- ADMIN SECTIE ---
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['auth', 'verified', 'admin'])->group(function () {
     // Overzicht en Creatie
     Route::get('/admin/projects/create', [AdminProjectController::class, 'create'])->name('admin.projects.create');
     Route::post('/admin/projects', [AdminProjectController::class, 'store'])->name('admin.projects.store');

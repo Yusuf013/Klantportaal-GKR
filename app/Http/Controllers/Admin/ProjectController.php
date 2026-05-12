@@ -61,4 +61,11 @@ public function show(Project $project)
 
     return view('admin.projects.show', compact('project'));
 }
+
+public function index()
+{
+    $projects = Project::with('user')->get();
+    return view('admin.projects.index', compact('projects'));
+}
+
 }

@@ -20,6 +20,8 @@ Route::middleware(['auth', 'verified', 'admin'])->group(function () {
     // Overzicht en Creatie
     Route::get('/admin/projects/create', [AdminProjectController::class, 'create'])->name('admin.projects.create');
     Route::post('/admin/projects', [AdminProjectController::class, 'store'])->name('admin.projects.store');
+
+    Route::get('/admin/projects', [AdminProjectController::class, 'index'])->name('admin.projects.index');
     
     // Specifieke projectbeheer pagina (Stap 5)
     Route::get('/admin/projects/{project}', [AdminProjectController::class, 'show'])->name('admin.projects.show');

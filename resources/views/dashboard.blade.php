@@ -15,6 +15,8 @@
         </div>
     </div>
 
+
+
     <div class="py-12">
     <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
         <h2 class="font-maven font-bold text-2xl mb-6 text-[#011936]">Uw Projecten bij GKR</h2>

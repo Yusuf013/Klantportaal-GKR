@@ -4,21 +4,28 @@
             <div class="flex">
                 <div class="shrink-0 flex items-center">
                     <a href="{{ route('dashboard') }}">
-                        <x-application-logo class="block h-9 w-auto" />
+                        <img src="{{ asset('images/gkr logo wit.webp') }}" alt="GKR Logo" class="block h-9 w-auto">
                     </a>
                 </div>
 
-                <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                    <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')" class="text-white hover:text-[#94b8ff]">
-                        {{ __('Dashboard') }}
-                    </x-nav-link>
+  <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+    <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')" 
+        class="text-white hover:text-gray-300 focus:text-white active:text-white border-b-2 {{ request()->routeIs('dashboard') ? 'border-purple-600' : 'border-transparent' }}">
+        {{ __('Dashboard') }}
+    </x-nav-link>
 
-                    @if(Auth::user()->role === 'admin')
-                        <x-nav-link :href="route('admin.projects.create')" :active="request()->routeIs('admin.projects.create')" class="text-[#94b8ff] font-bold">
-                            + Nieuw Project Koppelen
-                        </x-nav-link>
-                    @endif
-                </div>
+    @if(auth()->user()->is_admin)
+        <x-nav-link :href="route('admin.projects.index')" :active="request()->routeIs('admin.projects.*')" 
+            class="text-white hover:text-gray-300 focus:text-white border-b-2 {{ request()->routeIs('admin.projects.*') ? 'border-purple-600' : 'border-transparent' }}">
+            {{ __('Admin Paneel') }}
+        </x-nav-link>
+
+        <x-nav-link :href="route('admin.projects.create')" :active="request()->routeIs('admin.projects.create')" 
+            class="text-white hover:text-gray-300 focus:text-white border-b-2 {{ request()->routeIs('admin.projects.create') ? 'border-purple-600' : 'border-transparent' }}">
+            {{ __('Nieuw Project +') }}
+        </x-nav-link>
+    @endif
+</div>
             </div>
 
             <div class="hidden sm:flex sm:items-center sm:ms-6">

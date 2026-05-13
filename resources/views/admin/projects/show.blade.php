@@ -50,7 +50,23 @@
                     @foreach($project->documents as $document)
                         <li class="p-4 flex justify-between items-center">
                             <span>{{ $document->name }}</span>
-                            <span class="text-sm px-2 py-1 rounded bg-blue-100 text-blue-800">{{ $document->status }}</span>
+                            <td class="py-4">
+    @if($document->status === 'Akkoord')
+        <div class="flex flex-col">
+            <span class="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-bold w-fit">
+                Akkoord
+            </span>
+            {{-- De extra regel voor de Admin --}}
+            <span class="text-[10px] text-gray-500 mt-1">
+                Gezien op: {{ $document->approved_at->translatedFormat('d F Y H:i') }}
+            </span>
+        </div>
+    @else
+        <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-bold">
+            {{ $document->status }}
+        </span>
+    @endif
+</td>
                         </li>
                     @endforeach
                 </ul>

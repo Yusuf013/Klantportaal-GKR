@@ -20,4 +20,20 @@ class ProjectController extends Controller
 
     return view('projects.show', compact('project'));
 }
+
+public function approveDocument(\App\Models\Document $document)
+{
+    // Veiligheid: check of de ingelogde klant wel eigenaar is van dit project
+    if ($document->project->user_id !== auth()->id()) {
+        abort(403);
+    }
+
+    $document->update([
+        'status' => 'Akkoord',
+        'approved_at' => now(), // De 'digitale handtekening'
+    ]);
+
+    return back()->with('success', 'Document succesvol goedgekeurd!');
+}
+
 }

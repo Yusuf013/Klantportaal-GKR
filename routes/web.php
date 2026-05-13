@@ -15,6 +15,9 @@ Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['au
 // De klant gaat naar de gewone ProjectController
 Route::get('/projects/{project}', [ProjectController::class, 'show'])->name('projects.show')->middleware(['auth']);
 
+// De route voor het goedkeuren van documenten
+Route::post('/documents/{document}/approve', [App\Http\Controllers\ProjectController::class, 'approveDocument'])->name('documents.approve');
+
 // --- ADMIN SECTIE ---
 Route::middleware(['auth', 'verified', 'admin'])->group(function () {
     // Overzicht en Creatie

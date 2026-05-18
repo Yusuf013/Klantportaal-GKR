@@ -1,4 +1,4 @@
-<nav x-data="{ open: false }" class="bg-[#011936] border-b border-white/10">
+<nav x-data="{ open: false }" class="bg-[#011936] border-b border-white/10 w-full z-30 fixed top-0 left-0 h-16">
     <div class="max-w-full mx-auto px-4 sm:px-6 lg:px-10">
         <div class="flex justify-between h-16">
             <div class="flex">
@@ -7,25 +7,6 @@
                         <img src="{{ asset('images/gkr logo wit.webp') }}" alt="GKR Logo" class="block h-9 w-auto">
                     </a>
                 </div>
-
-  <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-    <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')" 
-        class="text-white hover:text-gray-300 focus:text-white active:text-white border-b-2 {{ request()->routeIs('dashboard') ? 'border-purple-600' : 'border-transparent' }}">
-        {{ __('Dashboard') }}
-    </x-nav-link>
-
-    @if(auth()->user()->is_admin)
-        <x-nav-link :href="route('admin.projects.index')" :active="request()->routeIs('admin.projects.*')" 
-            class="text-white hover:text-gray-300 focus:text-white border-b-2 {{ request()->routeIs('admin.projects.*') ? 'border-purple-600' : 'border-transparent' }}">
-            {{ __('Admin Paneel') }}
-        </x-nav-link>
-
-        <x-nav-link :href="route('admin.projects.create')" :active="request()->routeIs('admin.projects.create')" 
-            class="text-white hover:text-gray-300 focus:text-white border-b-2 {{ request()->routeIs('admin.projects.create') ? 'border-purple-600' : 'border-transparent' }}">
-            {{ __('Nieuw Project +') }}
-        </x-nav-link>
-    @endif
-</div>
             </div>
 
             <div class="hidden sm:flex sm:items-center sm:ms-6">
@@ -71,19 +52,7 @@
     </div>
 
     <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden bg-[#011936] border-t border-white/10">
-        <div class="pt-2 pb-3 space-y-1">
-            <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')" class="text-white">
-                {{ __('Dashboard') }}
-            </x-responsive-nav-link>
-
-            @if(Auth::user()->role === 'admin')
-                <x-responsive-nav-link :href="route('admin.projects.create')" :active="request()->routeIs('admin.projects.create')" class="text-[#94b8ff]">
-                    + Nieuw Project
-                </x-responsive-nav-link>
-            @endif
-        </div>
-
-        <div class="pt-4 pb-1 border-t border-white/10">
+        <div class="pt-4 pb-1">
             <div class="px-4">
                 <div class="font-medium text-base text-white">{{ Auth::user()->name }}</div>
                 <div class="font-medium text-sm text-gray-400">{{ Auth::user()->email }}</div>

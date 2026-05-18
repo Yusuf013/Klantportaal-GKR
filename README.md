@@ -44,12 +44,5 @@ npm run dev
 5. Website Openen
 Ga in je browser naar: http://klantportaal-gkr.test
 
-Laadt de styling niet direct? Gebruik Ctrl + F5 voor een harde refresh.
 
 
----
-
-Kort, strak en precies wat een andere developer (of je beoordelaar) nodig heeft om zonder errors binnen te komen.
-
-Nu dit staat en Hanly mee kan kijken: zullen we de tanden gaan zetten in de **Feedb
-```

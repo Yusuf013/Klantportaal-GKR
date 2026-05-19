@@ -34,5 +34,11 @@ public function projects(): \Illuminate\Database\Eloquent\Relations\HasMany
 {
     return $this->hasMany(Project::class);
 }
+
+public function comments(): \Illuminate\Database\Eloquent\Relations\HasMany
+{
+    return $this->hasMany(Comment::class);
+}
+
 }
 

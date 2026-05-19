@@ -8,9 +8,6 @@
                 &larr; Terug naar overzicht
             </a>
         </div>
-
-
-        
     </x-slot>
 
     <div class="py-12">
@@ -63,104 +60,45 @@
             <div class="mt-12">
                 <h3 class="font-maven font-bold text-2xl mb-6 text-[#011936]">Documenten & Ontwerpen</h3>
                 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     @forelse($project->documents as $document)
-                        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex justify-between items-center hover:border-blue-300 transition">
-                            <div class="flex items-center">
-                                <div class="bg-blue-50 p-3 rounded-lg mr-4">
-                                    <svg class="w-6 h-6 text-[#011936]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="C9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        <div class="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-200 flex flex-col hover:shadow-md hover:border-blue-300 transition-all duration-300 group">
+                            
+                            <div class="bg-gradient-to-br from-blue-50/50 to-gray-100 h-44 flex items-center justify-center border-b border-gray-100 relative group-hover:from-blue-50 transition-colors">
+                                <div class="bg-white p-4 rounded-xl shadow-sm text-[#011936]">
+                                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                                     </svg>
                                 </div>
-                                <div>
-                                    <h4 class="font-bold text-[#011936]">{{ $document->name }}</h4>
-                                    <p class="text-sm text-gray-500">Status: 
-                                        <span class="font-semibold {{ $document->status == 'Akkoord' ? 'text-green-600' : 'text-orange-500' }}">
-                                            {{ $document->status }}
-                                        </span>
-                                    </p>
+                                
+                                <div class="absolute top-3 right-3">
+                                    <span class="text-[11px] font-bold px-2.5 py-1 rounded-md shadow-sm bg-white {{ $document->status == 'Akkoord' ? 'text-green-600 border border-green-100' : 'text-orange-500 border border-orange-100' }}">
+                                        {{ $document->status }}
+                                    </span>
                                 </div>
                             </div>
                             
-                            <div class="flex items-center">
-                                <a href="{{ asset('storage/' . $document->file_path) }}" target="_blank" class="bg-[#011936] text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-black transition">
-                                    Bekijken
-                                </a>
-                            </div>
-
-@if($document->status !== 'Akkoord')
-    {{-- De nieuwe Modal-structuur met Alpine.js --}}
-    <div x-data="{ open: false }">
-        <button @click="open = true" type="button" class="bg-green-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-green-700 transition shadow-lg flex items-center">
-            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-            </svg>
-            Akkoord geven
-        </button>
-
-        <div x-show="open" 
-             x-transition:enter="transition ease-out duration-300"
-             x-transition:enter-start="opacity-0"
-             x-transition:enter-end="opacity-100"
-             x-transition:leave="transition ease-in duration-200"
-             x-transition:leave-start="opacity-100"
-             x-transition:leave-end="opacity-0"
-             class="fixed inset-0 z-50 overflow-y-auto" 
-             x-cloak>
-            
-            <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-                <div class="fixed inset-0 transition-opacity bg-gray-900 bg-opacity-75" @click="open = false"></div>
-
-                <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-
-                <div class="inline-block overflow-hidden text-left align-bottom transition-all transform bg-white rounded-2xl shadow-xl sm:my-8 sm:align-middle sm:max-w-lg sm:w-full"
-                     x-show="open"
-                     x-transition:enter="transition ease-out duration-300"
-                     x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-                     x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100">
-                    
-                    <div class="px-6 py-8 bg-white sm:p-10 sm:pb-8">
-                        <div class="sm:flex sm:items-start">
-                            <div class="flex items-center justify-center flex-shrink-0 w-12 h-12 mx-auto bg-green-100 rounded-full sm:mx-0 sm:h-10 sm:w-10">
-                                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                                </svg>
-                            </div>
-                            <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                                <h3 class="text-xl font-bold leading-6 text-gray-900">Document goedkeuren</h3>
-                                <div class="mt-3">
-                                    <p class="text-sm text-gray-500">
-                                        Weet je zeker dat je akkoord gaat met dit document? Je bevestiging wordt officieel vastgelegd met de datum en tijd van nu.
+                            <div class="p-5 flex-grow flex flex-col justify-between">
+                                <div class="mb-4">
+                                    <h4 class="font-bold text-[#011936] text-base leading-snug group-hover:text-[#011936] transition-colors">
+                                        {{ $document->name }}
+                                    </h4>
+                                    <p class="text-xs text-gray-400 mt-1 flex items-center">
+                                        <span>Document</span>
+                                        <span class="mx-1.5">&bull;</span>
+                                        <span>{{ $document->updated_at->diffForHumans() }}</span>
                                     </p>
                                 </div>
+                                
+                                <div class="flex justify-end pt-2 border-t border-gray-50">
+                                    <a href="{{ route('documents.show', $document->id) }}" class="inline-flex items-center bg-[#011936] text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-[#011936] active:bg-[#011936] transition shadow-sm group-hover:scale-[1.02] transform duration-200">
+                                        Bekijken
+                                        <svg class="w-3.5 h-3.5 ml-1.5 transform group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                        </svg>
+                                    </a>
+                                </div>
                             </div>
-                        </div>
-                    </div>
-
-                    <div class="px-6 py-4 bg-gray-50 sm:px-10 sm:flex sm:flex-row-reverse">
-                        <form action="{{ route('documents.approve', $document->id) }}" method="POST">
-                            @csrf
-                            <button type="submit" class="inline-flex justify-center w-full px-6 py-2.5 text-base font-bold text-white bg-green-600 border border-transparent rounded-xl shadow-sm hover:bg-green-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm">
-                                Ja, ik ga akkoord
-                            </button>
-                        </form>
-                        <button @click="open = false" type="button" class="inline-flex justify-center w-full px-6 py-2.5 mt-3 text-base font-semibold text-gray-700 bg-white border border-gray-300 rounded-xl shadow-sm hover:bg-gray-50 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
-                            Annuleren
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-@else
-    {{-- Dit deel laat de bevestiging zien nadat er op de knop is geklikt --}}
-    <span class="text-green-600 font-bold flex items-center">
-        <svg class="w-5 h-5 mr-1" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"></path>
-        </svg>
-        Goedgekeurd op {{ $document->approved_at->translatedFormat('d F Y \o\m H:i') }}
-    </span>
-@endif
 
                         </div>
                     @empty

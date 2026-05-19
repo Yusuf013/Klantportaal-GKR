@@ -26,4 +26,9 @@ protected $fillable = ['project_id', 'name', 'file_path', 'status', 'approved_at
     'approved_at' => 'datetime',
 ];
 
+public function comments(): \Illuminate\Database\Eloquent\Relations\HasMany
+{
+    return $this->hasMany(Comment::class)->latest();
+}
+
 }

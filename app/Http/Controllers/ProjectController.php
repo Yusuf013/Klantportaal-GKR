@@ -3,37 +3,49 @@
 namespace App\Http\Controllers;
 
 use App\Models\Project;
+use App\Models\Document;
 use Illuminate\Http\Request;
-
 
 class ProjectController extends Controller
 {
- public function show(Project $project)
-{
-    // Beveiliging
-    if ($project->user_id !== auth()->id()) {
-        abort(403);
+    public function show(Project $project)
+    {
+        // Beveiliging
+        if ($project->user_id !== auth()->id()) {
+            abort(403);
+        }
+
+        // Haal alleen de documenten op (zonder de zware comments, want die gaan naar de nieuwe pagina!)
+        $project->load('documents');
+
+        return view('projects.show', compact('project'));
     }
 
-    // Haal de documenten op die bij dit project horen
-    $project->load('documents');
+    public function showDocument(Document $document)
+    {
+        // Veiligheid: check of de ingelogde klant wel eigenaar is van dit project
+        if ($document->project->user_id !== auth()->id()) {
+            abort(403);
+        }
 
-    return view('projects.show', compact('project'));
-}
+        // Eager load de feedback en de bijbehorende gebruikers
+        $document->load('comments.user');
 
-public function approveDocument(\App\Models\Document $document)
-{
-    // Veiligheid: check of de ingelogde klant wel eigenaar is van dit project
-    if ($document->project->user_id !== auth()->id()) {
-        abort(403);
+        return view('documents.show', compact('document'));
     }
 
-    $document->update([
-        'status' => 'Akkoord',
-        'approved_at' => now(), // De 'digitale handtekening'
-    ]);
+    public function approveDocument(Document $document)
+    {
+        // Veiligheid: check of de ingelogde klant wel eigenaar is van dit project
+        if ($document->project->user_id !== auth()->id()) {
+            abort(403);
+        }
 
-    return back()->with('success', 'Document succesvol goedgekeurd!');
-}
+        $document->update([
+            'status' => 'Akkoord',
+            'approved_at' => now(), // De 'digitale handtekening'
+        ]);
 
+        return back()->with('success', 'Document succesvol goedgekeurd!');
+    }
 }

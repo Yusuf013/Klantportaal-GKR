@@ -11,6 +11,10 @@
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
 
         @vite(['resources/css/app.css', 'resources/js/app.js'])
+        <style>
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
     </head>
     <body class="font-sans antialiased bg-gray-100 overflow-x-hidden">
         <div class="min-h-screen flex flex-col">

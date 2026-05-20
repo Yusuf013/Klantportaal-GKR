@@ -32,6 +32,9 @@ Route::middleware(['auth', 'verified', 'admin'])->group(function () {
     
     // De upload route (Stap 4)
     Route::post('/admin/projects/{project}/upload', [AdminProjectController::class, 'uploadDocument'])->name('admin.projects.upload');
+
+Route::get('/admin/documents/{document}', [AdminProjectController::class, 'showDocument'])->name('admin.documents.show');
+
 });
 
 Route::middleware('auth')->group(function () {

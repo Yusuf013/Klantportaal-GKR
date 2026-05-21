@@ -3,24 +3,41 @@
         <div class="flex-1 px-4 space-y-1">
             <p class="text-xs font-semibold text-white uppercase tracking-wider px-3 mb-3">Project Management</p>
 
+
             <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')" 
-                class="w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-150 group {{ request()->routeIs('dashboard') ? 'bg-white/10 text-white font-bold' : 'text-gray-400 hover:bg-white/5 hover:text-white' }}">
-                <svg class="w-5 h-5 mr-3 shrink-0 transition-colors {{ request()->routeIs('dashboard') ? 'text-white' : 'text-gray-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
-                </svg>
-                {{ __('Dashboard') }}
-            </x-nav-link>
+    class="w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-150 group {{ request()->routeIs('dashboard') ? 'bg-white/10 text-white font-bold' : 'text-gray-400 hover:bg-white/5 hover:text-white' }}">
+    
+    <svg class="w-5 h-4 mr-3 shrink-0 transition-colors {{ request()->routeIs('dashboard') ? 'text-white' : 'text-gray-400 group-hover:text-white' }}" 
+         fill="none" 
+         viewBox="0 0 15 15"
+         xmlns="http://www.w3.org/2000/svg">
+         
+         <path fill="currentColor" d="M8.333 5V0H15v5zM0 8.333V0h6.667v8.333zM8.333 15V6.667H15V15zM0 15v-5h6.667v5zm1.667-8.333H5v-5H1.667zM10 13.333h3.333v-5H10zm0-10h3.333V1.667H10zm-8.333 10H5v-1.666H1.667z"/>
+         
+    </svg>
+
+    {{ __('Dashboard') }}
+</x-nav-link>
+
 
             @if(auth()->user()->is_admin)
 
                 <x-nav-link :href="route('admin.projects.index')" :active="request()->routeIs('admin.projects.*') && !request()->routeIs('admin.projects.create')" 
-                    class="w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-150 group {{ request()->routeIs('admin.projects.*') && !request()->routeIs('admin.projects.create') ? 'bg-white/10 text-white font-bold' : 'text-gray-400 hover:bg-white/5 hover:text-white' }}">
-                    <svg class="w-5 h-5 mr-3 shrink-0 transition-colors {{ request()->routeIs('admin.projects.*') && !request()->routeIs('admin.projects.create') ? 'text-white' : 'text-gray-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                    </svg>
-                    {{ __('Projecten') }}
-                </x-nav-link>
+    class="w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-150 group {{ request()->routeIs('admin.projects.*') && !request()->routeIs('admin.projects.create') ? 'bg-white/10 text-white font-bold' : 'text-gray-400 hover:bg-white/5 hover:text-white' }}">
+    
+    <svg class="w-5 h-5 mr-3 shrink-0 transition-colors {{ request()->routeIs('admin.projects.*') && !request()->routeIs('admin.projects.create') ? 'text-white' : 'text-gray-400 group-hover:text-white' }}" 
+         fill="none" 
+         viewBox="0 0 19 16"
+         xmlns="http://www.w3.org/2000/svg">
+         
+         <path fill="currentColor" fill-rule="evenodd" d="M.49 15.344q.489.49 1.177.49h14.166v-1.667H1.667V3.333H0v10.834q0 .687.49 1.177" clip-rule="evenodd"/>
+         
+         <path fill="currentColor" d="M5 12.5q-.687 0-1.177-.49a1.6 1.6 0 0 1-.49-1.177V1.667q0-.688.49-1.177T5 0h4.167l1.666 1.667h5.834q.687 0 1.177.49.49.489.49 1.176v7.5q0 .688-.49 1.177t-1.177.49z"/>
+         
+    </svg>
+
+    {{ __('Projecten') }}
+</x-nav-link>
 
                 <x-nav-link :href="route('admin.projects.create')" :active="request()->routeIs('admin.projects.create')" 
                     class="w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-150 group {{ request()->routeIs('admin.projects.create') ? 'bg-white/10 text-white font-bold' : 'text-gray-400 hover:bg-white/5 hover:text-white' }}">

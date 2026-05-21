@@ -50,7 +50,7 @@ class ProjectController extends Controller
     }
 
     // Wijziging: Hernoemd naar upload zodat deze exact matcht met je route 'admin.projects.upload'
-    public function upload(Request $request, $projectId)
+    public function uploadDocument(Request $request, $projectId)
     {
         $request->validate([
             'document_name' => 'required|string|max:255',

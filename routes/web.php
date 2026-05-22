@@ -1,49 +1,86 @@
 <?php
 
-use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Admin\ProjectController as AdminProjectController;
-use App\Http\Controllers\ProjectController;
-use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\CommentController;
+use App\Http\Controllers\ProjectController as ClientProjectController;
+use App\Http\Controllers\DashboardController as ClientDashboardController;
+use App\Http\Controllers\Admin\ProjectController as AdminProjectController;
+use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 
+/*
+|--------------------------------------------------------------------------
+| Public Routes
+|--------------------------------------------------------------------------
+*/
 Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
 
-// De klant gaat naar de gewone ProjectController
-Route::get('/projects/{project}', [ProjectController::class, 'show'])->name('projects.show')->middleware(['auth']);
-
-// De route voor het goedkeuren van documenten
-Route::post('/documents/{document}/approve', [App\Http\Controllers\ProjectController::class, 'approveDocument'])->name('documents.approve');
-
-// --- ADMIN SECTIE ---
-Route::middleware(['auth', 'verified', 'admin'])->group(function () {
-    // Overzicht en Creatie
-    Route::get('/admin/projects/create', [AdminProjectController::class, 'create'])->name('admin.projects.create');
-    Route::post('/admin/projects', [AdminProjectController::class, 'store'])->name('admin.projects.store');
-
-    Route::get('/admin/projects', [AdminProjectController::class, 'index'])->name('admin.projects.index');
+/*
+|--------------------------------------------------------------------------
+| CLIENT OMVANG (Ingelogde Klanten / Algemeen Auth)
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth', 'verified'])->group(function () {
     
-    // Specifieke projectbeheer pagina (Stap 5)
-    Route::get('/admin/projects/{project}', [AdminProjectController::class, 'show'])->name('admin.projects.show');
-    
-    // De upload route (Stap 4)
-    Route::post('/admin/projects/{project}/upload', [AdminProjectController::class, 'uploadDocument'])->name('admin.projects.upload');
+    // Klant Dashboard (Home)
+    Route::get('/dashboard', [ClientDashboardController::class, 'index'])->name('dashboard');
 
-Route::get('/admin/documents/{document}', [AdminProjectController::class, 'showDocument'])->name('admin.documents.show');
+    // Het totale documentenoverzicht voor de klant
+    Route::get('/mijn-documenten', [ClientProjectController::class, 'allDocuments'])->name('documents.index');
 
-});
+    // Het totale projectenoverzicht voor de klant
+    Route::get('/mijn-projecten', [ClientProjectController::class, 'allProjects'])->name('client.projects.index');
 
-Route::middleware('auth')->group(function () {
+    // Klant Projecten & Documenten
+    Route::get('/projects/{project}', [ClientProjectController::class, 'show'])->name('projects.show');
+    Route::get('/documents/{document}', [ClientProjectController::class, 'showDocument'])->name('documents.show');
+    Route::post('/documents/{document}/approve', [ClientProjectController::class, 'approveDocument'])->name('documents.approve');
+
+    // Feedback & Reacties (Gedeeld of Klant)
+    Route::post('/documents/{document}/comments', [CommentController::class, 'store'])->name('comments.store');
+
+    // Gebruikersprofiel
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-    Route::post('/documents/{document}/comments', [CommentController::class, 'store'])->name('comments.store');
-    // Route voor de specifieke document-detailpagina
-    Route::get('/documents/{document}', [ProjectController::class, 'showDocument'])->name('documents.show');
 });
 
+
+/*
+|--------------------------------------------------------------------------
+| ADMIN OMVANG (Team GKR / Volledige Admin Beveiliging)
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth', 'verified', 'admin'])
+    ->prefix('admin') // Plakt automatisch '/admin' voor elke URL in deze groep
+    ->name('admin.')  // Plakt automatisch 'admin.' voor elke routenaam in deze groep
+    ->group(function () {
+        
+        // Admin Dashboard (Home met de nieuwe widget)
+        Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
+
+        Route::get('/klanten', [App\Http\Controllers\Admin\DashboardController::class, 'clientsIndex'])->name('clients.index');
+
+        // Projecten Overzicht & Creatie
+        Route::get('/projects', [AdminProjectController::class, 'index'])->name('projects.index');
+        Route::get('/projects/create', [AdminProjectController::class, 'create'])->name('projects.create');
+        Route::post('/projects', [AdminProjectController::class, 'store'])->name('projects.store');
+
+        // Specifiek Projectbeheer & Uploads
+        Route::get('/projects/{project}', [AdminProjectController::class, 'show'])->name('projects.show');
+        Route::post('/projects/{project}/upload', [AdminProjectController::class, 'uploadDocument'])->name('projects.upload');
+
+        // Specifieke Document Detailpagina & Feedback (Admin zijde)
+        Route::get('/documents/{document}', [AdminProjectController::class, 'showDocument'])->name('documents.show');
+});
+
+
+/*
+|--------------------------------------------------------------------------
+| Auth Routes (Breeze)
+|--------------------------------------------------------------------------
+*/
 require __DIR__.'/auth.php';

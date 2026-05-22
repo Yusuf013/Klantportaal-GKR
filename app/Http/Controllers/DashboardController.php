@@ -8,12 +8,12 @@ class DashboardController extends Controller
 {
     public function index()
     {
-       // We pakken de ingelogde gebruiker en vragen naar zijn projecten
-    $projects = auth()->user()->projects;
+        // We pakken de ingelogde gebruiker en laden zijn projecten direct INCLUSIEF de documenten
+        $projects = auth()->user()->projects()->with('documents')->get();
 
-    // We sturen de variabele $projects mee naar de view 'dashboard'
-    return view('dashboard', [
-        'projects' => $projects
-    ]);
+        // We sturen de variabele $projects mee naar de view 'dashboard'
+        return view('dashboard', [
+            'projects' => $projects
+        ]);
     }
 }

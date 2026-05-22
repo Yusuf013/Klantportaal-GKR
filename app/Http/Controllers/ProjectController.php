@@ -48,4 +48,28 @@ class ProjectController extends Controller
 
         return back()->with('success', 'Document succesvol goedgekeurd!');
     }
+
+    public function allDocuments()
+{
+    // Haal de projecten van de ingelogde klant op, inclusief de documenten (eager loading)
+    $projects = auth()->user()->projects()->with('documents')->get();
+
+    // Verzamel alle losse documenten uit de projecten in één overzichtelijke collectie
+    $documents = $projects->flatMap(function ($project) {
+        return $project->documents;
+    });
+
+    return view('documents.index', compact('documents'));
+}
+
+public function allProjects()
+{
+    // Haal alle projecten op van de ingelogde klant, inclusief het aantal documenten
+    $projects = auth()->user()->projects()->with('documents')->get();
+
+    // Stuur de data door naar de nieuwe view map
+    return view('projects.index', compact('projects'));
+}
+
+
 }

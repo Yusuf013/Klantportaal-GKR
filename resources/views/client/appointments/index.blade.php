@@ -111,7 +111,7 @@
 
             <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
-            <div class="inline-block overflow-hidden text-left align-bottom transition-all transform bg-white rounded-2xl shadow-xl sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full border border-gray-100">
+            <div class="inline-block overflow-hidden text-left align-bottom transition-all transform bg-white rounded-2xl shadow-xl sm:my-8 sm:align-middle sm:max-w-5xl sm:w-full border border-gray-100">
                 
                 <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
                     <h3 class="text-base font-bold text-[#011936]" id="modal-title">
@@ -127,91 +127,123 @@
                 <form action="{{ route('client.appointments.store') }}" method="POST" class="p-6">
                     @csrf
                     
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         
-                        <div class="space-y-4">
-                            <div>
-                                <label for="project_id" class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Voor welk project?</label>
-                                <select name="project_id" id="project_id" required class="w-full rounded-xl border border-gray-200 text-sm text-gray-700 p-3 focus:border-[#011936] focus:ring-[#011936] bg-gray-50/50">
-                                    <option value="">-- Selecteer uw project --</option>
-                                    @foreach($myProjects as $myProject)
-                                        <option value="{{ $myProject->id }}">{{ $myProject->name }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
+                        <div>
+                            <label for="project_id" class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Voor welk project?</label>
+                            <select name="project_id" id="project_id" required class="w-full rounded-xl border border-gray-200 text-sm text-gray-700 p-3 focus:border-[#011936] focus:ring-[#011936] bg-gray-50/50 @error('project_id') is-invalid @enderror">
+                                <option value="">-- Selecteer uw project --</option>
+                                @foreach($myProjects as $myProject)
+                                    <option value="{{ $myProject->id }}" {{ old('project_id') == $myProject->id ? 'selected' : '' }}>{{ $myProject->name }}</option>
+                                @endforeach
+                            </select>
+                            @error('project_id')
+                                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
 
-                            <div>
-                                <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Type gesprek</label>
-                                <div class="grid grid-cols-3 gap-3">
-                                    <label class="flex flex-col items-center justify-center p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50/50 transition bg-white text-center shadow-sm">
-                                        <input type="radio" name="type" value="telefoon" required class="sr-only">
-                                        <span class="text-xs font-bold text-[#011936]">Telefoon</span>
-                                    </label>
-                                    <label class="flex flex-col items-center justify-center p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50/50 transition bg-white text-center shadow-sm">
-                                        <input type="radio" name="type" value="online" checked class="sr-only">
-                                        <span class="text-xs font-bold text-[#011936]">Online</span>
-                                    </label>
-                                    <label class="flex flex-col items-center justify-center p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50/50 transition bg-white text-center shadow-sm">
-                                        <input type="radio" name="type" value="fysiek" class="sr-only">
-                                        <span class="text-xs font-bold text-[#011936]">Fysiek</span>
-                                    </label>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Type gesprek</label>
+                            <div class="grid grid-cols-3 gap-3">
+                                <label class="flex flex-col items-center justify-center p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50/50 transition bg-white text-center shadow-sm">
+                                    <input type="radio" name="type" value="telefoon" required class="sr-only">
+                                    <span class="text-xs font-bold text-[#011936]">Telefoon</span>
+                                </label>
+                                <label class="flex flex-col items-center justify-center p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50/50 transition bg-white text-center shadow-sm">
+                                    <input type="radio" name="type" value="online" checked class="sr-only">
+                                    <span class="text-xs font-bold text-[#011936]">Online</span>
+                                </label>
+                                <label class="flex flex-col items-center justify-center p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50/50 transition bg-white text-center shadow-sm">
+                                    <input type="radio" name="type" value="fysiek" class="sr-only">
+                                    <span class="text-xs font-bold text-[#011936]">Fysiek</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="md:col-span-2">
+                            <label for="title" class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Onderwerp gesprek</label>
+                            <input type="text" name="title" id="title" required value="{{ old('title') }}" placeholder="Bijv. Bespreken van de nieuwe checkout flow" class="w-full rounded-xl border border-gray-200 text-sm p-3 focus:border-[#011936] focus:ring-[#011936] @error('title') is-invalid @enderror">
+                            @error('title')
+                                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <div class="md:col-span-2 border border-gray-200 rounded-2xl overflow-hidden bg-white grid grid-cols-1 md:grid-cols-12">
+                            
+                            <div class="p-5 md:col-span-7 border-r border-gray-100">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="flex items-center space-x-1">
+                                        <span id="currentMonthYear" class="text-base font-bold text-[#011936] capitalize"></span>
+                                    </div>
+                                    <div class="flex space-x-2 text-gray-400">
+                                        <button type="button" id="prevMonth" class="hover:text-[#011936] transition p-1">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"></path></svg>
+                                        </button>
+                                        <button type="button" id="nextMonth" class="hover:text-[#011936] transition p-1">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"></path></svg>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
+                                    <div>Ma</div><div>Di</div><div>Wo</div><div>Do</div><div>Vr</div><div>Za</div><div>Zo</div>
+                                </div>
+
+                                <div id="calendarDays" class="grid grid-cols-7 gap-1.5 text-center text-xs font-semibold text-gray-700">
+                                    </div>
+
+                                <div class="flex items-center space-x-2 mt-4 text-[11px] text-gray-500">
+                                    <span class="w-2 h-2 bg-[#011936] rounded-full"></span>
+                                    <span>Beschikbare dagen</span>
                                 </div>
                             </div>
 
-                            <div>
-                                <label for="title" class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Onderwerp gesprek</label>
-                                <input type="text" name="title" id="title" required placeholder="Bijv. Bespreken van de nieuwe checkout flow" class="w-full rounded-xl border border-gray-200 text-sm p-3 focus:border-[#011936] focus:ring-[#011936]">
-                            </div>
+                            <div class="p-5 md:col-span-5 bg-gray-50/40 flex flex-col justify-between">
+                                <div>
+                                    <h4 class="text-sm font-bold text-[#011936] mb-1">Beschikbare tijden</h4>
+                                    <p id="selectedDateHuman" class="text-[11px] text-gray-400 font-medium mb-4">Selecteer een datum</p>
 
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label for="date" class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Datum</label>
-                                    <input type="date" name="date" id="date" min="{{ date('Y-m-d') }}" required class="w-full rounded-xl border border-gray-200 text-sm p-3 focus:border-[#011936] focus:ring-[#011936] text-gray-600">
+                                    <div id="timeSlotsContainer" class="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                                        <p class="text-xs text-gray-400 italic py-4 text-center">Kies links een beschikbare dag.</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <label for="time_slot" class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Tijdslot (~1 uur)</label>
-                                    <select name="time_slot" id="time_slot" required class="w-full rounded-xl border border-gray-200 text-sm p-3 focus:border-[#011936] focus:ring-[#011936] text-gray-600 bg-white">
-                                        <option value="09:00 - 10:00">09:00 - 10:00</option>
-                                        <option value="10:00 - 11:00">10:00 - 11:00</option>
-                                        <option value="11:00 - 12:00">11:00 - 12:00</option>
-                                        <option value="13:00 - 14:00">13:00 - 14:00</option>
-                                        <option value="14:00 - 15:00">14:00 - 15:00</option>
-                                        <option value="15:00 - 16:00">15:00 - 16:00</option>
-                                    </select>
+
+                                <div class="flex items-center space-x-2 text-[10px] text-gray-400 pt-3 border-t border-gray-100 mt-3">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    <span>Gesprekken zijn ~1 uur</span>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="space-y-4 flex flex-col justify-between">
-                            <div>
-                                <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Selecteer GKR Medewerker(s)</label>
-                                <div class="space-y-3">
-                                    <select name="employees[]" required class="w-full rounded-xl border border-gray-200 text-sm p-3 focus:border-[#011936] focus:ring-[#011936] bg-white text-gray-700">
-                                        <option value="">Kies medewerker...</option>
-                                        @foreach($gkrEmployees as $employee)
-                                            <option value="{{ $employee->id }}">{{ $employee->name }}</option>
-                                        @endforeach
-                                    </select>
+                        <input type="hidden" name="date" id="hidden_date" required>
+                        <input type="hidden" name="time_slot" id="hidden_time_slot" required>
 
-                                    <select name="employees[]" class="w-full rounded-xl border border-gray-200 text-sm p-3 focus:border-[#011936] focus:ring-[#011936] bg-white text-gray-700">
-                                        <option value="">Kies extra medewerker (optioneel)...</option>
-                                        @foreach($gkrEmployees as $employee)
-                                            <option value="{{ $employee->id }}">{{ $employee->name }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Selecteer GKR Medewerker(s)</label>
+                            <div class="space-y-2">
+                                <select name="employees[]" required class="w-full rounded-xl border border-gray-200 text-sm p-3 focus:border-[#011936] focus:ring-[#011936] bg-white text-gray-700">
+                                    <option value="">Kies medewerker...</option>
+                                    @foreach($gkrEmployees as $employee)
+                                        <option value="{{ $employee->id }}">{{ $employee->name }}</option>
+                                    @endforeach
+                                </select>
+                                <select name="employees[]" class="w-full rounded-xl border border-gray-200 text-sm p-3 focus:border-[#011936] focus:ring-[#011936] bg-white text-gray-700">
+                                    <option value="">Kies extra medewerker (optioneel)...</option>
+                                    @foreach($gkrEmployees as $employee)
+                                        <option value="{{ $employee->id }}">{{ $employee->name }}</option>
+                                    @endforeach
+                                </select>
                             </div>
+                        </div>
 
-                            <div>
-                                <label for="description" class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Aanvullende opmerking</label>
-                                <textarea name="description" id="description" rows="4" maxlength="500" placeholder="Zijn er specifieke dingen die we moeten voorbereiden?" class="w-full rounded-xl border border-gray-200 text-sm p-3 focus:border-[#011936] focus:ring-[#011936]"></textarea>
-                                <p class="text-right text-[10px] text-gray-400 mt-1">Max. 500 tekens</p>
-                            </div>
+                        <div>
+                            <label for="description" class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Aanvullende opmerking</label>
+                            <textarea name="description" id="description" rows="3" maxlength="500" placeholder="Zijn er specifieke dingen die we moeten voorbereiden?" class="w-full rounded-xl border border-gray-200 text-sm p-3 focus:border-[#011936] focus:ring-[#011936]"></textarea>
                         </div>
 
                     </div>
 
-                    <div class="mt-8 pt-4 border-t border-gray-100 flex items-center justify-end space-x-3">
+                    <div class="mt-6 pt-4 border-t border-gray-100 flex items-center justify-end space-x-3">
                         <button type="button" onclick="closeAppointmentModal()" class="px-4 py-2.5 border border-gray-200 hover:bg-gray-50 text-gray-500 text-xs font-bold rounded-xl transition">
                             Annuleren
                         </button>
@@ -225,13 +257,27 @@
         </div>
     </div>
 
-  <style>
+    <style>
         label:has(input:checked) {
             border-color: #011936;
             background-color: rgb(1 25 54 / 0.04);
             box-shadow: inset 0 0 0 1px #011936;
         }
-        /* Highlight invoervelden die een fout bevatten */
+        .calendar-day-btn:disabled {
+            color: #d1d5db;
+            cursor: not-allowed;
+            background: transparent !important;
+        }
+        .calendar-day-btn.active {
+            background-color: #011936 !important;
+            color: white !important;
+            border-radius: 9999px;
+        }
+        .time-slot-btn.active {
+            border-color: #011936 !important;
+            background-color: rgb(1 25 54 / 0.04) !important;
+            color: #011936 !important;
+        }
         .is-invalid {
             border-color: #ef4444 !important;
             background-color: #fef2f2 !important;
@@ -242,6 +288,7 @@
         function openAppointmentModal() {
             document.getElementById('appointmentModal').classList.remove('hidden');
             document.body.classList.add('overflow-hidden');
+            initCalendar();
         }
 
         function closeAppointmentModal() {
@@ -249,10 +296,101 @@
             document.body.classList.remove('overflow-hidden');
         }
 
-        // Als Laravel validatiefouten terugstuuurt, open de modal dan direct opnieuw!
+        // --- KALENDER LOGICA ---
+        let currentNavDate = new Date();
+        let selectedDateStr = "";
+
+        const monthsNl = ["januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december"];
+        const standardSlots = ["09:00 - 10:00", "10:00 - 11:00", "11:00 - 12:00", "13:00 - 14:00", "14:00 - 15:00", "15:00 - 16:00"];
+
+        function initCalendar() {
+            renderCalendar();
+            document.getElementById('prevMonth').onclick = () => { currentNavDate.setMonth(currentNavDate.getMonth() - 1); renderCalendar(); };
+            document.getElementById('nextMonth').onclick = () => { currentNavDate.setMonth(currentNavDate.getMonth() + 1); renderCalendar(); };
+        }
+
+        function renderCalendar() {
+            const year = currentNavDate.getFullYear();
+            const month = currentNavDate.getMonth();
+            
+            document.getElementById('currentMonthYear').innerText = `${monthsNl[month]} ${year}`;
+            
+            const firstDayIndex = (new Date(year, month, 1).getDay() + 6) % 7;
+            const lastDay = new Date(year, month + 1, 0).getDate();
+            
+            const daysContainer = document.getElementById('calendarDays');
+            daysContainer.innerHTML = "";
+
+            for (let i = 0; i < firstDayIndex; i++) {
+                daysContainer.innerHTML += `<div></div>`;
+            }
+
+            const today = new Date();
+            today.setHours(0,0,0,0);
+
+            for (let day = 1; day <= lastDay; day++) {
+                const checkDate = new Date(year, month, day);
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const isPast = checkDate < today;
+                const isWeekend = checkDate.getDay() === 0 || checkDate.getDay() === 6;
+                
+                const dayBtn = document.createElement('button');
+                dayBtn.type = "button";
+                dayBtn.innerText = day;
+                dayBtn.className = "calendar-day-btn py-1.5 w-full text-center hover:bg-gray-100 rounded-full transition relative flex items-center justify-center font-bold text-gray-700";
+                
+                if (isPast || isWeekend) {
+                    dayBtn.disabled = true;
+                } else {
+                    dayBtn.innerHTML = `${day}<span class="absolute bottom-0.5 w-1 h-1 bg-[#011936] rounded-full"></span>`;
+                    
+                    if (dateStr === selectedDateStr) {
+                        dayBtn.classList.add('active');
+                    }
+                    
+                    dayBtn.onclick = () => {
+                        document.querySelectorAll('.calendar-day-btn').forEach(b => b.classList.remove('active'));
+                        dayBtn.classList.add('active');
+                        selectDate(dateStr, checkDate);
+                    };
+                }
+                daysContainer.appendChild(dayBtn);
+            }
+        }
+
+        function selectDate(dateStr, dateObj) {
+            selectedDateStr = dateStr;
+            document.getElementById('hidden_date').value = dateStr;
+            
+            const options = { weekday: 'long', day: 'numeric', month: 'long' };
+            document.getElementById('selectedDateHuman').innerText = dateObj.toLocaleDateString('nl-NL', options);
+            
+            fetchAvailableSlots(dateStr);
+        }
+
+        function fetchAvailableSlots(dateStr) {
+            const container = document.getElementById('timeSlotsContainer');
+            container.innerHTML = "";
+
+            standardSlots.forEach(slot => {
+                const slotBtn = document.createElement('button');
+                slotBtn.type = "button";
+                slotBtn.innerText = slot;
+                slotBtn.className = "time-slot-btn w-full text-left p-3 border border-gray-200 rounded-xl text-xs font-bold text-[#011936] hover:bg-gray-50 transition bg-white";
+                
+                slotBtn.onclick = () => {
+                    document.querySelectorAll('.time-slot-btn').forEach(b => b.classList.remove('active'));
+                    slotBtn.classList.add('active');
+                    document.getElementById('hidden_time_slot').value = slot;
+                };
+                
+                container.appendChild(slotBtn);
+            });
+        }
+
         @if ($errors->any())
-            window.addEventListener('DOMContentLoaded', (event) => {
-                openAppointmentModal();
+            window.addEventListener('DOMContentLoaded', () => { 
+                openAppointmentModal(); 
             });
         @endif
     </script>

@@ -18,27 +18,36 @@ class ProjectController extends Controller
     }
 
     // Toon het formulier om een project aan te maken
-    public function create()
-    {
-        // Haal alleen gebruikers op met de rol 'client'
-        $clients = User::where('role', 'client')->get();
-        return view('admin.projects.create', compact('clients'));
-    }
+   // Toon het formulier om een project aan te maken
+public function create()
+{
+    // Haal alleen gebruikers op die GEEN admin zijn
+    $clients = User::where('is_admin', false)->orderBy('name', 'asc')->get();
+    
+    return view('admin.projects.create', compact('clients'));
+}
 
     // Sla het project op in de database
-    public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'user_id' => 'required|exists:users,id',
-            'name' => 'required|string|max:255',
-            'deadline' => 'nullable|date',
-            'status' => 'required|string',
-        ]);
+// Sla het project op in de database
+public function store(Request $request)
+{
+    $validated = $request->validate([
+        'user_id' => [
+            'required',
+            // Check of de ID bestaat in de users tabel én is_admin op 0 (false) staat
+            \Illuminate\Validation\Rule::exists('users', 'id')->where(function ($query) {
+                $query->where('is_admin', false);
+            }),
+        ],
+        'name' => 'required|string|max:255',
+        'deadline' => 'nullable|date',
+        'status' => 'required|string',
+    ]);
 
-        Project::create($validated);
+    Project::create($validated);
 
-        return redirect()->route('dashboard')->with('success', 'Project succesvol gekoppeld aan klant!');
-    }
+    return redirect()->route('dashboard')->with('success', 'Project succesvol gekoppeld aan klant!');
+}
 
     // Toon de projectdetailpagina met het nieuwe visuele kaarten-grid
     public function show(Project $project)

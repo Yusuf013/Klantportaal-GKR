@@ -34,6 +34,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Het totale projectenoverzicht voor de klant
     Route::get('/mijn-projecten', [ClientProjectController::class, 'allProjects'])->name('client.projects.index');
 
+    // Route voor het overzicht en de modal
+    Route::get('/mijn-agenda', [App\Http\Controllers\Client\AppointmentController::class, 'index'])->name('client.appointments.index');
+
+// Route voor het opvangen van het formulier (Afspraak aanvragen)
+    Route::post('/mijn-agenda', [App\Http\Controllers\Client\AppointmentController::class, 'store'])->name('client.appointments.store');
+
+
     // Klant Projecten & Documenten
     Route::get('/projects/{project}', [ClientProjectController::class, 'show'])->name('projects.show');
     Route::get('/documents/{document}', [ClientProjectController::class, 'showDocument'])->name('documents.show');

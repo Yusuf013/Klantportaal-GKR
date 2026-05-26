@@ -15,9 +15,7 @@
                      fill="none" 
                      viewBox="0 0 15 15"
                      xmlns="http://www.w3.org/2000/svg">
-                     
                      <path fill="currentColor" d="M8.333 5V0H15v5zM0 8.333V0h6.667v8.333zM8.333 15V6.667H15V15zM0 15v-5h6.667v5zm1.667-8.333H5v-5H1.667zM10 13.333h3.333v-5H10zm0-10h3.333V1.667H10zm-8.333 10H5v-1.666H1.667z"/>
-                     
                 </svg>
 
                 {{ __('Dashboard') }}
@@ -58,12 +56,28 @@
 
                     {{ __('Documenten') }}
                 </x-nav-link>
+
+                @php
+                    $isAppointmentsActive = request()->routeIs('client.appointments.*');
+                @endphp
+                <x-nav-link :href="route('client.appointments.index')" :active="$isAppointmentsActive" 
+                    class="w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-150 group {{ $isAppointmentsActive ? 'bg-white/10 text-white font-bold' : 'text-gray-400 hover:bg-white/5 hover:text-white' }}">
+                    
+                    <svg class="w-5 h-5 mr-3 shrink-0 transition-colors {{ $isAppointmentsActive ? 'text-white' : 'text-gray-400 group-hover:text-white' }}" 
+                         fill="none" 
+                         stroke="currentColor" 
+                         stroke-width="2" 
+                         viewBox="0 0 24 24" 
+                         xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+
+                    {{ __('Kalender & Afspraken') }}
+                </x-nav-link>
             @endif
 
             @if(auth()->user()->is_admin)
-
                 @php
-                    /* Route aangepast naar admin.clients.index voor correcte actieve status */
                     $isClientsActive = request()->routeIs('admin.clients.index');
                 @endphp
                 <x-nav-link :href="route('admin.clients.index')" :active="$isClientsActive" 
@@ -88,11 +102,8 @@
                          fill="none" 
                          viewBox="0 0 19 16"
                          xmlns="http://www.w3.org/2000/svg">
-                         
                          <path fill="currentColor" fill-rule="evenodd" d="M.49 15.344q.489.49 1.177.49h14.166v-1.667H1.667V3.333H0v10.834q0 .687.49 1.177" clip-rule="evenodd"/>
-                         
                          <path fill="currentColor" d="M5 12.5q-.687 0-1.177-.49a1.6 1.6 0 0 1-.49-1.177V1.667q0-.688.49-1.177T5 0h4.167l1.666 1.667h5.834q.687 0 1.177.49.49.489.49 1.176v7.5q0 .688-.49 1.177t-1.177.49z"/>
-                         
                     </svg>
 
                     {{ __('Projecten') }}

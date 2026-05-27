@@ -7,6 +7,7 @@ use App\Http\Controllers\ProjectController as ClientProjectController;
 use App\Http\Controllers\DashboardController as ClientDashboardController;
 use App\Http\Controllers\Admin\ProjectController as AdminProjectController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\AppointmentController as AdminAppointmentController;
 
 /*
 |--------------------------------------------------------------------------
@@ -82,6 +83,16 @@ Route::middleware(['auth', 'verified', 'admin'])
 
         // Specifieke Document Detailpagina & Feedback (Admin zijde)
         Route::get('/documents/{document}', [AdminProjectController::class, 'showDocument'])->name('documents.show');
+
+        // Het grote admin kalender dashboard
+        Route::get('/agenda', [AdminAppointmentController::class, 'index'])->name('appointments.index');
+        
+        // Actie knoppen voor het verwerken van de verzoeken
+        Route::patch('/appointments/{appointment}/approve', [AdminAppointmentController::class, 'approve'])->name('appointments.approve');
+        Route::patch('/appointments/{appointment}/reject', [AdminAppointmentController::class, 'reject'])->name('appointments.reject');
+
+
+
 });
 
 
@@ -91,3 +102,9 @@ Route::middleware(['auth', 'verified', 'admin'])
 |--------------------------------------------------------------------------
 */
 require __DIR__.'/auth.php';
+
+
+
+
+
+

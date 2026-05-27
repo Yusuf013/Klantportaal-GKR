@@ -21,6 +21,7 @@
                 {{ __('Dashboard') }}
             </x-nav-link>
 
+            {{-- INTERFACE VOOR KLANTEN --}}
             @if(!auth()->user()->is_admin)
                 @php
                     $isProjectsActive = request()->routeIs('client.projects.index');
@@ -76,6 +77,7 @@
                 </x-nav-link>
             @endif
 
+            {{-- INTERFACE VOOR ADMINS / GKR MEDEWERKERS --}}
             @if(auth()->user()->is_admin)
                 @php
                     $isClientsActive = request()->routeIs('admin.clients.index');
@@ -95,10 +97,13 @@
                     {{ __('Klanten') }}
                 </x-nav-link>
 
-                <x-nav-link :href="route('admin.projects.index')" :active="request()->routeIs('admin.projects.*') && !request()->routeIs('admin.projects.create')" 
-                    class="w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-150 group {{ request()->routeIs('admin.projects.*') && !request()->routeIs('admin.projects.create') ? 'bg-white/10 text-white font-bold' : 'text-gray-400 hover:bg-white/5 hover:text-white' }}">
+                @php
+                    $isAdminProjectsActive = request()->routeIs('admin.projects.*') && !request()->routeIs('admin.projects.create');
+                @endphp
+                <x-nav-link :href="route('admin.projects.index')" :active="$isAdminProjectsActive" 
+                    class="w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-150 group {{ $isAdminProjectsActive ? 'bg-white/10 text-white font-bold' : 'text-gray-400 hover:bg-white/5 hover:text-white' }}">
                     
-                    <svg class="w-5 h-5 mr-3 shrink-0 transition-colors {{ request()->routeIs('admin.projects.*') && !request()->routeIs('admin.projects.create') ? 'text-white' : 'text-gray-400 group-hover:text-white' }}" 
+                    <svg class="w-5 h-5 mr-3 shrink-0 transition-colors {{ $isAdminProjectsActive ? 'text-white' : 'text-gray-400 group-hover:text-white' }}" 
                          fill="none" 
                          viewBox="0 0 19 16"
                          xmlns="http://www.w3.org/2000/svg">
@@ -107,6 +112,33 @@
                     </svg>
 
                     {{ __('Projecten') }}
+                </x-nav-link>
+
+                @php
+                    $isAdminCalendarActive = request()->routeIs('admin.appointments.*');
+                @endphp
+                <x-nav-link :href="route('admin.appointments.index')" :active="$isAdminCalendarActive" 
+                    class="w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-150 group {{ $isAdminCalendarActive ? 'bg-white/10 text-white font-bold' : 'text-gray-400 hover:bg-white/5 hover:text-white' }}">
+                    
+                    <svg class="w-5 h-5 mr-3 shrink-0 transition-colors {{ $isAdminCalendarActive ? 'text-white' : 'text-gray-400 group-hover:text-white' }}" 
+                         fill="none" 
+                         stroke="currentColor" 
+                         stroke-width="2" 
+                         viewBox="0 0 24 24" 
+                         xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+
+                    <span>{{ __('Kalender') }}</span>
+
+                    @php
+                        $pendingAppointmentsCount = \App\Models\Appointment::where('status', 'In afwachting')->count();
+                    @endphp
+                    @if($pendingAppointmentsCount > 0)
+                        <span class="ml-auto inline-flex items-center justify-center px-2 py-0.5 text-[10px] font-bold leading-none text-amber-800 bg-amber-500/20 rounded-full border border-amber-500/30 group-hover:bg-amber-500 group-hover:text-white transition-colors">
+                            {{ $pendingAppointmentsCount }}
+                        </span>
+                    @endif
                 </x-nav-link>
 
                 <x-nav-link :href="route('admin.projects.create')" :active="request()->routeIs('admin.projects.create')" 

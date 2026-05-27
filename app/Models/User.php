@@ -40,5 +40,13 @@ public function comments(): \Illuminate\Database\Eloquent\Relations\HasMany
     return $this->hasMany(Comment::class);
 }
 
+/**
+ * Controleer of de gebruiker een GKR Admin/Medewerker is.
+ */
+public function isAdmin(): bool
+{
+    return (bool) $this->is_admin; // Geeft true of false terug
+}
+
 }
 

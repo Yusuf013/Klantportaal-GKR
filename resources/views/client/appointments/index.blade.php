@@ -105,162 +105,210 @@
         </div>
     </div>
 
-    <div id="appointmentModal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div id="appointmentModal" class="fixed inset-0 z-40 hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
         <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
             <div onclick="closeAppointmentModal()" class="fixed inset-0 transition-opacity bg-gray-900/40 backdrop-blur-sm" aria-hidden="true"></div>
-
             <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
             <div class="inline-block overflow-hidden text-left align-bottom transition-all transform bg-white rounded-2xl shadow-xl sm:my-8 sm:align-middle sm:max-w-5xl sm:w-full border border-gray-100">
                 
-                <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
-                    <h3 class="text-base font-bold text-[#011936]" id="modal-title">
-                        Nieuw gesprek inplannen
-                    </h3>
+                <div class="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
+                    <h2 class="text-xl font-bold text-[#011936] font-maven">Nieuwe afspraak</h2>
                     <button type="button" onclick="closeAppointmentModal()" class="text-gray-400 hover:text-gray-600 transition">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
                 </div>
 
-                <form action="{{ route('client.appointments.store') }}" method="POST" class="p-6">
+                <form action="{{ route('client.appointments.store') }}" method="POST" class="p-8">
                     @csrf
                     
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-8">
                         
-                        <div>
-                            <label for="project_id" class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Voor welk project?</label>
-                            <select name="project_id" id="project_id" required class="w-full rounded-xl border border-gray-200 text-sm text-gray-700 p-3 focus:border-[#011936] focus:ring-[#011936] bg-gray-50/50 @error('project_id') is-invalid @enderror">
-                                <option value="">-- Selecteer uw project --</option>
-                                @foreach($myProjects as $myProject)
-                                    <option value="{{ $myProject->id }}" {{ old('project_id') == $myProject->id ? 'selected' : '' }}>{{ $myProject->name }}</option>
-                                @endforeach
-                            </select>
-                            @error('project_id')
-                                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-                            @enderror
-                        </div>
-
-                        <div>
-                            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Type gesprek</label>
-                            <div class="grid grid-cols-3 gap-3">
-                                <label class="flex flex-col items-center justify-center p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50/50 transition bg-white text-center shadow-sm">
-                                    <input type="radio" name="type" value="telefoon" required class="sr-only">
-                                    <span class="text-xs font-bold text-[#011936]">Telefoon</span>
-                                </label>
-                                <label class="flex flex-col items-center justify-center p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50/50 transition bg-white text-center shadow-sm">
-                                    <input type="radio" name="type" value="online" checked class="sr-only">
-                                    <span class="text-xs font-bold text-[#011936]">Online</span>
-                                </label>
-                                <label class="flex flex-col items-center justify-center p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50/50 transition bg-white text-center shadow-sm">
-                                    <input type="radio" name="type" value="fysiek" class="sr-only">
-                                    <span class="text-xs font-bold text-[#011936]">Fysiek</span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <div class="md:col-span-2">
-                            <label for="title" class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Onderwerp gesprek</label>
-                            <input type="text" name="title" id="title" required value="{{ old('title') }}" placeholder="Bijv. Bespreken van de nieuwe checkout flow" class="w-full rounded-xl border border-gray-200 text-sm p-3 focus:border-[#011936] focus:ring-[#011936] @error('title') is-invalid @enderror">
-                            @error('title')
-                                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-                            @enderror
-                        </div>
-
-                        <div class="md:col-span-2 border border-gray-200 rounded-2xl overflow-hidden bg-white grid grid-cols-1 md:grid-cols-12">
+                        <div class="md:col-span-7 space-y-6">
                             
-                            <div class="p-5 md:col-span-7 border-r border-gray-100">
-                                <div class="flex items-center justify-between mb-4">
-                                    <div class="flex items-center space-x-1">
-                                        <span id="currentMonthYear" class="text-base font-bold text-[#011936] capitalize"></span>
-                                    </div>
-                                    <div class="flex space-x-2 text-gray-400">
-                                        <button type="button" id="prevMonth" class="hover:text-[#011936] transition p-1">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"></path></svg>
-                                        </button>
-                                        <button type="button" id="nextMonth" class="hover:text-[#011936] transition p-1">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"></path></svg>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div class="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
-                                    <div>Ma</div><div>Di</div><div>Wo</div><div>Do</div><div>Vr</div><div>Za</div><div>Zo</div>
-                                </div>
-
-                                <div id="calendarDays" class="grid grid-cols-7 gap-1.5 text-center text-xs font-semibold text-gray-700">
-                                    </div>
-
-                                <div class="flex items-center space-x-2 mt-4 text-[11px] text-gray-500">
-                                    <span class="w-2 h-2 bg-[#011936] rounded-full"></span>
-                                    <span>Beschikbare dagen</span>
-                                </div>
-                            </div>
-
-                            <div class="p-5 md:col-span-5 bg-gray-50/40 flex flex-col justify-between">
-                                <div>
-                                    <h4 class="text-sm font-bold text-[#011936] mb-1">Beschikbare tijden</h4>
-                                    <p id="selectedDateHuman" class="text-[11px] text-gray-400 font-medium mb-4">Selecteer een datum</p>
-
-                                    <div id="timeSlotsContainer" class="space-y-2 max-h-[200px] overflow-y-auto pr-1">
-                                        <p class="text-xs text-gray-400 italic py-4 text-center">Kies links een beschikbare dag.</p>
-                                    </div>
-                                </div>
-
-                                <div class="flex items-center space-x-2 text-[10px] text-gray-400 pt-3 border-t border-gray-100 mt-3">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                    <span>Gesprekken zijn ~1 uur</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <input type="hidden" name="date" id="hidden_date" required>
-                        <input type="hidden" name="time_slot" id="hidden_time_slot" required>
-
-                        <div>
-                            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Selecteer GKR Medewerker(s)</label>
-                            <div class="space-y-2">
-                                <select name="employees[]" required class="w-full rounded-xl border border-gray-200 text-sm p-3 focus:border-[#011936] focus:ring-[#011936] bg-white text-gray-700">
-                                    <option value="">Kies medewerker...</option>
-                                    @foreach($gkrEmployees as $employee)
-                                        <option value="{{ $employee->id }}">{{ $employee->name }}</option>
-                                    @endforeach
-                                </select>
-                                <select name="employees[]" class="w-full rounded-xl border border-gray-200 text-sm p-3 focus:border-[#011936] focus:ring-[#011936] bg-white text-gray-700">
-                                    <option value="">Kies extra medewerker (optioneel)...</option>
-                                    @foreach($gkrEmployees as $employee)
-                                        <option value="{{ $employee->id }}">{{ $employee->name }}</option>
+                            <div>
+                                <label for="project_id" class="block text-xs font-bold text-[#011936] uppercase tracking-wider mb-2">Voor welk project? *</label>
+                                <select name="project_id" id="project_id" required class="w-full rounded-xl border border-gray-200 text-sm text-gray-700 p-3.5 focus:border-[#011936] focus:ring-[#011936] bg-gray-50/50 @error('project_id') is-invalid @enderror">
+                                    <option value="">-- Selecteer uw project --</option>
+                                    @foreach($myProjects as $myProject)
+                                        <option value="{{ $myProject->id }}" {{ old('project_id') == $myProject->id ? 'selected' : '' }}>{{ $myProject->name }}</option>
                                     @endforeach
                                 </select>
                             </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-[#011936] uppercase tracking-wider mb-3">Afspraaktype *</label>
+                                <div class="grid grid-cols-3 gap-4">
+                                    <label class="flex flex-col items-center justify-center p-5 border border-gray-200 rounded-2xl cursor-pointer hover:bg-gray-50/50 transition bg-white text-center shadow-sm group">
+                                        <input type="radio" name="type" value="telefoon" required class="sr-only">
+                                        <svg class="w-6 h-6 text-gray-600 mb-2 group-hover:text-[#011936]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.94.725l.548 2.2a1 1 0 01-.321.988l-1.305.98a10.582 10.582 0 004.872 4.872l.98-1.305a1 1 0 01.988-.321l2.2.548a1 1 0 01.725.94V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
+                                        <span class="text-xs font-bold text-gray-700">Telefoon</span>
+                                    </label>
+                                    <label class="flex flex-col items-center justify-center p-5 border border-gray-200 rounded-2xl cursor-pointer hover:bg-gray-50/50 transition bg-white text-center shadow-sm group">
+                                        <input type="radio" name="type" value="online" checked class="sr-only">
+                                        <svg class="w-6 h-6 text-gray-600 mb-2 group-hover:text-[#011936]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                                        <span class="text-xs font-bold text-gray-700">Online</span>
+                                    </label>
+                                    <label class="flex flex-col items-center justify-center p-5 border border-gray-200 rounded-2xl cursor-pointer hover:bg-gray-50/50 transition bg-white text-center shadow-sm group">
+                                        <input type="radio" name="type" value="fysiek" class="sr-only">
+                                        <svg class="w-6 h-6 text-gray-600 mb-2 group-hover:text-[#011936]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                                        <span class="text-xs font-bold text-gray-700">Fysiek</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label for="title" class="block text-xs font-bold text-[#011936] uppercase tracking-wider mb-2">Onderwerp *</label>
+                                <div class="relative">
+                                    <svg class="w-5 h-5 text-gray-400 absolute left-4 top-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                    <input type="text" name="title" id="title" required value="{{ old('title') }}" placeholder="Bijv. Maandelijkse begrotingsreview" class="w-full rounded-xl border border-gray-200 text-sm pl-12 p-3.5 focus:border-[#011936] focus:ring-[#011936]">
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="flex items-center justify-between mb-2">
+                                    <label class="block text-xs font-bold text-[#011936] uppercase tracking-wider">Kies een datum *</label>
+                                    <span class="text-[11px] text-gray-400 font-medium">Afspraken worden altijd ~1 uur geschat</span>
+                                </div>
+                                
+                                <div onclick="openDatePickerModal()" class="w-full flex items-center justify-between border border-gray-200 rounded-xl p-3.5 bg-gray-50/30 cursor-pointer hover:bg-gray-50 transition shadow-sm">
+                                    <div class="flex items-center space-x-6 text-sm font-semibold text-gray-700">
+                                        <span class="w-6 h-6 bg-[#011936] text-white flex items-center justify-center text-xs font-bold rounded-full">1</span>
+                                        <div class="flex items-center space-x-2">
+                                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                            <span id="display_date_text" class="text-gray-400 font-medium">Selecteer een datum...</span>
+                                        </div>
+                                        <div class="flex items-center space-x-2 border-l border-gray-200 pl-6">
+                                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                            <span id="display_time_text" class="text-gray-400 font-medium">Kies tijdslot...</span>
+                                        </div>
+                                    </div>
+                                    <button type="button" onclick="resetDateTime(event)" class="text-gray-400 hover:text-red-500 transition p-1">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
-                        <div>
-                            <label for="description" class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Aanvullende opmerking</label>
-                            <textarea name="description" id="description" rows="3" maxlength="500" placeholder="Zijn er specifieke dingen die we moeten voorbereiden?" class="w-full rounded-xl border border-gray-200 text-sm p-3 focus:border-[#011936] focus:ring-[#011936]"></textarea>
+                        <div class="md:col-span-5 space-y-6 flex flex-col justify-between">
+                            
+                            <div class="space-y-4">
+                                <label class="block text-xs font-bold text-[#011936] uppercase tracking-wider">Selecteer GKR Medewerker *</label>
+                                
+                                <div class="space-y-3">
+                                    <select name="employees[]" required class="w-full rounded-xl border border-gray-200 text-sm p-3.5 focus:border-[#011936] focus:ring-[#011936] bg-white text-gray-700 shadow-sm">
+                                        <option value="">Kies medewerker...</option>
+                                        @foreach($gkrEmployees as $employee)
+                                            <option value="{{ $employee->id }}">{{ $employee->name }}</option>
+                                        @endforeach
+                                    </select>
+
+                                    <select name="employees[]" class="w-full rounded-xl border border-gray-200 text-sm p-3.5 focus:border-[#011936] focus:ring-[#011936] bg-white text-gray-700 shadow-sm">
+                                        <option value="">Kies extra medewerker (optioneel)...</option>
+                                        @foreach($gkrEmployees as $employee)
+                                            <option value="{{ $employee->id }}">{{ $employee->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label for="description" class="block text-xs font-bold text-[#011936] uppercase tracking-wider mb-2">Aanvullende opmerkingen</label>
+                                <textarea name="description" id="description" rows="4" maxlength="500" oninput="updateCharCount(this)" placeholder="Beschrijf kort het doel van deze vergadering..." class="w-full rounded-2xl border border-gray-200 text-sm p-4 focus:border-[#011936] focus:ring-[#011936] bg-gray-50/20"></textarea>
+                                <p class="text-right text-[10px] text-gray-400 mt-1"><span id="char-counter">0</span>/500</p>
+                            </div>
                         </div>
-
                     </div>
 
-                    <div class="mt-6 pt-4 border-t border-gray-100 flex items-center justify-end space-x-3">
-                        <button type="button" onclick="closeAppointmentModal()" class="px-4 py-2.5 border border-gray-200 hover:bg-gray-50 text-gray-500 text-xs font-bold rounded-xl transition">
-                            Annuleren
-                        </button>
-                        <button type="submit" class="px-5 py-2.5 bg-[#011936] hover:bg-[#011936]/90 text-white text-xs font-bold rounded-xl transition shadow-sm">
-                            Afspraak aanvragen
-                        </button>
-                    </div>
+                    <input type="hidden" name="date" id="hidden_date" required>
+                    <input type="hidden" name="time_slot" id="hidden_time_slot" required>
 
+                    <div class="mt-8 pt-6 border-t border-gray-100 flex items-center justify-between">
+                        <div class="flex items-center space-x-2 text-[11px] text-gray-400 font-medium">
+                            <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                            <span>Door dit verzoek in te dienen, gaat u akkoord met onze <span class="underline cursor-pointer">boekingsvoorwaarden</span>.</span>
+                        </div>
+                        <div class="flex items-center space-x-3 shrink-0">
+                            <button type="button" onclick="closeAppointmentModal()" class="px-5 py-3 border border-gray-200 hover:bg-gray-50 text-gray-500 text-xs font-bold rounded-xl transition">
+                                Annuleren
+                            </button>
+                            <button type="submit" class="px-6 py-3 bg-[#011936] hover:bg-[#011936]/90 text-white text-xs font-bold rounded-xl transition shadow-md flex items-center">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                Afspraak aanvragen
+                            </button>
+                        </div>
+                    </div>
                 </form>
             </div>
         </div>
     </div>
 
+
+    <div id="datePickerModal" class="fixed inset-0 z-50 hidden overflow-y-auto flex items-center justify-center p-4" role="dialog" aria-modal="true">
+        <div onclick="closeDatePickerModal()" class="fixed inset-0 transition-opacity bg-gray-950/20 backdrop-blur-[2px]" aria-hidden="true"></div>
+
+        <div class="relative inline-block overflow-hidden text-left align-bottom transition-all transform bg-white rounded-2xl shadow-2xl sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full border border-gray-100 grid grid-cols-1 md:grid-cols-12 z-50 h-[400px]">
+            
+            <div class="p-6 md:col-span-7 border-r border-gray-100 bg-white h-full flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-5">
+                        <div class="flex items-center space-x-1">
+                            <span id="currentMonthYear" class="text-base font-bold text-[#011936] capitalize"></span>
+                        </div>
+                        <div class="flex space-x-2 text-gray-400">
+                            <button type="button" id="prevMonth" class="hover:text-[#011936] transition p-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"></path></svg>
+                            </button>
+                            <button type="button" id="nextMonth" class="hover:text-[#011936] transition p-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"></path></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
+                        <div>Ma</div><div>Di</div><div>Wo</div><div>Do</div><div>Vr</div><div>Za</div><div>Zo</div>
+                    </div>
+
+                    <div id="calendarDays" class="grid grid-cols-7 gap-1.5 text-center text-xs font-semibold text-gray-700">
+                        </div>
+                </div>
+
+                <div class="flex items-center space-x-2 text-[11px] text-gray-500 pt-2">
+                    <span class="w-1.5 h-1.5 bg-[#011936] rounded-full"></span>
+                    <span>Beschikbare dagen</span>
+                </div>
+            </div>
+
+            <div class="p-6 md:col-span-5 bg-gray-50/40 h-full flex flex-col justify-between">
+                <div class="flex flex-col h-full overflow-hidden">
+                    <div class="flex items-center justify-between mb-1 shrink-0">
+                        <h4 class="text-sm font-bold text-[#011936]">Beschikbare tijden</h4>
+                        <button type="button" onclick="closeDatePickerModal()" class="text-gray-400 hover:text-gray-600 transition">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+                    <p id="selectedDateHuman" class="text-[11px] text-gray-400 font-medium mb-4 shrink-0">Selecteer een datum</p>
+
+                   <div id="timeSlotsContainer" class="space-y-2 overflow-y-auto pr-1 flex-1 flex flex-col max-h-[250px]">
+    <p class="text-xs text-gray-400 italic py-4 text-center my-auto">Kies links een beschikbare dag.</p>
+</div>
+                </div>
+
+                <div class="flex items-center space-x-2 text-[10px] text-gray-400 pt-3 border-t border-gray-100 mt-3 shrink-0">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span>Gesprekken zijn ~1 uur</span>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+
     <style>
+        /* Actieve GKR kaart selectie styling */
         label:has(input:checked) {
-            border-color: #011936;
-            background-color: rgb(1 25 54 / 0.04);
+            border-color: #011936 !important;
+            background-color: rgb(1 25 54 / 0.04) !important;
             box-shadow: inset 0 0 0 1px #011936;
         }
         .calendar-day-btn:disabled {
@@ -285,10 +333,10 @@
     </style>
 
     <script>
+        // --- MODAL CONTROLS ---
         function openAppointmentModal() {
             document.getElementById('appointmentModal').classList.remove('hidden');
             document.body.classList.add('overflow-hidden');
-            initCalendar();
         }
 
         function closeAppointmentModal() {
@@ -296,12 +344,46 @@
             document.body.classList.remove('overflow-hidden');
         }
 
-        // --- KALENDER LOGICA ---
+        function openDatePickerModal() {
+            const picker = document.getElementById('datePickerModal');
+            picker.classList.remove('hidden');
+            picker.classList.add('flex'); // Dwing flex-box centrering af bovenop het wazige scherm
+            initCalendar();
+        }
+
+        function closeDatePickerModal() {
+            const picker = document.getElementById('datePickerModal');
+            picker.classList.add('hidden');
+            picker.classList.remove('flex');
+        }
+
+        function updateCharCount(textarea) {
+            document.getElementById('char-counter').innerText = textarea.value.length;
+        }
+
+        function resetDateTime(event) {
+            event.stopPropagation(); // Voorkom dat de modal openspringt bij resetten
+            document.getElementById('hidden_date').value = "";
+            document.getElementById('hidden_time_slot').value = "";
+            document.getElementById('display_date_text').innerText = "Selecteer een datum...";
+            document.getElementById('display_date_text').classList.add('text-gray-400');
+            document.getElementById('display_time_text').innerText = "Kies tijdslot...";
+            document.getElementById('display_time_text').classList.add('text-gray-400');
+            selectedDateStr = "";
+            
+            // Herstel de placeholder in de tijden-container
+            const container = document.getElementById('timeSlotsContainer');
+            container.classList.add('justify-center');
+            container.innerHTML = `<p class="text-xs text-gray-400 italic py-4 text-center my-auto">Kies links een beschikbare dag.</p>`;
+            document.getElementById('selectedDateHuman').innerText = "Selecteer een datum";
+        }
+
+        // --- DYNAMISCHE KALENDER MOTOR ---
         let currentNavDate = new Date();
         let selectedDateStr = "";
 
         const monthsNl = ["januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december"];
-        const standardSlots = ["09:00 - 10:00", "10:00 - 11:00", "11:00 - 12:00", "13:00 - 14:00", "14:00 - 15:00", "15:00 - 16:00"];
+        const standardSlots = ["09:00 - 10:00", "10:00 - 11:00", "11:00 - 12:00", "13:00 - 14:00", "14:00 - 15:00", "15:00 - 16:00", "16:00 - 17:00"];
 
         function initCalendar() {
             renderCalendar();
@@ -315,7 +397,7 @@
             
             document.getElementById('currentMonthYear').innerText = `${monthsNl[month]} ${year}`;
             
-            const firstDayIndex = (new Date(year, month, 1).getDay() + 6) % 7;
+            const firstDayIndex = (new Date(year, month, 1).getDay() + 6) % 7; // Maandag indexering
             const lastDay = new Date(year, month + 1, 0).getDate();
             
             const daysContainer = document.getElementById('calendarDays');
@@ -362,32 +444,51 @@
             selectedDateStr = dateStr;
             document.getElementById('hidden_date').value = dateStr;
             
-            const options = { weekday: 'long', day: 'numeric', month: 'long' };
-            document.getElementById('selectedDateHuman').innerText = dateObj.toLocaleDateString('nl-NL', options);
+            const options = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+            const formattedHuman = dateObj.toLocaleDateString('nl-NL', options);
+            document.getElementById('selectedDateHuman').innerText = formattedHuman;
             
-            fetchAvailableSlots(dateStr);
+            fetchAvailableSlots(dateStr, formattedHuman);
         }
 
-        function fetchAvailableSlots(dateStr) {
+        function fetchAvailableSlots(dateStr, formattedHuman) {
             const container = document.getElementById('timeSlotsContainer');
+            
+            // Verwijder flex-centrering zodat de uren-knoppen strak bovenaan beginnen te vullen
+            container.classList.remove('justify-center');
             container.innerHTML = "";
 
             standardSlots.forEach(slot => {
                 const slotBtn = document.createElement('button');
                 slotBtn.type = "button";
                 slotBtn.innerText = slot;
-                slotBtn.className = "time-slot-btn w-full text-left p-3 border border-gray-200 rounded-xl text-xs font-bold text-[#011936] hover:bg-gray-50 transition bg-white";
+                slotBtn.className = "time-slot-btn w-full text-left p-3 border border-gray-200 rounded-xl text-xs font-bold text-[#011936] hover:bg-gray-50 transition bg-white flex items-center justify-between shadow-sm";
                 
                 slotBtn.onclick = () => {
                     document.querySelectorAll('.time-slot-btn').forEach(b => b.classList.remove('active'));
                     slotBtn.classList.add('active');
+                    
+                    // Schrijf weg naar hidden velden voor de request
                     document.getElementById('hidden_time_slot').value = slot;
+                    
+                    // Update de visuele balk op het hoofdformulier
+                    const dateDisplay = document.getElementById('display_date_text');
+                    dateDisplay.innerText = formattedHuman;
+                    dateDisplay.classList.remove('text-gray-400');
+                    
+                    const timeDisplay = document.getElementById('display_time_text');
+                    timeDisplay.innerText = slot;
+                    timeDisplay.classList.remove('text-gray-400');
+
+                    // Sluit de datumpicker automatisch na selectie
+                    setTimeout(closeDatePickerModal, 200);
                 };
                 
                 container.appendChild(slotBtn);
             });
         }
 
+        // Automatisch heropenen bij validatiefouten vanuit Laravel
         @if ($errors->any())
             window.addEventListener('DOMContentLoaded', () => { 
                 openAppointmentModal(); 

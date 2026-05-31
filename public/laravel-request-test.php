@@ -9,7 +9,18 @@ try {
 
     $app = require_once __DIR__.'/../bootstrap/app.php';
 
-    echo 'LARAVEL BOOT OK';
+    $request = Illuminate\Http\Request::create('/health', 'GET');
+
+    $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
+
+    $response = $kernel->handle($request);
+
+    echo '<pre>';
+    echo 'STATUS: ' . $response->getStatusCode() . "\n\n";
+    echo $response->getContent();
+    echo '</pre>';
+
+    $kernel->terminate($request, $response);
 } catch (Throwable $e) {
     echo '<pre>';
     echo 'ERROR: ' . $e->getMessage() . "\n\n";

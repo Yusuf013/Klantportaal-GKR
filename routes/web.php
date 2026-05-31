@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\ProjectController as AdminProjectController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\AppointmentController as AdminAppointmentController;
 
+
 /*
 |--------------------------------------------------------------------------
 | Public Routes
@@ -108,3 +109,6 @@ require __DIR__.'/auth.php';
 
 
 
+Route::get('/health', function () {
+    return 'OK';
+});

@@ -8,6 +8,16 @@ use App\Http\Controllers\DashboardController as ClientDashboardController;
 use App\Http\Controllers\Admin\ProjectController as AdminProjectController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\AppointmentController as AdminAppointmentController;
+use App\Http\Controllers\SitePasswordController;
+
+
+/*
+|--------------------------------------------------------------------------
+| Site Password Routes
+|--------------------------------------------------------------------------
+*/
+Route::get('/site-password', [SitePasswordController::class, 'show'])->name('site-password.show');
+Route::post('/site-password', [SitePasswordController::class, 'store'])->name('site-password.store');
 
 
 /*
@@ -105,10 +115,3 @@ Route::middleware(['auth', 'verified', 'admin'])
 require __DIR__.'/auth.php';
 
 
-
-
-
-
-Route::get('/health', function () {
-    return 'OK';
-});

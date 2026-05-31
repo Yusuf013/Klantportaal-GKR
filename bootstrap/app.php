@@ -12,24 +12,17 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Dit dwingt Laravel om de proxy van Railway te accepteren
         $middleware->trustProxies(at: '*');
-        
-        $middleware->trustProxies(headers: Request::HEADER_X_FORWARDED_AWS_ELB | 
-            Request::HEADER_X_FORWARDED_FOR | 
-            Request::HEADER_X_FORWARDED_HOST | 
-            Request::HEADER_X_FORWARDED_PORT | 
+
+        $middleware->trustProxies(headers: Request::HEADER_X_FORWARDED_AWS_ELB |
+            Request::HEADER_X_FORWARDED_FOR |
+            Request::HEADER_X_FORWARDED_HOST |
+            Request::HEADER_X_FORWARDED_PORT |
             Request::HEADER_X_FORWARDED_PROTO
         );
 
-        // Jouw bestaande admin alias
         $middleware->alias([
             'admin' => \App\Http\Middleware\IsAdmin::class,
-        ]);
-
-        // De nieuwe beveiligingslaag voor de hele website
-        $middleware->web(append: [
-            \App\Http\Middleware\SitePasswordProtection::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

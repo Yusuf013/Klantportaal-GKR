@@ -9,8 +9,6 @@ use App\Http\Controllers\Admin\ProjectController as AdminProjectController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\AppointmentController as AdminAppointmentController;
 use App\Http\Controllers\SitePasswordController;
-
-
 /*
 |--------------------------------------------------------------------------
 | Site Password Routes
@@ -103,6 +101,13 @@ Route::middleware(['auth', 'verified', 'admin'])
         Route::patch('/appointments/{appointment}/reject', [AdminAppointmentController::class, 'reject'])->name('appointments.reject');
 
 
+        // Voeg deze twee routes toe binnen je bestaande Route::middleware(['auth', 'verified', 'admin'])->group(function () { ... })
+
+        // Gebruikersbeheer overzichtspagina
+        Route::get('/gebruikers', [AdminDashboardController::class, 'usersIndex'])->name('users.index');
+
+        // Actieknop om rol aan te passen
+        Route::patch('/gebruikers/{user}/toggle-admin', [AdminDashboardController::class, 'toggleAdmin'])->name('users.toggle-admin');
 
 });
 

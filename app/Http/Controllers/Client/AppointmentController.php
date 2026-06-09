@@ -13,25 +13,25 @@ class AppointmentController extends Controller
     /**
      * Toon het afsprakenoverzicht en bereid de boekingsmodal voor.
      */
-    public function index()
-    {
-        $user = auth()->user();
+   public function index()
+{
+    $user = auth()->user();
 
-        // 1. Haal alle afspraken van deze specifieke klant op, inclusief het project
-        $appointments = Appointment::where('user_id', $user->id)
-            ->with('project')
-            ->orderBy('start_time', 'asc')
-            ->get();
+    // 1. Haal alle afspraken van deze specifieke klant op, inclusief het project én de gekoppelde medewerkers (attendees)
+    $appointments = Appointment::where('user_id', $user->id)
+        ->with(['project', 'attendees']) // FIX: 'attendees' hier toegevoegd aan de array
+        ->orderBy('start_time', 'asc')
+        ->get();
 
-        // 2. Haal alle projecten van deze klant op voor de project-dropdown
-        $myProjects = $user->projects;
+    // 2. Haal alle projecten van deze klant op voor de project-dropdown
+    $myProjects = $user->projects;
 
-        // 3. Haal alle GKR Medewerkers (admins) op voor de medewerker-dropdowns
-        $gkrEmployees = User::where('is_admin', true)->orderBy('name', 'asc')->get();
+    // 3. Haal alle GKR Medewerkers (admins) op voor de medewerker-dropdowns
+    $gkrEmployees = User::where('is_admin', true)->orderBy('name', 'asc')->get();
 
-        // Stuur alles mee naar de view
-        return view('client.appointments.index', compact('appointments', 'myProjects', 'gkrEmployees'));
-    }
+    // Stuur alles mee naar de view
+    return view('client.appointments.index', compact('appointments', 'myProjects', 'gkrEmployees'));
+}
 
     /**
      * Sla de nieuwe afspraakaanvraag op in de database.

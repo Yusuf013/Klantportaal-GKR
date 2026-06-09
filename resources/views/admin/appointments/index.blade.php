@@ -256,6 +256,58 @@
         </div>
     </div>
 
+    <div id="adminDetailModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4" role="dialog" aria-modal="true">
+    <div onclick="closeAdminDetailModal()" class="fixed inset-0 bg-gray-950/40 backdrop-blur-sm"></div>
+    <div class="relative bg-white rounded-2xl shadow-2xl sm:max-w-lg sm:w-full border border-gray-100 z-50 overflow-hidden transform transition-all">
+        
+        <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+            <h3 id="modal_detail_status" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border"></h3>
+            <button type="button" onclick="closeAdminDetailModal()" class="text-gray-400 hover:text-gray-600 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+
+        <div class="p-6 space-y-4">
+            <div>
+                <h4 id="modal_detail_title" class="text-base font-bold text-[#011936] font-maven"></h4>
+                <p id="modal_detail_datetime" class="text-xs text-gray-400 font-semibold mt-1"></p>
+            </div>
+
+            <div class="border-t border-gray-100 pt-4 grid grid-cols-2 gap-4 text-xs">
+                <div>
+                    <span class="block text-gray-400 font-bold uppercase tracking-wider text-[10px]">Klant</span>
+                    <span id="modal_detail_client" class="text-gray-700 font-semibold"></span>
+                </div>
+                <div>
+                    <span class="block text-gray-400 font-bold uppercase tracking-wider text-[10px]">Project</span>
+                    <span id="modal_detail_project" class="text-[#011936] font-semibold"></span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 text-xs">
+                <div>
+                    <span class="block text-gray-400 font-bold uppercase tracking-wider text-[10px]">Type Gesprek</span>
+                    <span id="modal_detail_type" class="text-gray-700 font-semibold capitalize"></span>
+                </div>
+            </div>
+
+            <div class="border-t border-gray-100 pt-4">
+                <span class="block text-gray-400 font-bold uppercase tracking-wider text-[10px] text-xs mb-2">Betrokken GKR Admins</span>
+                <div id="modal_detail_attendees" class="flex flex-wrap gap-1.5"></div>
+            </div>
+
+            <div id="modal_detail_description_wrapper" class="border-t border-gray-100 pt-4 hidden">
+                <span class="block text-gray-400 font-bold uppercase tracking-wider text-[10px] text-xs mb-1">Interne Opmerking</span>
+                <p id="modal_detail_description" class="text-xs text-gray-600 bg-gray-50 p-3 rounded-xl italic border border-gray-100"></p>
+            </div>
+        </div>
+
+        <div class="px-6 py-4 border-t border-gray-100 bg-gray-50/30 flex justify-end">
+            <button type="button" onclick="closeAdminDetailModal()" class="px-4 py-2 bg-[#011936] text-white text-xs font-bold rounded-xl shadow-sm hover:bg-[#011936]/90 transition">Sluiten</button>
+        </div>
+    </div>
+</div>
+
     <script>
         const dbAppointments = @json($appointments);
         const currentAdminId = {{ auth()->id() }}; // Geef ingelogde admin ID mee aan JS
@@ -324,10 +376,10 @@
                         });
 
                         appHtml += `
-                            <div class="text-[9px] p-1 rounded font-bold border truncate flex items-center justify-between ${color}" title="${app.title}">
-                                <span class="truncate">${app.title}</span>
-                                <div class="flex shrink-0 ml-1">${attendeesBadges}</div>
-                            </div>`;
+    <div onclick="openAdminDetailModal(${app.id})" class="text-[9px] p-1 rounded font-bold border truncate flex items-center justify-between cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all ${color}" title="Klik voor details: ${app.title}">
+        <span class="truncate">${app.title}</span>
+        <div class="flex shrink-0 ml-1">${attendeesBadges}</div>
+    </div>`;
                     }
                 });
                 dayBox.innerHTML = dayHeader + appHtml + `</div>`;
@@ -465,6 +517,74 @@
                 });
             });
         }
+
+        // 5. DETAIL MODAL LOGICA
+function openAdminDetailModal(appointmentId) {
+    // Zoek de juiste afspraak op binnen de reeds ingeladen dbAppointments array
+    const app = dbAppointments.find(a => a.id === appointmentId);
+    if (!app) return;
+
+    // Vul de basisteksten in
+    document.getElementById('modal_detail_title').innerText = app.title;
+    
+    // Formatteer datum en tijd handig voor de admin
+    const dateObj = new Date(app.start_time);
+    const humanDate = dateObj.toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    const timeStart = app.start_time.split('T')[1].substring(0, 5);
+    const timeEnd = app.end_time ? app.end_time.split('T')[1].substring(0, 5) : '';
+    document.getElementById('modal_detail_datetime').innerText = `${humanDate} om ${timeStart} - ${timeEnd}`;
+
+    document.getElementById('modal_detail_client').innerText = app.client ? app.client.name : 'Onbekend';
+    document.getElementById('modal_detail_project').innerText = app.project ? app.project.name : 'Geen gekoppeld project';
+    document.getElementById('modal_detail_type').innerText = app.type || 'Online';
+
+    // Status Badge Stylen
+    const statusLabel = document.getElementById('modal_detail_status');
+    statusLabel.innerText = app.status;
+    statusLabel.className = "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ";
+    if (app.status === 'Bevestigd') {
+        statusLabel.classList.add('bg-emerald-50', 'text-emerald-700', 'border-emerald-100');
+    } else {
+        statusLabel.classList.add('bg-amber-50', 'text-amber-700', 'border-amber-100');
+    }
+
+    // Omschrijving tonen of verbergen
+    const descWrapper = document.getElementById('modal_detail_description_wrapper');
+    if (app.description && app.description.trim() !== "") {
+        document.getElementById('modal_detail_description').innerText = app.description;
+        descWrapper.classList.remove('hidden');
+    } else {
+        descWrapper.classList.add('hidden');
+    }
+
+    // Gekoppelde admins uittekenen als badges
+    const attendeesContainer = document.getElementById('modal_detail_attendees');
+    attendeesContainer.innerHTML = "";
+    const activeAttendees = app.attendees || app.employees || [];
+
+    if (activeAttendees.length > 0) {
+        activeAttendees.forEach(att => {
+            attendeesContainer.innerHTML += `
+                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200">
+                    <span class="w-1.5 h-1.5 bg-[#011936] rounded-full mr-1.5"></span>
+                    ${att.name}
+                </span>`;
+        });
+    } else {
+        attendeesContainer.innerHTML = `<span class="text-xs text-gray-400 italic">Geen admins gekoppeld</span>`;
+    }
+
+    // Toon de modal
+    const modal = document.getElementById('adminDetailModal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function closeAdminDetailModal() {
+    const modal = document.getElementById('adminDetailModal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+}
     </script>
 
     <style>

@@ -96,6 +96,9 @@ Route::middleware(['auth', 'verified', 'admin'])
         // Het grote admin kalender dashboard
         Route::get('/agenda', [AdminAppointmentController::class, 'index'])->name('appointments.index');
         
+        // TOEGEVOEGD: Route voor het verwerken en opslaan van het nieuwe admin afsprakenformulier
+        Route::post('/agenda', [AdminAppointmentController::class, 'store'])->name('appointments.store');
+        
         // Actie knoppen voor het verwerken van de verzoeken
         Route::patch('/appointments/{appointment}/approve', [AdminAppointmentController::class, 'approve'])->name('appointments.approve');
         Route::patch('/appointments/{appointment}/reject', [AdminAppointmentController::class, 'reject'])->name('appointments.reject');
@@ -108,6 +111,9 @@ Route::middleware(['auth', 'verified', 'admin'])
 
         // Actieknop om rol aan te passen
         Route::patch('/gebruikers/{user}/toggle-admin', [AdminDashboardController::class, 'toggleAdmin'])->name('users.toggle-admin');
+
+        // Route voor de live beschikbaarheids-check van medewerkers (Mock data)
+        Route::post('/appointments/check-availability', [AdminAppointmentController::class, 'checkAvailability'])->name('appointments.check');
 
 });
 

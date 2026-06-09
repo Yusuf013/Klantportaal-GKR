@@ -44,4 +44,12 @@ class Appointment extends Model
     {
         return $this->belongsToMany(User::class, 'appointment_user');
     }
+
+    /**
+     * Relatie naar de gekoppelde GKR-medewerkers (Admins) voor de agenda-check
+     */
+    public function employees(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'appointment_user', 'appointment_id', 'user_id');
+    }
 }

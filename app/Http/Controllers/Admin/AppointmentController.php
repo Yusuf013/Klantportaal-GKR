@@ -94,28 +94,36 @@ public function index()
      */
  public function checkAvailability(Request $request)
 {
+    // 1. Valideer de binnenkomende data van de klant
     $request->validate([
         'employee_id' => 'required|exists:users,id',
         'date'        => 'required|date_format:Y-m-d',
         'time_slot'   => 'required|string',
     ]);
 
-    // Splits het slot "09:00 - 10:00" naar de starttijd "09:00"
+    // 2. Splits het gekozen urenslot op (bijv. "09:00 - 10:00")
     $slots = explode(' - ', $request->time_slot);
-    
-    // Maak een exacte datum-tijd string voor de database (bijv. "2026-06-19 09:00:00")
-    $startTimeStr = $request->date . ' ' . $slots[0] . ':00'; 
+    if (count($slots) !== 2) {
+        return response()->json(['status' => 'error', 'message' => 'Ongeldig tijdslot formaat'], 400);
+    }
 
-    // FIX: We zoeken nu binnen 'attendees' in plaats van 'employees'
+    $startTimeStr = $request->date . ' ' . trim($slots[0]) . ':00'; 
+    $endTimeStr   = $request->date . ' ' . trim($slots[1]) . ':00'; 
+
+    // 3. Waterdichte overlap-check met de juiste relatie: attendees
     $conflictExists = Appointment::where('status', 'Bevestigd')
+        ->where(function ($query) use ($startTimeStr, $endTimeStr) {
+            $query->where('start_time', '<', $endTimeStr)
+                  ->where('end_time', '>', $startTimeStr);
+        })
         ->whereHas('attendees', function ($query) use ($request) {
             $query->where('users.id', $request->employee_id);
         })
-        ->where('start_time', $startTimeStr)
         ->exists();
 
+    // 4. Geef het resultaat terug aan het JavaScript van de klant
     if ($conflictExists) {
-        return response()->json(['status' => 'conflict', 'message' => 'Bezet (conflict)']);
+        return response()->json(['status' => 'conflict', 'message' => 'Bezet']);
     }
 
     return response()->json(['status' => 'available', 'message' => 'Beschikbaar']);

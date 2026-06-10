@@ -165,52 +165,46 @@
                                 </div>
                             </div>
 
-                            <div>
-                                <div class="flex items-center justify-between mb-2">
-                                    <label class="block text-xs font-bold text-[#011936] uppercase tracking-wider">Kies een datum *</label>
-                                    <span class="text-[11px] text-gray-400 font-medium">Afspraken worden altijd ~1 uur geschat</span>
-                                </div>
-                                
-                                <div onclick="openDatePickerModal()" class="w-full flex items-center justify-between border border-gray-200 rounded-xl p-3.5 bg-gray-50/30 cursor-pointer hover:bg-gray-50 transition shadow-sm">
-                                    <div class="flex items-center space-x-6 text-sm font-semibold text-gray-700">
-                                        <span class="w-6 h-6 bg-[#011936] text-white flex items-center justify-center text-xs font-bold rounded-full">1</span>
-                                        <div class="flex items-center space-x-2">
-                                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                                            <span id="display_date_text" class="text-gray-400 font-medium">Selecteer een datum...</span>
-                                        </div>
-                                        <div class="flex items-center space-x-2 border-l border-gray-200 pl-6">
-                                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                            <span id="display_time_text" class="text-gray-400 font-medium">Kies tijdslot...</span>
-                                        </div>
-                                    </div>
-                                    <button type="button" onclick="resetDateTime(event)" class="text-gray-400 hover:text-red-500 transition p-1">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                                    </button>
-                                </div>
-                            </div>
+                      <div>
+    <div class="flex items-center justify-between mb-2">
+        <label class="block text-xs font-bold text-[#011936] uppercase tracking-wider">Kies een datum *</label>
+        <span class="text-[11px] text-gray-400 font-medium">Selecteer eerst een medewerker hiernaast</span>
+    </div>
+    
+    <div id="date_picker_trigger_button" class="w-full flex items-center justify-between border border-gray-200 rounded-xl p-3.5 bg-gray-100 opacity-60 cursor-not-allowed transition shadow-sm">
+        <div class="flex items-center space-x-6 text-sm font-semibold text-gray-400">
+            <span class="w-6 h-6 bg-gray-300 text-white flex items-center justify-center text-xs font-bold rounded-full">1</span>
+            <div class="flex items-center space-x-2">
+                <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                <span id="display_date_text" class="text-gray-400 font-medium">Selecteer een datum...</span>
+            </div>
+            <div class="flex items-center space-x-2 border-l border-gray-200 pl-6">
+                <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <span id="display_time_text" class="text-gray-400 font-medium">Kies tijdslot...</span>
+            </div>
+        </div>
+        <button type="button" onclick="resetDateTime(event)" class="text-gray-300 hover:text-red-500 transition p-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+        </button>
+    </div>
+</div>
                         </div>
 
                         <div class="md:col-span-5 space-y-6 flex flex-col justify-between">
                             
-                            <div class="space-y-4">
-                                <label class="block text-xs font-bold text-[#011936] uppercase tracking-wider">Selecteer GKR Medewerker *</label>
-                                
-                                <div class="space-y-3">
-                                    <select name="employees[]" required class="w-full rounded-xl border border-gray-200 text-sm p-3.5 focus:border-[#011936] focus:ring-[#011936] bg-white text-gray-700 shadow-sm">
-                                        <option value="">Kies medewerker...</option>
-                                        @foreach($gkrEmployees as $employee)
-                                            <option value="{{ $employee->id }}">{{ $employee->name }}</option>
-                                        @endforeach
-                                    </select>
-
-                                    <select name="employees[]" class="w-full rounded-xl border border-gray-200 text-sm p-3.5 focus:border-[#011936] focus:ring-[#011936] bg-white text-gray-700 shadow-sm">
-                                        <option value="">Kies extra medewerker (optioneel)...</option>
-                                        @foreach($gkrEmployees as $employee)
-                                            <option value="{{ $employee->id }}">{{ $employee->name }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                            </div>
+                     <div>
+    <label class="block text-xs font-bold text-[#011936] uppercase tracking-wider mb-2">Selecteer GKR Medewerker(s) *</label>
+    <div class="space-y-0.5 max-h-[160px] overflow-y-auto border border-gray-200 rounded-xl bg-white shadow-xs">
+        @foreach($gkrEmployees as $emp)
+            <div class="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition">
+                <label class="flex items-center space-x-3 text-sm font-medium text-gray-700 cursor-pointer flex-1 select-none">
+                    <input type="checkbox" name="employees[]" value="{{ $emp->id }}" onchange="checkClientEmployeeAvailability()" class="rounded border-gray-300 text-[#011936] focus:ring-[#011936] h-4 w-4">
+                    <span>{{ $emp->name }}</span>
+                </label>
+            </div>
+        @endforeach
+    </div>
+</div>
 
                             <div>
                                 <label for="description" class="block text-xs font-bold text-[#011936] uppercase tracking-wider mb-2">Aanvullende opmerkingen</label>
@@ -606,42 +600,124 @@ function closeClientDetailModal() {
             fetchAvailableSlots(dateStr, formattedHuman);
         }
 
-        function fetchAvailableSlots(dateStr, formattedHuman) {
-            const container = document.getElementById('timeSlotsContainer');
-            
-            // Verwijder flex-centrering zodat de uren-knoppen strak bovenaan beginnen te vullen
-            container.classList.remove('justify-center');
-            container.innerHTML = "";
+        // 1. ONTKRENDEL / VERGRENDEL DE DATUMKNOP
+function checkClientEmployeeAvailability() {
+    const checkedBoxes = document.querySelectorAll('input[name="employees[]"]:checked');
+    const triggerBtn = document.getElementById('date_picker_trigger_button');
+    const triggerIconText = triggerBtn.querySelector('.flex');
 
-            standardSlots.forEach(slot => {
-                const slotBtn = document.createElement('button');
-                slotBtn.type = "button";
-                slotBtn.innerText = slot;
-                slotBtn.className = "time-slot-btn w-full text-left p-3 border border-gray-200 rounded-xl text-xs font-bold text-[#011936] hover:bg-gray-50 transition bg-white flex items-center justify-between shadow-sm";
-                
-                slotBtn.onclick = () => {
-                    document.querySelectorAll('.time-slot-btn').forEach(b => b.classList.remove('active'));
-                    slotBtn.classList.add('active');
-                    
-                    // Schrijf weg naar hidden velden voor de request
-                    document.getElementById('hidden_time_slot').value = slot;
-                    
-                    // Update de visuele balk op het hoofdformulier
-                    const dateDisplay = document.getElementById('display_date_text');
-                    dateDisplay.innerText = formattedHuman;
-                    dateDisplay.classList.remove('text-gray-400');
-                    
-                    const timeDisplay = document.getElementById('display_time_text');
-                    timeDisplay.innerText = slot;
-                    timeDisplay.classList.remove('text-gray-400');
-
-                    // Sluit de datumpicker automatisch na selectie
-                    setTimeout(closeDatePickerModal, 200);
-                };
-                
-                container.appendChild(slotBtn);
-            });
+    if (checkedBoxes.length > 0) {
+        // Activeer de knop visueel (Hanly style)
+        triggerBtn.classList.remove('bg-gray-100', 'opacity-60', 'cursor-not-allowed');
+        triggerBtn.classList.add('bg-gray-50/30', 'cursor-pointer', 'hover:bg-gray-50');
+        triggerIconText.classList.remove('text-gray-400');
+        triggerIconText.classList.add('text-gray-700');
+        triggerBtn.querySelector('.rounded-full').classList.remove('bg-gray-300');
+        triggerBtn.querySelector('.rounded-full').classList.add('bg-[#011936]');
+        
+        // Koppel het klik-event om de kalender te openen
+        triggerBtn.onclick = openDatePickerModal;
+        
+        // Als er al een datum geselecteerd stond, update direct de uren live
+        const currentHiddenDate = document.getElementById('hidden_date').value;
+        if(currentHiddenDate) {
+            const dateObj = new Date(currentHiddenDate);
+            const formattedHuman = dateObj.toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            fetchAvailableSlots(currentHiddenDate, formattedHuman);
         }
+    } else {
+        // Geen medewerker? Vergrendel de knop direct weer
+        triggerBtn.classList.add('bg-gray-100', 'opacity-60', 'cursor-not-allowed');
+        triggerBtn.classList.remove('bg-gray-50/30', 'cursor-pointer', 'hover:bg-gray-50');
+        triggerIconText.classList.add('text-gray-400');
+        triggerIconText.classList.remove('text-gray-700');
+        triggerBtn.querySelector('.rounded-full').classList.add('bg-gray-300');
+        triggerBtn.querySelector('.rounded-full').classList.remove('bg-[#011936]');
+        
+        triggerBtn.onclick = null;
+        resetDateTime(new Event('click'));
+    }
+}
+
+// 2. HAAL DE TIJDSLOTS OP EN CHECK BESCHIKBAARHEID VIA DE NIEUWE ROUTE
+function fetchAvailableSlots(dateStr, formattedHuman) {
+    const container = document.getElementById('timeSlotsContainer');
+    container.classList.remove('justify-center');
+    container.innerHTML = "";
+
+    const checkedBoxes = document.querySelectorAll('input[name="employees[]"]:checked');
+    const selectedEmployeeIds = Array.from(checkedBoxes).map(cb => cb.value);
+
+    // standardSlots moet al gedefinieerd zijn in je bestaande JS arrays
+    standardSlots.forEach(slot => {
+        const slotBtn = document.createElement('button');
+        slotBtn.type = "button";
+        slotBtn.innerText = slot;
+        slotBtn.className = "time-slot-btn w-full text-left p-3 border border-gray-200 rounded-xl text-xs font-bold text-[#011936] hover:bg-gray-50 transition bg-white flex items-center justify-between shadow-sm";
+        
+        const statusSpan = document.createElement('span');
+        statusSpan.className = "text-[10px] uppercase font-bold text-gray-400 tracking-wider";
+        statusSpan.innerText = "Checken...";
+        slotBtn.appendChild(statusSpan);
+        container.appendChild(slotBtn);
+
+        let conflictFound = false;
+        let checksCompleted = 0;
+
+        // Vraag voor elke geselecteerde medewerker de status op
+        selectedEmployeeIds.forEach(empId => {
+            fetch("{{ route('client.appointments.check') }}", {
+                method: "POST",
+                headers: { 
+                    "Content-Type": "application/json", 
+                    "Accept": "application/json",
+                    "X-CSRF-TOKEN": document.querySelector('input[name="_token"]').value
+                },
+                body: JSON.stringify({ employee_id: empId, date: dateStr, time_slot: slot })
+            })
+            .then(res => res.json())
+            .then(data => {
+                checksCompleted++;
+                if (data.status === 'conflict') {
+                    conflictFound = true;
+                }
+
+                // Zodra alle medewerkers voor dit slot zijn gecontroleerd, bepalen we de status
+                if (checksCompleted === selectedEmployeeIds.length) {
+                    if (conflictFound) {
+                        slotBtn.disabled = true;
+                        slotBtn.className = "w-full text-left p-3 border border-gray-100 bg-gray-50 text-gray-300 rounded-xl text-xs font-semibold flex items-center justify-between cursor-not-allowed opacity-60";
+                        statusSpan.className = "text-[10px] text-red-500 font-bold tracking-wider";
+                        statusSpan.innerText = "BEZET";
+                    } else {
+                        statusSpan.className = "text-[10px] text-emerald-600 font-bold tracking-wider";
+                        statusSpan.innerText = "VRIJ";
+                        
+                        slotBtn.onclick = () => {
+                            document.querySelectorAll('.time-slot-btn').forEach(b => b.classList.remove('active'));
+                            slotBtn.classList.add('active');
+                            document.getElementById('hidden_time_slot').value = slot;
+                            
+                            const dateDisplay = document.getElementById('display_date_text');
+                            dateDisplay.innerText = formattedHuman;
+                            dateDisplay.classList.remove('text-gray-400');
+                            
+                            const timeDisplay = document.getElementById('display_time_text');
+                            timeDisplay.innerText = slot;
+                            timeDisplay.classList.remove('text-gray-400');
+
+                            setTimeout(closeDatePickerModal, 200);
+                        };
+                    }
+                }
+            })
+            .catch(err => {
+                console.error("Fout tijdens check:", err);
+                checksCompleted++;
+            });
+        });
+    });
+}
 
         // Automatisch heropenen bij validatiefouten vanuit Laravel
         @if ($errors->any())

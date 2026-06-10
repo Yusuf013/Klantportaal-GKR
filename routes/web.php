@@ -50,6 +50,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
 // Route voor het opvangen van het formulier (Afspraak aanvragen)
     Route::post('/mijn-agenda', [App\Http\Controllers\Client\AppointmentController::class, 'store'])->name('client.appointments.store');
 
+    // FIX: Unieke check-route voor de klant (wijst veilig naar de Admin Controller)
+    Route::post('/mijn-agenda/check-beschikbaarheid', [App\Http\Controllers\Admin\AppointmentController::class, 'checkAvailability'])
+        ->name('client.appointments.check');
+
 
     // Klant Projecten & Documenten
     Route::get('/projects/{project}', [ClientProjectController::class, 'show'])->name('projects.show');

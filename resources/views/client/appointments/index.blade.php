@@ -195,14 +195,20 @@
                      <div>
     <label class="block text-xs font-bold text-[#011936] uppercase tracking-wider mb-2">Selecteer GKR Medewerker(s) *</label>
     <div class="space-y-0.5 max-h-[160px] overflow-y-auto border border-gray-200 rounded-xl bg-white shadow-xs">
-        @foreach($gkrEmployees as $emp)
-            <div class="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition">
-                <label class="flex items-center space-x-3 text-sm font-medium text-gray-700 cursor-pointer flex-1 select-none">
-                    <input type="checkbox" name="employees[]" value="{{ $emp->id }}" onchange="checkClientEmployeeAvailability()" class="rounded border-gray-300 text-[#011936] focus:ring-[#011936] h-4 w-4">
-                    <span>{{ $emp->name }}</span>
-                </label>
-            </div>
-        @endforeach
+@foreach($gkrEmployees as $emp)
+    <div class="flex items-center px-4 py-2.5 border-b border-gray-100 last:border-0 bg-white" 
+         style="outline: none !important; box-shadow: none !important; -webkit-tap-highlight-color: transparent !important;">
+        
+        <input type="checkbox" name="employees[]" id="emp_{{ $emp->id }}" value="{{ $emp->id }}" onchange="checkClientEmployeeAvailability()" 
+               class="rounded border-gray-300 text-[#011936] focus:ring-0 focus:ring-offset-0 focus:outline-none h-4 w-4 cursor-pointer"
+               style="-webkit-tap-highlight-color: transparent !important; outline: none !important; box-shadow: none !important;">
+        
+        <label for="emp_{{ $emp->id }}" class="text-sm font-medium text-gray-700 cursor-pointer pl-3 flex-1 select-none" 
+               style="outline: none !important; box-shadow: none !important; -webkit-tap-highlight-color: transparent !important; background: none !important; background-color: transparent !important;">
+            {{ $emp->name }}
+        </label>
+    </div>
+@endforeach
     </div>
 </div>
 

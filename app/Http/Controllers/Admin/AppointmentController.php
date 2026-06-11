@@ -8,6 +8,8 @@ use App\Models\User;
 use App\Models\Project;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
+use App\Models\AppointmentOption;
+
 
 class AppointmentController extends Controller
 {
@@ -29,45 +31,62 @@ public function index()
     /**
      * Sla een handmatig geplande afspraak vanuit de admin op
      */
-    public function store(Request $request)
-    {
-        // 1. Validatie van het admin-formulier
-        $validated = $request->validate([
-            'client_id'   => 'required|exists:users,id',
-            'project_id'  => 'required|exists:projects,id',
-            'title'       => 'required|string|max:255',
-            'type'        => 'required|in:telefoon,online,fysiek',
-            'date'        => 'required|date_format:Y-m-d',
-            'time_slot'   => 'required|string',
-            'description' => 'nullable|string|max:500',
-            'employees'   => 'required|array|min:1',
-            'employees.*' => 'exists:users,id',
-        ]);
 
-        // 2. Tijdslot splitsen ("09:00 - 10:00") naar echte start- en eindtijden
-        $slots = explode(' - ', $validated['time_slot']);
-        $start_time = Carbon::createFromFormat('Y-m-d H:i', $validated['date'] . ' ' . $slots[0]);
-        $end_time   = Carbon::createFromFormat('Y-m-d H:i', $validated['date'] . ' ' . $slots[1]);
 
-        // 3. Afspraak opslaan (Admin afspraken zijn direct 'Bevestigd')
-        $appointment = Appointment::create([
-            'user_id'     => $validated['client_id'], // Gekoppelde klant
-            'project_id'  => $validated['project_id'],
-            'title'       => $validated['title'],
-            'type'        => $validated['type'],
-            'start_time'  => $start_time,
-            'end_time'    => $end_time,
-            'status'      => 'Bevestigd', 
-            'description' => $validated['description'],
-        ]);
+public function store(Request $request)
+{
+    $request->validate([
+        'project_id'       => 'required|exists:projects,id',
+        'client_id'        => 'required|exists:users,id',
+        'title'            => 'required|string|max:255',
+        'type'             => 'required|string',
+        'description'      => 'nullable|string|max:500',
+        'employees'        => 'required|array',
+        'proposal_dates'   => 'required|array|min:1',
+    ]);
 
-        // 4. Koppel de geselecteerde GKR medewerkers via de pivot-tabel
-        if ($request->has('employees')) {
-            $appointment->employees()->sync($validated['employees']);
+    // Filter alle rijen die daadwerkelijk zijn ingevuld door de admin
+    $filledSlots = collect($request->proposal_dates)->filter(function ($slot) {
+        return !empty($slot['date']) && !empty($slot['time_slot']);
+    })->values();
+
+    // Bepaal de flow: 1 slot = direct Bevestigd, meer dan 1 = Voorstel
+    $isProposal = $filledSlots->count() > 1;
+    $status = $isProposal ? 'Voorstel' : 'Bevestigd';
+
+    // Formatteer de eerste (of enige) datum voor de hoofdtabel
+    $times = explode(' - ', $filledSlots[0]['time_slot']);
+    $startTime = \Carbon\Carbon::parse($filledSlots[0]['date'] . ' ' . $times[0]);
+    $endTime = \Carbon\Carbon::parse($filledSlots[0]['date'] . ' ' . $times[1]);
+
+    // Sla de afspraak op
+    $appointment = Appointment::create([
+        'project_id'  => $request->project_id,
+        'client_id'   => $request->client_id,
+        'title'       => $request->title,
+        'type'        => $request->type,
+        'description' => $request->description,
+        'status'      => $status,
+        'start_time'  => $startTime,
+        'end_time'    => $endTime,
+    ]);
+
+    $appointment->attendees()->sync($request->employees);
+
+    // Als er meerdere momenten zijn gekozen, sla ze alle 3 op als opties voor de klant
+    if ($isProposal) {
+        foreach ($filledSlots as $slot) {
+            $slotTimes = explode(' - ', $slot['time_slot']);
+            \App\Models\AppointmentOption::create([
+                'appointment_id' => $appointment->id,
+                'start_time'     => \Carbon\Carbon::parse($slot['date'] . ' ' . $slotTimes[0]),
+                'end_time'       => \Carbon\Carbon::parse($slot['date'] . ' ' . $slotTimes[1]),
+            ]);
         }
-
-        return redirect()->route('admin.appointments.index')->with('success', 'De afspraak is succesvol ingepland en bevestigd!');
     }
+
+    return redirect()->back()->with('success', $isProposal ? 'Afspraakvoorstel succesvol verzonden naar de klant!' : 'Afspraak direct definitief ingepland!');
+}
 
     /**
      * Admin keurt een afspraak goed

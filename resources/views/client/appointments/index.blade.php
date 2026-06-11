@@ -165,52 +165,54 @@
                                 </div>
                             </div>
 
-                      <div>
-    <div class="flex items-center justify-between mb-2">
-        <label class="block text-xs font-bold text-[#011936] uppercase tracking-wider">Kies een datum *</label>
-        <span class="text-[11px] text-gray-400 font-medium">Selecteer eerst een medewerker hiernaast</span>
-    </div>
-    
-    <div id="date_picker_trigger_button" class="w-full flex items-center justify-between border border-gray-200 rounded-xl p-3.5 bg-gray-100 opacity-60 cursor-not-allowed transition shadow-sm">
-        <div class="flex items-center space-x-6 text-sm font-semibold text-gray-400">
-            <span class="w-6 h-6 bg-gray-300 text-white flex items-center justify-center text-xs font-bold rounded-full">1</span>
-            <div class="flex items-center space-x-2">
-                <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                <span id="display_date_text" class="text-gray-400 font-medium">Selecteer een datum...</span>
-            </div>
-            <div class="flex items-center space-x-2 border-l border-gray-200 pl-6">
-                <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                <span id="display_time_text" class="text-gray-400 font-medium">Kies tijdslot...</span>
-            </div>
-        </div>
-        <button type="button" onclick="resetDateTime(event)" class="text-gray-300 hover:text-red-500 transition p-1">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-        </button>
-    </div>
-</div>
+                            <div>
+                                <div class="flex items-center justify-between mb-2">
+                                    <label class="block text-xs font-bold text-[#011936] uppercase tracking-wider">Kies een datum *</label>
+                                    <span class="text-[11px] text-gray-400 font-medium">Selecteer eerst een medewerker hiernaast</span>
+                                </div>
+                                
+                                <div id="date_picker_trigger_button" class="w-full flex items-center justify-between border border-gray-200 rounded-xl p-3.5 bg-gray-100 opacity-60 cursor-not-allowed transition shadow-sm">
+                                    <div class="flex items-center space-x-6 text-sm font-semibold text-gray-400">
+                                        <span class="w-6 h-6 bg-gray-300 text-white flex items-center justify-center text-xs font-bold rounded-full">1</span>
+                                        <div class="flex items-center space-x-2">
+                                            <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                            <span id="display_date_text" class="text-gray-400 font-medium">Selecteer een datum...</span>
+                                        </div>
+                                        <div class="flex items-center space-x-2 border-l border-gray-200 pl-6">
+                                            <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                            <span id="display_time_text" class="text-gray-400 font-medium">Kies tijdslot...</span>
+                                        </div>
+                                    </div>
+                                    <button type="button" onclick="resetDateTime(event)" class="text-gray-300 hover:text-red-500 transition p-1">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="md:col-span-5 space-y-6 flex flex-col justify-between">
                             
-                     <div>
-    <label class="block text-xs font-bold text-[#011936] uppercase tracking-wider mb-2">Selecteer GKR Medewerker(s) *</label>
-    <div class="space-y-0.5 max-h-[160px] overflow-y-auto border border-gray-200 rounded-xl bg-white shadow-xs">
-@foreach($gkrEmployees as $emp)
-    <div class="flex items-center px-4 py-2.5 border-b border-gray-100 last:border-0 bg-white" 
-         style="outline: none !important; box-shadow: none !important; -webkit-tap-highlight-color: transparent !important;">
-        
-        <input type="checkbox" name="employees[]" id="emp_{{ $emp->id }}" value="{{ $emp->id }}" onchange="checkClientEmployeeAvailability()" 
-               class="rounded border-gray-300 text-[#011936] focus:ring-0 focus:ring-offset-0 focus:outline-none h-4 w-4 cursor-pointer"
-               style="-webkit-tap-highlight-color: transparent !important; outline: none !important; box-shadow: none !important;">
-        
-        <label for="emp_{{ $emp->id }}" class="text-sm font-medium text-gray-700 cursor-pointer pl-3 flex-1 select-none" 
-               style="outline: none !important; box-shadow: none !important; -webkit-tap-highlight-color: transparent !important; background: none !important; background-color: transparent !important;">
-            {{ $emp->name }}
-        </label>
-    </div>
-@endforeach
-    </div>
-</div>
+                            <div class="space-y-4">
+                                <div>
+                                    <label for="emp_primary" class="block text-xs font-bold text-[#011936] uppercase tracking-wider mb-2">Eerste Medewerker *</label>
+                                    <select name="employees[]" id="emp_primary" onchange="checkClientEmployeeAvailability()" class="w-full rounded-xl border border-gray-200 text-sm text-gray-700 p-3.5 focus:border-[#011936] focus:ring-[#011936] bg-gray-50/50">
+                                        <option value="">-- Kies naam --</option>
+                                        @foreach($gkrEmployees as $emp)
+                                            <option value="{{ $emp->id }}">{{ $emp->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label for="emp_secondary" class="block text-xs font-bold text-[#011936] uppercase tracking-wider mb-2">Extra Medewerker (Optioneel)</label>
+                                    <select name="employees[]" id="emp_secondary" onchange="checkClientEmployeeAvailability()" class="w-full rounded-xl border border-gray-200 text-sm text-gray-700 p-3.5 focus:border-[#011936] focus:ring-[#011936] bg-gray-50/50">
+                                        <option value="">-- Kies naam --</option>
+                                        @foreach($gkrEmployees as $emp)
+                                            <option value="{{ $emp->id }}">{{ $emp->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
 
                             <div>
                                 <label for="description" class="block text-xs font-bold text-[#011936] uppercase tracking-wider mb-2">Aanvullende opmerkingen</label>
@@ -243,7 +245,6 @@
         </div>
     </div>
 
-
     <div id="datePickerModal" class="fixed inset-0 z-50 hidden overflow-y-auto flex items-center justify-center p-4" role="dialog" aria-modal="true">
         <div onclick="closeDatePickerModal()" class="fixed inset-0 transition-opacity bg-gray-950/20 backdrop-blur-[2px]" aria-hidden="true"></div>
 
@@ -269,8 +270,7 @@
                         <div>Ma</div><div>Di</div><div>Wo</div><div>Do</div><div>Vr</div><div>Za</div><div>Zo</div>
                     </div>
 
-                    <div id="calendarDays" class="grid grid-cols-7 gap-1.5 text-center text-xs font-semibold text-gray-700">
-                        </div>
+                    <div id="calendarDays" class="grid grid-cols-7 gap-1.5 text-center text-xs font-semibold text-gray-700"></div>
                 </div>
 
                 <div class="flex items-center space-x-2 text-[11px] text-gray-500 pt-2">
@@ -289,9 +289,9 @@
                     </div>
                     <p id="selectedDateHuman" class="text-[11px] text-gray-400 font-medium mb-4 shrink-0">Selecteer een datum</p>
 
-                   <div id="timeSlotsContainer" class="space-y-2 overflow-y-auto pr-1 flex-1 flex flex-col max-h-[250px]">
-    <p class="text-xs text-gray-400 italic py-4 text-center my-auto">Kies links een beschikbare dag.</p>
-</div>
+                    <div id="timeSlotsContainer" class="space-y-2 overflow-y-auto pr-1 flex-1 flex flex-col max-h-[250px]">
+                        <p class="text-xs text-gray-400 italic py-4 text-center my-auto">Kies links een beschikbare dag.</p>
+                    </div>
                 </div>
 
                 <div class="flex items-center space-x-2 text-[10px] text-gray-400 pt-3 border-t border-gray-100 mt-3 shrink-0">
@@ -304,98 +304,51 @@
     </div>
 
     <div id="clientDetailModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4" role="dialog" aria-modal="true">
-    <div onclick="closeClientDetailModal()" class="fixed inset-0 bg-gray-950/40 backdrop-blur-sm"></div>
-    <div class="relative bg-white rounded-2xl shadow-2xl sm:max-w-md w-full border border-gray-100 z-50 overflow-hidden transform transition-all">
-        
-        <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
-            <h3 id="client_modal_status" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border"></h3>
-            <button type="button" onclick="closeClientDetailModal()" class="text-gray-400 hover:text-gray-600 transition">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
-            </button>
-        </div>
-
-        <div class="p-6 space-y-4">
-            <div>
-                <h4 id="client_modal_title" class="text-base font-bold text-[#011936] font-maven"></h4>
-                <p id="client_modal_datetime" class="text-xs text-gray-400 font-semibold mt-1"></p>
+        <div onclick="closeClientDetailModal()" class="fixed inset-0 bg-gray-950/40 backdrop-blur-sm"></div>
+        <div class="relative bg-white rounded-2xl shadow-2xl sm:max-w-md w-full border border-gray-100 z-50 overflow-hidden transform transition-all">
+            
+            <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+                <h3 id="client_modal_status" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border"></h3>
+                <button type="button" onclick="closeClientDetailModal()" class="text-gray-400 hover:text-gray-600 transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
             </div>
 
-            <div class="border-t border-gray-100 pt-4 grid grid-cols-2 gap-4 text-xs">
+            <div class="p-6 space-y-4">
                 <div>
-                    <span class="block text-gray-400 font-bold uppercase tracking-wider text-[10px]">Project</span>
-                    <span id="client_modal_project" class="text-[#011936] font-semibold"></span>
+                    <h4 id="client_modal_title" class="text-base font-bold text-[#011936] font-maven"></h4>
+                    <p id="client_modal_datetime" class="text-xs text-gray-400 font-semibold mt-1"></p>
                 </div>
-                <div>
-                    <span class="block text-gray-400 font-bold uppercase tracking-wider text-[10px]">Type Gesprek</span>
-                    <span id="client_modal_type" class="text-gray-700 font-semibold capitalize"></span>
+
+                <div class="border-t border-gray-100 pt-4 grid grid-cols-2 gap-4 text-xs">
+                    <div>
+                        <span class="block text-gray-400 font-bold uppercase tracking-wider text-[10px]">Project</span>
+                        <span id="client_modal_project" class="text-[#011936] font-semibold"></span>
+                    </div>
+                    <div>
+                        <span class="block text-gray-400 font-bold uppercase tracking-wider text-[10px]">Type Gesprek</span>
+                        <span id="client_modal_type" class="text-gray-700 font-semibold capitalize"></span>
+                    </div>
+                </div>
+
+                <div class="border-t border-gray-100 pt-4">
+                    <span class="block text-gray-400 font-bold uppercase tracking-wider text-[10px] text-xs mb-2">Jouw GKR Contactpersonen</span>
+                    <div id="client_modal_attendees" class="flex flex-wrap gap-1.5"></div>
+                </div>
+
+                <div id="client_modal_desc_wrapper" class="border-t border-gray-100 pt-4 hidden">
+                    <span class="block text-gray-400 font-bold uppercase tracking-wider text-[10px] text-xs mb-1">Ingevulde opmerking</span>
+                    <p id="client_modal_description" class="text-xs text-gray-600 bg-gray-50 p-3 rounded-xl italic border border-gray-100"></p>
                 </div>
             </div>
 
-            <div class="border-t border-gray-100 pt-4">
-                <span class="block text-gray-400 font-bold uppercase tracking-wider text-[10px] text-xs mb-2">Jouw GKR Contactpersonen</span>
-                <div id="client_modal_attendees" class="flex flex-wrap gap-1.5"></div>
+            <div class="px-6 py-4 border-t border-gray-100 bg-gray-50/30 flex justify-end">
+                <button type="button" onclick="closeClientDetailModal()" class="px-4 py-2 bg-[#011936] text-white text-xs font-bold rounded-xl shadow-sm hover:bg-[#011936]/90 transition">Sluiten</button>
             </div>
-
-            <div id="client_modal_desc_wrapper" class="border-t border-gray-100 pt-4 hidden">
-                <span class="block text-gray-400 font-bold uppercase tracking-wider text-[10px] text-xs mb-1">Ingevulde opmerking</span>
-                <p id="client_modal_description" class="text-xs text-gray-600 bg-gray-50 p-3 rounded-xl italic border border-gray-100"></p>
-            </div>
-        </div>
-
-        <div class="px-6 py-4 border-t border-gray-100 bg-gray-50/30 flex justify-end">
-            <button type="button" onclick="closeClientDetailModal()" class="px-4 py-2 bg-[#011936] text-white text-xs font-bold rounded-xl shadow-sm hover:bg-[#011936]/90 transition">Sluiten</button>
         </div>
     </div>
-</div>
-
-<div id="clientDetailModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4" role="dialog" aria-modal="true">
-    <div onclick="closeClientDetailModal()" class="fixed inset-0 bg-gray-950/40 backdrop-blur-sm"></div>
-    <div class="relative bg-white rounded-2xl shadow-2xl sm:max-w-md w-full border border-gray-100 z-50 overflow-hidden transform transition-all">
-        
-        <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
-            <h3 id="client_modal_status" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border"></h3>
-            <button type="button" onclick="closeClientDetailModal()" class="text-gray-400 hover:text-gray-600 transition">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
-            </button>
-        </div>
-
-        <div class="p-6 space-y-4">
-            <div>
-                <h4 id="client_modal_title" class="text-base font-bold text-[#011936] font-maven"></h4>
-                <p id="client_modal_datetime" class="text-xs text-gray-400 font-semibold mt-1"></p>
-            </div>
-
-            <div class="border-t border-gray-100 pt-4 grid grid-cols-2 gap-4 text-xs">
-                <div>
-                    <span class="block text-gray-400 font-bold uppercase tracking-wider text-[10px]">Project</span>
-                    <span id="client_modal_project" class="text-[#011936] font-semibold"></span>
-                </div>
-                <div>
-                    <span class="block text-gray-400 font-bold uppercase tracking-wider text-[10px]">Type Gesprek</span>
-                    <span id="client_modal_type" class="text-gray-700 font-semibold capitalize"></span>
-                </div>
-            </div>
-
-            <div class="border-t border-gray-100 pt-4">
-                <span class="block text-gray-400 font-bold uppercase tracking-wider text-[10px] text-xs mb-2">Jouw GKR Contactpersonen</span>
-                <div id="client_modal_attendees" class="flex flex-wrap gap-1.5"></div>
-            </div>
-
-            <div id="client_modal_desc_wrapper" class="border-t border-gray-100 pt-4 hidden">
-                <span class="block text-gray-400 font-bold uppercase tracking-wider text-[10px] text-xs mb-1">Ingevulde opmerking</span>
-                <p id="client_modal_description" class="text-xs text-gray-600 bg-gray-50 p-3 rounded-xl italic border border-gray-100"></p>
-            </div>
-        </div>
-
-        <div class="px-6 py-4 border-t border-gray-100 bg-gray-50/30 flex justify-end">
-            <button type="button" onclick="closeClientDetailModal()" class="px-4 py-2 bg-[#011936] text-white text-xs font-bold rounded-xl shadow-sm hover:bg-[#011936]/90 transition">Sluiten</button>
-        </div>
-    </div>
-</div>
-
 
     <style>
-        /* Actieve GKR kaart selectie styling */
         label:has(input:checked) {
             border-color: #011936 !important;
             background-color: rgb(1 25 54 / 0.04) !important;
@@ -423,10 +376,8 @@
     </style>
 
     <script>
+        const dbAppointments = @json($appointments);
 
-    const dbAppointments = @json($appointments);
-
-        // --- MODAL CONTROLS ---
         function openAppointmentModal() {
             document.getElementById('appointmentModal').classList.remove('hidden');
             document.body.classList.add('overflow-hidden');
@@ -440,7 +391,7 @@
         function openDatePickerModal() {
             const picker = document.getElementById('datePickerModal');
             picker.classList.remove('hidden');
-            picker.classList.add('flex'); // Dwing flex-box centrering af bovenop het wazige scherm
+            picker.classList.add('flex'); 
             initCalendar();
         }
 
@@ -451,73 +402,73 @@
         }
 
         function openClientDetailModal(appointmentId) {
-    const app = dbAppointments.find(a => a.id === appointmentId);
-    if (!app) return;
+            const app = dbAppointments.find(a => a.id === appointmentId);
+            if (!app) return;
 
-    document.getElementById('client_modal_title').innerText = app.title;
-    
-    const dateObj = new Date(app.start_time);
-    const humanDate = dateObj.toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-    
-    const timeStart = app.start_time.includes('T') ? app.start_time.split('T')[1].substring(0, 5) : app.start_time.split(' ')[1].substring(0, 5);
-    const timeEnd = app.end_time ? (app.end_time.includes('T') ? app.end_time.split('T')[1].substring(0, 5) : app.end_time.split(' ')[1].substring(0, 5)) : '';
-    
-    document.getElementById('client_modal_datetime').innerText = `${humanDate} om ${timeStart} - ${timeEnd}`;
-    document.getElementById('client_modal_project').innerText = app.project ? app.project.name : 'Algemeen';
-    document.getElementById('client_modal_type').innerText = app.type || 'Online';
+            document.getElementById('client_modal_title').innerText = app.title;
+            
+            const dateObj = new Date(app.start_time);
+            const humanDate = dateObj.toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            
+            const timeStart = app.start_time.includes('T') ? app.start_time.split('T')[1].substring(0, 5) : app.start_time.split(' ')[1].substring(0, 5);
+            const timeEnd = app.end_time ? (app.end_time.includes('T') ? app.end_time.split('T')[1].substring(0, 5) : app.end_time.split(' ')[1].substring(0, 5)) : '';
+            
+            document.getElementById('client_modal_datetime').innerText = `${humanDate} om ${timeStart} - ${timeEnd}`;
+            document.getElementById('client_modal_project').innerText = app.project ? app.project.name : 'Algemeen';
+            document.getElementById('client_modal_type').innerText = app.type || 'Online';
 
-    const statusLabel = document.getElementById('client_modal_status');
-    statusLabel.innerText = app.status;
-    statusLabel.className = "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ";
-    if (app.status === 'Bevestigd') {
-        statusLabel.classList.add('bg-emerald-50', 'text-emerald-700', 'border-emerald-100');
-    } else if (app.status === 'In afwachting') {
-        statusLabel.classList.add('bg-amber-50', 'text-amber-700', 'border-amber-100');
-    } else {
-        statusLabel.classList.add('bg-gray-50', 'text-gray-700', 'border-gray-150');
-    }
+            const statusLabel = document.getElementById('client_modal_status');
+            statusLabel.innerText = app.status;
+            statusLabel.className = "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ";
+            if (app.status === 'Bevestigd') {
+                statusLabel.classList.add('bg-emerald-50', 'text-emerald-700', 'border-emerald-100');
+            } else if (app.status === 'In afwachting') {
+                statusLabel.classList.add('bg-amber-50', 'text-amber-700', 'border-amber-100');
+            } else {
+                statusLabel.classList.add('bg-gray-50', 'text-gray-700', 'border-gray-150');
+            }
 
-    const descWrapper = document.getElementById('client_modal_desc_wrapper');
-    if (app.description && app.description.trim() !== "") {
-        document.getElementById('client_modal_description').innerText = app.description;
-        descWrapper.classList.remove('hidden');
-    } else {
-        descWrapper.classList.add('hidden');
-    }
+            const descWrapper = document.getElementById('client_modal_desc_wrapper');
+            if (app.description && app.description.trim() !== "") {
+                document.getElementById('client_modal_description').innerText = app.description;
+                descWrapper.classList.remove('hidden');
+            } else {
+                descWrapper.classList.add('hidden');
+            }
 
-    const attendeesContainer = document.getElementById('client_modal_attendees');
-    attendeesContainer.innerHTML = "";
-    const activeAttendees = app.attendees || app.employees || [];
+            const attendeesContainer = document.getElementById('client_modal_attendees');
+            attendeesContainer.innerHTML = "";
+            const activeAttendees = app.attendees || app.employees || [];
 
-    if (activeAttendees.length > 0) {
-        activeAttendees.forEach(att => {
-            attendeesContainer.innerHTML += `
-                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200">
-                    <span class="w-1.5 h-1.5 bg-[#011936] rounded-full mr-1.5"></span>
-                    ${att.name}
-                </span>`;
-        });
-    } else {
-        attendeesContainer.innerHTML = `<span class="text-xs text-gray-400 italic">Nog geen medewerker toegewezen</span>`;
-    }
+            if (activeAttendees.length > 0) {
+                activeAttendees.forEach(att => {
+                    attendeesContainer.innerHTML += `
+                        <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200">
+                            <span class="w-1.5 h-1.5 bg-[#011936] rounded-full mr-1.5"></span>
+                            ${att.name}
+                        </span>`;
+                });
+            } else {
+                attendeesContainer.innerHTML = `<span class="text-xs text-gray-400 italic">Nog geen medewerker toegewezen</span>`;
+            }
 
-    const modal = document.getElementById('clientDetailModal');
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-}
+            const modal = document.getElementById('clientDetailModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
 
-function closeClientDetailModal() {
-    const modal = document.getElementById('clientDetailModal');
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
-}
+        function closeClientDetailModal() {
+            const modal = document.getElementById('clientDetailModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
 
         function updateCharCount(textarea) {
             document.getElementById('char-counter').innerText = textarea.value.length;
         }
 
         function resetDateTime(event) {
-            event.stopPropagation(); // Voorkom dat de modal openspringt bij resetten
+            event.stopPropagation(); 
             document.getElementById('hidden_date').value = "";
             document.getElementById('hidden_time_slot').value = "";
             document.getElementById('display_date_text').innerText = "Selecteer een datum...";
@@ -526,14 +477,12 @@ function closeClientDetailModal() {
             document.getElementById('display_time_text').classList.add('text-gray-400');
             selectedDateStr = "";
             
-            // Herstel de placeholder in de tijden-container
             const container = document.getElementById('timeSlotsContainer');
             container.classList.add('justify-center');
             container.innerHTML = `<p class="text-xs text-gray-400 italic py-4 text-center my-auto">Kies links een beschikbare dag.</p>`;
             document.getElementById('selectedDateHuman').innerText = "Selecteer een datum";
         }
 
-        // --- DYNAMISCHE KALENDER MOTOR ---
         let currentNavDate = new Date();
         let selectedDateStr = "";
 
@@ -552,7 +501,7 @@ function closeClientDetailModal() {
             
             document.getElementById('currentMonthYear').innerText = `${monthsNl[month]} ${year}`;
             
-            const firstDayIndex = (new Date(year, month, 1).getDay() + 6) % 7; // Maandag indexering
+            const firstDayIndex = (new Date(year, month, 1).getDay() + 6) % 7; 
             const lastDay = new Date(year, month + 1, 0).getDate();
             
             const daysContainer = document.getElementById('calendarDays');
@@ -606,13 +555,16 @@ function closeClientDetailModal() {
             fetchAvailableSlots(dateStr, formattedHuman);
         }
 
-        // 1. ONTKRENDEL / VERGRENDEL DE DATUMKNOP
+        // 1. ONTKRENDEL / VERGRENDEL DE DATUMKNOP OP BASIS VAN DROPDOWNS
 function checkClientEmployeeAvailability() {
-    const checkedBoxes = document.querySelectorAll('input[name="employees[]"]:checked');
+    // Haal alle geselecteerde opties op die een waarde hebben (dus niet de "-- Kies naam --" placeholder)
+    const selects = document.querySelectorAll('select[name="employees[]"]');
+    const selectedValues = Array.from(selects).map(s => s.value).filter(val => val !== "");
+
     const triggerBtn = document.getElementById('date_picker_trigger_button');
     const triggerIconText = triggerBtn.querySelector('.flex');
 
-    if (checkedBoxes.length > 0) {
+    if (selectedValues.length > 0) {
         // Activeer de knop visueel (Hanly style)
         triggerBtn.classList.remove('bg-gray-100', 'opacity-60', 'cursor-not-allowed');
         triggerBtn.classList.add('bg-gray-50/30', 'cursor-pointer', 'hover:bg-gray-50');
@@ -621,7 +573,6 @@ function checkClientEmployeeAvailability() {
         triggerBtn.querySelector('.rounded-full').classList.remove('bg-gray-300');
         triggerBtn.querySelector('.rounded-full').classList.add('bg-[#011936]');
         
-        // Koppel het klik-event om de kalender te openen
         triggerBtn.onclick = openDatePickerModal;
         
         // Als er al een datum geselecteerd stond, update direct de uren live
@@ -632,7 +583,7 @@ function checkClientEmployeeAvailability() {
             fetchAvailableSlots(currentHiddenDate, formattedHuman);
         }
     } else {
-        // Geen medewerker? Vergrendel de knop direct weer
+        // Geen medewerker geselecteerd? Vergrendel de knop direct weer
         triggerBtn.classList.add('bg-gray-100', 'opacity-60', 'cursor-not-allowed');
         triggerBtn.classList.remove('bg-gray-50/30', 'cursor-pointer', 'hover:bg-gray-50');
         triggerIconText.classList.add('text-gray-400');
@@ -645,16 +596,16 @@ function checkClientEmployeeAvailability() {
     }
 }
 
-// 2. HAAL DE TIJDSLOTS OP EN CHECK BESCHIKBAARHEID VIA DE NIEUWE ROUTE
+// 2. HAAL DE TIJDSLOTS OP EN CHECK GEKOZEN DROPDOWN WAARDEN
 function fetchAvailableSlots(dateStr, formattedHuman) {
     const container = document.getElementById('timeSlotsContainer');
     container.classList.remove('justify-center');
     container.innerHTML = "";
 
-    const checkedBoxes = document.querySelectorAll('input[name="employees[]"]:checked');
-    const selectedEmployeeIds = Array.from(checkedBoxes).map(cb => cb.value);
+    // Haal de gekozen ID's op uit de dropdowns
+    const selects = document.querySelectorAll('select[name="employees[]"]');
+    const selectedEmployeeIds = Array.from(selects).map(s => s.value).filter(val => val !== "");
 
-    // standardSlots moet al gedefinieerd zijn in je bestaande JS arrays
     standardSlots.forEach(slot => {
         const slotBtn = document.createElement('button');
         slotBtn.type = "button";
@@ -670,7 +621,6 @@ function fetchAvailableSlots(dateStr, formattedHuman) {
         let conflictFound = false;
         let checksCompleted = 0;
 
-        // Vraag voor elke geselecteerde medewerker de status op
         selectedEmployeeIds.forEach(empId => {
             fetch("{{ route('client.appointments.check') }}", {
                 method: "POST",
@@ -688,7 +638,6 @@ function fetchAvailableSlots(dateStr, formattedHuman) {
                     conflictFound = true;
                 }
 
-                // Zodra alle medewerkers voor dit slot zijn gecontroleerd, bepalen we de status
                 if (checksCompleted === selectedEmployeeIds.length) {
                     if (conflictFound) {
                         slotBtn.disabled = true;
@@ -725,7 +674,6 @@ function fetchAvailableSlots(dateStr, formattedHuman) {
     });
 }
 
-        // Automatisch heropenen bij validatiefouten vanuit Laravel
         @if ($errors->any())
             window.addEventListener('DOMContentLoaded', () => { 
                 openAppointmentModal(); 

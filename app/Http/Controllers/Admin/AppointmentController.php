@@ -18,8 +18,10 @@ class AppointmentController extends Controller
      */
 public function index()
 {
-    // FIX: Voeg 'attendees' toe aan de eager loading zodat JavaScript ALTIJD weet wie er gekoppeld is
-    $appointments = Appointment::with(['client', 'project', 'attendees'])->get();
+    // FIX: Filter geannuleerde afspraken eruit voor een rustige kalender
+    $appointments = Appointment::where('status', '!=', 'Geannuleerd')
+        ->with(['client', 'project', 'attendees'])
+        ->get();
 
     $clients = User::where('is_admin', false)->orderBy('name')->get();
     $projects = Project::with('user')->get();
@@ -50,42 +52,47 @@ public function store(Request $request)
         return !empty($slot['date']) && !empty($slot['time_slot']);
     })->values();
 
-    // Bepaal de flow: 1 slot = direct Bevestigd, meer dan 1 = Voorstel
-    $isProposal = $filledSlots->count() > 1;
-    $status = $isProposal ? 'Voorstel' : 'Bevestigd';
+    // Bepaal de flow: Status is NU ALTIJD een voorstel, de klant moet zelf bevestigen!
+    $status = 'Voorstel';
 
     // Formatteer de eerste (of enige) datum voor de hoofdtabel
     $times = explode(' - ', $filledSlots[0]['time_slot']);
     $startTime = \Carbon\Carbon::parse($filledSlots[0]['date'] . ' ' . $times[0]);
     $endTime = \Carbon\Carbon::parse($filledSlots[0]['date'] . ' ' . $times[1]);
 
-    // Sla de afspraak op
+    // Haal de klant ID op uit het request, of zoek de user_id op via het gekozen Project
+    $userId = $request->client_id ?? $request->user_id;
+
+    if (!$userId && $request->project_id) {
+        $project = \App\Models\Project::find($request->project_id);
+        $userId = $project ? $project->user_id : null; // Pakt automatisch de klant van het project
+    }
+
+    // Sla nu de afspraak op
     $appointment = Appointment::create([
         'project_id'  => $request->project_id,
-        'client_id'   => $request->client_id,
+        'user_id'     => $userId, // Dit kan nu nóóit meer null zijn!
         'title'       => $request->title,
         'type'        => $request->type,
         'description' => $request->description,
         'status'      => $status,
         'start_time'  => $startTime,
         'end_time'    => $endTime,
-    ]);
+]);
 
-    $appointment->attendees()->sync($request->employees);
+$appointment->attendees()->sync($request->employees);
 
-    // Als er meerdere momenten zijn gekozen, sla ze alle 3 op als opties voor de klant
-    if ($isProposal) {
-        foreach ($filledSlots as $slot) {
-            $slotTimes = explode(' - ', $slot['time_slot']);
-            \App\Models\AppointmentOption::create([
-                'appointment_id' => $appointment->id,
-                'start_time'     => \Carbon\Carbon::parse($slot['date'] . ' ' . $slotTimes[0]),
-                'end_time'       => \Carbon\Carbon::parse($slot['date'] . ' ' . $slotTimes[1]),
-            ]);
-        }
+    // Sla ELK ingevuld slot op in de opties-tabel, of het er nu 1, 2 of 3 zijn
+    foreach ($filledSlots as $slot) {
+        $slotTimes = explode(' - ', $slot['time_slot']);
+        \App\Models\AppointmentOption::create([
+            'appointment_id' => $appointment->id,
+            'start_time'     => \Carbon\Carbon::parse($slot['date'] . ' ' . $slotTimes[0]),
+            'end_time'       => \Carbon\Carbon::parse($slot['date'] . ' ' . $slotTimes[1]),
+        ]);
     }
 
-    return redirect()->back()->with('success', $isProposal ? 'Afspraakvoorstel succesvol verzonden naar de klant!' : 'Afspraak direct definitief ingepland!');
+    return redirect()->back()->with('success', 'Afspraakvoorstel succesvol verzonden naar de klant!');
 }
 
     /**

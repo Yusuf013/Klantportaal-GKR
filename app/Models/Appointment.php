@@ -52,4 +52,15 @@ class Appointment extends Model
     {
         return $this->belongsToMany(User::class, 'appointment_user', 'appointment_id', 'user_id');
     }
+
+    // Het model waar je net aan werkte: app/Models/Appointment.php
+
+    /**
+     * Een afspraak (voorstel) kan meerdere voorgestelde tijdslots (opties) hebben.
+     */
+    public function options(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(AppointmentOption::class, 'appointment_id');
+    }
+
 }

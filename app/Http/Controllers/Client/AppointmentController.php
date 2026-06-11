@@ -13,13 +13,14 @@ class AppointmentController extends Controller
     /**
      * Toon het afsprakenoverzicht en bereid de boekingsmodal voor.
      */
-   public function index()
+public function index()
 {
     $user = auth()->user();
 
-    // 1. Haal alle afspraken van deze specifieke klant op, inclusief het project én de gekoppelde medewerkers (attendees)
+    // 1. Haal alle actieve afspraken op (FIX: 'Geannuleerd' wordt nu direct uitgesloten voor de klant)
     $appointments = Appointment::where('user_id', $user->id)
-        ->with(['project', 'attendees']) // FIX: 'attendees' hier toegevoegd aan de array
+        ->where('status', '!=', 'Geannuleerd') // <--- VERBERG GEANNULEERDE AFSPRAKEN DIRECT
+        ->with(['project', 'attendees'])
         ->orderBy('start_time', 'asc')
         ->get();
 
@@ -29,8 +30,15 @@ class AppointmentController extends Controller
     // 3. Haal alle GKR Medewerkers (admins) op voor de medewerker-dropdowns
     $gkrEmployees = User::where('is_admin', true)->orderBy('name', 'asc')->get();
 
+    // 4. Haal het actieve voorstel op (met de 3 keuzemomenten/options)
+    $appointmentProposal = Appointment::where('user_id', $user->id)
+        ->where('status', 'Voorstel')
+        ->with(['project', 'attendees', 'options'])
+        ->latest()
+        ->first();
+
     // Stuur alles mee naar de view
-    return view('client.appointments.index', compact('appointments', 'myProjects', 'gkrEmployees'));
+    return view('client.appointments.index', compact('appointments', 'myProjects', 'gkrEmployees', 'appointmentProposal'));
 }
 
     /**
@@ -79,4 +87,39 @@ class AppointmentController extends Controller
 
     return redirect()->route('client.appointments.index')->with('success', 'Uw afspraakaanvraag is succesvol ingediend!');
 }
+
+
+public function confirmSlot(Request $request, Appointment $appointment)
+{
+    $request->validate([
+        'option_id' => 'required|exists:appointment_options,id'
+    ]);
+
+    // Haal de geselecteerde optie op
+    $selectedOption = \App\Models\AppointmentOption::where('appointment_id', $appointment->id)
+        ->where('id', $request->option_id)
+        ->first();
+
+    if (!$selectedOption) {
+        return response()->json(['status' => 'error', 'message' => 'Dit tijdslot is niet geldig voor deze afspraak.'], 422);
+    }
+
+    // 1. Update de hoofdafspraak met de definitieve tijden en status
+    $appointment->update([
+        'start_time' => $selectedOption->start_time,
+        'end_time'   => $selectedOption->end_time,
+        'status'     => 'Bevestigd' // De afspraak staat nu definitief in de agenda!
+    ]);
+
+    // 2. Verwijder de overige 3 opties uit de keuzetabel, want de keuze is gemaakt
+    $appointment->options()->delete();
+
+    // Geef een succesvol JSON antwoord terug aan de JavaScript fetch-engine
+    return response()->json([
+        'status' => 'success',
+        'message' => 'De afspraak is succesvol definitief ingepland!'
+    ]);
+}
+
+
 }

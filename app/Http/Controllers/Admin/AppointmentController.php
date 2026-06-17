@@ -16,19 +16,22 @@ class AppointmentController extends Controller
     /**
      * Toon het grote admin kalender dashboard
      */
-public function index()
-{
-    // FIX: Filter geannuleerde afspraken eruit voor een rustige kalender
-    $appointments = Appointment::where('status', '!=', 'Geannuleerd')
-        ->with(['client', 'project', 'attendees'])
-        ->get();
+/**
+     * Toon het grote admin kalender dashboard
+     */
+    public function index()
+    {
+        // FIX: Filter geannuleerde eruit én neem nu ook 'Alternatief gekozen' mee naast de rest!
+        $appointments = Appointment::where('status', '!=', 'Geannuleerd')
+            ->with(['client', 'project', 'attendees'])
+            ->get();
 
-    $clients = User::where('is_admin', false)->orderBy('name')->get();
-    $projects = Project::with('user')->get();
-    $gkrEmployees = User::where('is_admin', true)->orderBy('name')->get();
+        $clients = User::where('is_admin', false)->orderBy('name')->get();
+        $projects = Project::with('user')->get();
+        $gkrEmployees = User::where('is_admin', true)->orderBy('name')->get();
 
-    return view('admin.appointments.index', compact('appointments', 'clients', 'projects', 'gkrEmployees'));
-}
+        return view('admin.appointments.index', compact('appointments', 'clients', 'projects', 'gkrEmployees'));
+    }
 
     /**
      * Sla een handmatig geplande afspraak vanuit de admin op

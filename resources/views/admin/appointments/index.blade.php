@@ -28,6 +28,44 @@
             @endif
 
             @php
+                // Haal alle afspraken op waarbij de klant een alternatieve datum heeft gekozen
+                $alternativeAppointments = $appointments->where('status', 'Alternatief gekozen');
+            @endphp
+
+            @if($alternativeAppointments->count() > 0)
+                <div class="space-y-3">
+                    @foreach($alternativeAppointments as $altApp)
+                        <div class="p-4 bg-blue-50 border border-blue-150 rounded-2xl flex items-start justify-between shadow-sm animate-fade-in">
+                            <div class="flex items-start space-x-3">
+                                <div class="p-2 bg-blue-500 text-white rounded-xl mt-0.5 shrink-0 animate-pulse-slow">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h4 class="text-sm font-bold text-blue-900">Klant heeft een alternatief tijdstip gekozen</h4>
+                                    <p class="text-xs text-blue-700 font-medium mt-0.5">
+                                        <span class="font-bold">{{ $altApp->client->name ?? 'Onbekend' }}</span> kon niet op de voorgestelde momenten voor <span class="italic">"{{ $altApp->title }}"</span>.
+                                    </p>
+                                    <p class="text-[11px] text-blue-600 mt-1 font-semibold">
+                                        Nieuw gekozen moment: {{ \Carbon\Carbon::parse($altApp->start_time)->translatedFormat('l d F Y \o\m H:i') }} uur.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <form action="{{ route('admin.appointments.approve', $altApp->id) }}" method="POST" class="shrink-0 ml-4">
+                                @csrf
+                                @method('PATCH')
+                                <button type="submit" class="px-4 py-2 bg-[#011936] hover:bg-[#011936]/90 text-white text-xs font-bold rounded-xl transition shadow-sm whitespace-nowrap">
+                                    Gezien & Bevestigen
+                                </button>
+                            </form>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+
+            @php
                 $myPendingAppointments = $appointments->where('status', 'In afwachting')->filter(function($app) {
                     return $app->attendees && $app->attendees->contains(auth()->id());
                 });
@@ -477,10 +515,10 @@
                         });
 
                         appHtml += `
-                            <div onclick="openAdminDetailModal(${app.id})" class="text-[9px] p-1 rounded font-bold border truncate flex items-center justify-between cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all ${color}" title="Klik voor details: ${app.title}">
-                                <span class="truncate">${app.title}${timeDisplayStr}</span>
-                                <div class="flex shrink-0 ml-1">${attendeesBadges}</div>
-                            </div>`;
+    <div onclick="openAdminDetailModal(${app.id})" class="text-[9px] p-1 rounded font-bold border truncate flex items-center justify-between cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all ${color}" title="Klik voor details: ${app.title}">
+        <span class="truncate">${app.title}</span>
+        <div class="flex shrink-0 ml-1">${attendeesBadges}</div>
+    </div>`;
                     }
                 });
                 dayBox.innerHTML = dayHeader + appHtml + `</div>`;
@@ -889,5 +927,15 @@
     <style>
         .calendar-day-btn:disabled { color: #d1d5db; cursor: not-allowed; background: transparent !important; }
         .calendar-day-btn.active { background-color: #011936 !important; color: white !important; border-radius: 9999px; }
+
+/* Voeg deze animatie toe onder je .active klasse */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+}
+.animate-pulse-slow { animation: pulseSlow 3s infinite ease-in-out; }
+
     </style>
 </x-app-layout>

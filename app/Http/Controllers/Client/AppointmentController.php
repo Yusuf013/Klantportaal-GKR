@@ -108,7 +108,7 @@ public function confirmSlot(Request $request, Appointment $appointment)
     $appointment->update([
         'start_time' => $selectedOption->start_time,
         'end_time'   => $selectedOption->end_time,
-        'status'     => 'Bevestigd' // De afspraak staat nu definitief in de agenda!
+        'status'     => 'Alternatief gekozen' // De afspraak staat nu definitief in de agenda!
     ]);
 
     // 2. Verwijder de overige 3 opties uit de keuzetabel, want de keuze is gemaakt
@@ -120,6 +120,37 @@ public function confirmSlot(Request $request, Appointment $appointment)
         'message' => 'De afspraak is succesvol definitief ingepland!'
     ]);
 }
+
+
+/**
+     * Verwerk het alternatieve tijdstip ingediend door de klant.
+     */
+    public function suggestAlternative(Request $request, Appointment $appointment)
+    {
+        $request->validate([
+            'date'      => 'required|date|after_or_equal:today',
+            'time_slot' => 'required|string',
+        ]);
+
+        [$startHour, $endHour] = explode(' - ', $request->time_slot);
+        
+        $startTime = \Carbon\Carbon::parse($request->date . ' ' . $startHour);
+        $endTime   = \Carbon\Carbon::parse($request->date . ' ' . $endHour);
+
+        $appointment->update([
+            'start_time' => $startTime,
+            'end_time'   => $endTime,
+            'status'     => 'Alternatief gekozen'
+        ]);
+
+        $appointment->options()->delete();
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Uw alternatieve tijdstip is succesvol ingediend bij GKR!'
+        ]);
+    }
+
 
 
 }

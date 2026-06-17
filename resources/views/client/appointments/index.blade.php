@@ -80,9 +80,11 @@
                     </div>
 
                     <div class="flex items-center space-x-6">
-                        <a href="mailto:support@gkr.nl?subject=Voorstel tijdstippen schikken niet" class="text-xs font-bold text-gray-600 underline hover:text-[#011936] transition">
+                        @if(isset($appointmentProposal))
+                        <button type="button" onclick="openAlternativeDatePicker({{ $appointmentProposal->id }}, {{ json_encode($appointmentProposal->attendees->pluck('id')) }}, '{{ $appointmentProposal->attendees->pluck('name')->join(' en ') }}')" class="text-xs font-bold text-gray-650 underline hover:text-[#011936] transition cursor-pointer">
                             Past geen van de tijden?
-                        </a>
+                        </button>
+                        @endif
                         
                         <button type="button" id="confirm-proposal-btn" disabled onclick="submitSelectedSlot()" class="px-5 py-2.5 bg-slate-400 text-white text-xs font-bold rounded-xl transition cursor-not-allowed shadow-sm">
                             Bevestigen
@@ -898,6 +900,216 @@
             openAppointmentModal(); 
         });
     @endif
+
+
+
+    // --- LOGICA VOOR HET INDIENEN VAN EEN ALTERNATIEF VOORSTEL ---
+let altCalendarNavDate = new Date();
+let altSelectedDateStr = "";
+let altSelectedSlotStr = "";
+
+let altProposalConfig = {
+    appointmentId: null,
+    employeeIds: [],
+    employeeNames: ""
+};
+
+function openAlternativeDatePicker(appointmentId, employeeIds, employeeNames) {
+    altProposalConfig.appointmentId = appointmentId;
+    altProposalConfig.employeeIds = employeeIds;
+    altProposalConfig.employeeNames = employeeNames;
+
+    // Reset selecties
+    altSelectedDateStr = "";
+    altSelectedSlotStr = "";
+    
+    const submitBtn = document.getElementById('submitAltSlotBtn');
+    submitBtn.disabled = true;
+    submitBtn.className = "w-full py-2.5 bg-gray-300 text-gray-500 text-xs font-bold rounded-xl transition cursor-not-allowed text-center shadow-sm";
+
+    // Update legenda tekst onder de kalender
+    document.getElementById('altAttendeeLegendText').innerText = `Beschikbare dagen van ${employeeNames}`;
+
+    document.getElementById('alternativeDatePickerModal').classList.remove('hidden');
+    document.getElementById('alternativeDatePickerModal').classList.add('flex');
+    
+    initAltCalendar();
+}
+
+function closeAlternativeDatePickerModal() {
+    document.getElementById('alternativeDatePickerModal').classList.add('hidden');
+    document.getElementById('alternativeDatePickerModal').classList.remove('flex');
+}
+
+function initAltCalendar() {
+    renderAltCalendar();
+    document.getElementById('altPrevMonth').onclick = () => { altCalendarNavDate.setMonth(altCalendarNavDate.getMonth() - 1); renderAltCalendar(); };
+    document.getElementById('altNextMonth').onclick = () => { altCalendarNavDate.setMonth(altCalendarNavDate.getMonth() + 1); renderAltCalendar(); };
+}
+
+function renderAltCalendar() {
+    const year = altCalendarNavDate.getFullYear();
+    const month = altCalendarNavDate.getMonth();
+    
+    document.getElementById('altCurrentMonthYear').innerText = `${monthsNl[month]} ${year}`;
+    
+    const firstDayIndex = (new Date(year, month, 1).getDay() + 6) % 7; 
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    
+    const daysContainer = document.getElementById('altCalendarDays');
+    daysContainer.innerHTML = "";
+
+    for (let i = 0; i < firstDayIndex; i++) {
+        daysContainer.innerHTML += `<div></div>`;
+    }
+
+    const today = new Date();
+    today.setHours(0,0,0,0);
+
+    for (let day = 1; day <= lastDay; day++) {
+        const checkDate = new Date(year, month, day);
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const isPast = checkDate < today;
+        const isWeekend = checkDate.getDay() === 0 || checkDate.getDay() === 6;
+        
+        const dayBtn = document.createElement('button');
+        dayBtn.type = "button";
+        dayBtn.innerText = day;
+        dayBtn.className = "calendar-day-btn py-1.5 w-full text-center hover:bg-gray-100 rounded-full transition relative flex items-center justify-center font-bold text-gray-700";
+        
+        if (isPast || isWeekend) {
+            dayBtn.disabled = true;
+        } else {
+            dayBtn.innerHTML = `${day}<span class="absolute bottom-0.5 w-1 h-1 bg-[#011936] rounded-full"></span>`;
+            
+            if (dateStr === altSelectedDateStr) {
+                dayBtn.classList.add('active');
+            }
+            
+            dayBtn.onclick = () => {
+                document.querySelectorAll('#altCalendarDays .calendar-day-btn').forEach(b => b.classList.remove('active'));
+                dayBtn.classList.add('active');
+                
+                altSelectedDateStr = dateStr;
+                const options = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+                const formattedHuman = checkDate.toLocaleDateString('nl-NL', options);
+                document.getElementById('altSelectedDateHuman').innerText = formattedHuman;
+                
+                fetchAltAvailableSlots(dateStr, formattedHuman);
+            };
+        }
+        daysContainer.appendChild(dayBtn);
+    }
+}
+
+function fetchAltAvailableSlots(dateStr, formattedHuman) {
+    const container = document.getElementById('altTimeSlotsContainer');
+    container.innerHTML = "";
+
+    standardSlots.forEach(slot => {
+        const slotBtn = document.createElement('button');
+        slotBtn.type = "button";
+        slotBtn.innerText = slot;
+        slotBtn.className = "time-slot-btn w-full text-left p-3 border border-gray-200 rounded-xl text-xs font-bold text-[#011936] hover:bg-gray-50 transition bg-white flex items-center justify-between shadow-sm";
+        
+        const statusSpan = document.createElement('span');
+        statusSpan.className = "text-[10px] uppercase font-bold text-gray-400 tracking-wider";
+        statusSpan.innerText = "Checken...";
+        slotBtn.appendChild(statusSpan);
+        container.appendChild(slotBtn);
+
+        let conflictFound = false;
+        let checksCompleted = 0;
+
+        altProposalConfig.employeeIds.forEach(empId => {
+            fetch("{{ route('client.appointments.check') }}", {
+                method: "POST",
+                headers: { 
+                    "Content-Type": "application/json", 
+                    "Accept": "application/json",
+                    "X-CSRF-TOKEN": document.querySelector('input[name="_token"]').value
+                },
+                body: JSON.stringify({ employee_id: empId, date: dateStr, time_slot: slot })
+            })
+            .then(res => res.json())
+            .then(data => {
+                checksCompleted++;
+                if (data.status === 'conflict') {
+                    conflictFound = true;
+                }
+
+                if (checksCompleted === altProposalConfig.employeeIds.length) {
+                    if (conflictFound) {
+                        slotBtn.disabled = true;
+                        slotBtn.className = "w-full text-left p-3 border border-gray-100 bg-gray-50 text-gray-300 rounded-xl text-xs font-semibold flex items-center justify-between cursor-not-allowed opacity-60";
+                        statusSpan.className = "text-[10px] text-red-500 font-bold tracking-wider";
+                        statusSpan.innerText = "BEZET";
+                    } else {
+                        statusSpan.className = "text-[10px] text-emerald-600 font-bold tracking-wider";
+                        statusSpan.innerText = "VRIJ";
+                        
+                        if (slot === altSelectedSlotStr) {
+                            slotBtn.classList.add('active');
+                        }
+
+                        slotBtn.onclick = () => {
+                            document.querySelectorAll('#altTimeSlotsContainer .time-slot-btn').forEach(b => b.classList.remove('active'));
+                            slotBtn.classList.add('active');
+                            altSelectedSlotStr = slot;
+                            
+                            // Activeer de hoofdknop onderin de modal
+                            const submitBtn = document.getElementById('submitAltSlotBtn');
+                            submitBtn.disabled = false;
+                            submitBtn.className = "w-full py-2.5 bg-[#011936] hover:bg-[#011936]/90 text-white text-xs font-bold rounded-xl transition shadow-sm cursor-pointer transform active:scale-95 text-center";
+                        };
+                    }
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                checksCompleted++;
+            });
+        });
+    });
+}
+
+function executeAlternativeSlotSubmit() {
+    if (!altSelectedDateStr || !altSelectedSlotStr) return;
+
+    const submitBtn = document.getElementById('submitAltSlotBtn');
+    submitBtn.disabled = true;
+    submitBtn.innerText = "Verzenden...";
+
+    // We schieten een POST-request naar een nieuwe endpoint om het alternatief op te slaan
+    fetch(`/appointments/${altProposalConfig.appointmentId}/suggest-alternative`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+            "Accept": "application/json"
+        },
+        body: JSON.stringify({ 
+            date: altSelectedDateStr, 
+            time_slot: altSelectedSlotStr 
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success') {
+            closeAlternativeDatePickerModal();
+            window.location.reload();
+        } else {
+            alert(data.message || "Er is iets misgegaan.");
+            submitBtn.disabled = false;
+            submitBtn.innerText = "Voorstel indienen";
+        }
+    })
+    .catch(err => {
+        console.error("Error submitting alternative slot:", err);
+        submitBtn.disabled = false;
+        submitBtn.innerText = "Voorstel indienen";
+    });
+}
 </script>
 
 
@@ -934,6 +1146,73 @@
                 <span id="btnText">Afspraak vastleggen</span>
             </button>
         </div>
+    </div>
+</div>
+
+<div id="alternativeDatePickerModal" class="fixed inset-0 z-50 hidden overflow-y-auto flex items-center justify-center p-4" role="dialog" aria-modal="true">
+    <div onclick="closeAlternativeDatePickerModal()" class="fixed inset-0 transition-opacity bg-gray-950/20 backdrop-blur-[2px]" aria-hidden="true"></div>
+
+    <div class="relative inline-block overflow-hidden text-left align-bottom transition-all transform bg-white rounded-2xl shadow-2xl sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full border border-gray-100 grid grid-cols-1 md:grid-cols-12 z-50 h-[450px]">
+        
+        <div class="p-6 md:col-span-7 border-r border-gray-100 bg-white h-full flex flex-col justify-between">
+            <div>
+                <div class="text-center mb-4">
+                    <h3 class="text-base font-bold text-[#011936] font-maven">Geen van de tijden past?</h3>
+                    <p class="text-[11px] text-gray-400 mt-0.5">Kies hieronder een datum en tijdstip dat jou beter uitkomt.</p>
+                </div>
+
+                <div class="flex items-center justify-between mb-4">
+                    <span id="altCurrentMonthYear" class="text-sm font-bold text-[#011936] capitalize"></span>
+                    <div class="flex space-x-2 text-gray-400">
+                        <button type="button" id="altPrevMonth" class="hover:text-[#011936] transition p-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"></path></svg>
+                        </button>
+                        <button type="button" id="altNextMonth" class="hover:text-[#011936] transition p-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"></path></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
+                    <div>Ma</div><div>Di</div><div>Wo</div><div>Do</div><div>Vr</div><div>Za</div><div>Zo</div>
+                </div>
+
+                <div id="altCalendarDays" class="grid grid-cols-7 gap-1.5 text-center text-xs font-semibold text-gray-700"></div>
+            </div>
+
+            <div class="flex items-center justify-between pt-2 border-t border-gray-100">
+                <div class="flex items-center space-x-2 text-[10px] text-gray-500">
+                    <span class="w-1.5 h-1.5 bg-[#011936] rounded-full"></span>
+                    <span id="altAttendeeLegendText">Beschikbare dagen</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-6 md:col-span-5 bg-gray-50/40 h-full flex flex-col justify-between">
+            <div class="flex flex-col h-full overflow-hidden">
+                <div class="flex items-center justify-between mb-1 shrink-0">
+                    <h4 class="text-sm font-bold text-[#011936]">Beschikbare tijden</h4>
+                    <button type="button" onclick="closeAlternativeDatePickerModal()" class="text-gray-400 hover:text-gray-600 transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <p id="altSelectedDateHuman" class="text-[11px] text-gray-400 font-medium mb-4 shrink-0">Selecteer een datum</p>
+
+                <div id="altTimeSlotsContainer" class="space-y-2 overflow-y-auto pr-1 flex-1 flex flex-col max-h-[220px]">
+                    <p class="text-xs text-gray-400 italic py-4 text-center my-auto">Kies links een beschikbare dag.</p>
+                </div>
+            </div>
+
+            <div class="pt-3 border-t border-gray-100 space-y-2 shrink-0">
+                <button type="button" id="submitAltSlotBtn" disabled onclick="executeAlternativeSlotSubmit()" class="w-full py-2.5 bg-gray-300 text-gray-500 text-xs font-bold rounded-xl transition cursor-not-allowed text-center shadow-sm">
+                    Voorstel indienen
+                </button>
+                <button type="button" onclick="closeAlternativeDatePickerModal()" class="w-full py-2 text-center text-xs font-bold text-gray-400 hover:text-gray-600 transition">
+                    Annuleren
+                </button>
+            </div>
+        </div>
+
     </div>
 </div>
 

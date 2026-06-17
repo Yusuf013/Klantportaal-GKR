@@ -71,6 +71,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::post('/appointments/{appointment}/confirm-slot', [App\Http\Controllers\Client\AppointmentController::class, 'confirmSlot'])->name('client.appointments.confirmSlot');
 
+    Route::post('/appointments/{appointment}/suggest-alternative', [App\Http\Controllers\Client\AppointmentController::class, 'suggestAlternative'])
+    ->name('client.appointments.suggest-alternative');
 });
 
 

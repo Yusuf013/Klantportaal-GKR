@@ -9,6 +9,8 @@ use App\Models\Project;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use App\Models\AppointmentOption;
+use App\Mail\AppointmentConfirmed;
+use Illuminate\Support\Facades\Mail;
 
 
 class AppointmentController extends Controller
@@ -101,12 +103,30 @@ $appointment->attendees()->sync($request->employees);
     /**
      * Admin keurt een afspraak goed
      */
-    public function approve(Appointment $appointment)
-    {
-        $appointment->update(['status' => 'Bevestigd']);
+   public function approve(Appointment $appointment)
+{
+    // 1. Update de status naar Bevestigd
+    $appointment->update(['status' => 'Bevestigd']);
 
-        return redirect()->back()->with('success', 'Afspraak is succesvol bevestigd!');
+    // 2. Laad de relaties in om de e-mailadressen op te halen
+    $appointment->load(['client', 'attendees']);
+
+    // 3. Stuur de mail naar de klant (als de klant een geldig e-mailadres heeft)
+    if ($appointment->client && $appointment->client->email) {
+        Mail::to($appointment->client->email)->send(new AppointmentConfirmed($appointment));
     }
+
+    // 4. Stuur de mail naar alle gekoppelde medewerkers (GKR Employees)
+    if ($appointment->attendees && $appointment->attendees->count() > 0) {
+        foreach ($appointment->attendees as $employee) {
+            if ($employee->email) {
+                Mail::to($employee->email)->send(new AppointmentConfirmed($appointment));
+            }
+        }
+    }
+
+    return redirect()->back()->with('success', 'Afspraak is succesvol bevestigd en de bevestigingsmails zijn verzonden!');
+}
 
     /**
      * Admin wijst een afspraak af / verwijdert deze

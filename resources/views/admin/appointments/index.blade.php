@@ -56,13 +56,19 @@
                                 </div>
                             </div>
 
-                            <form action="{{ route('admin.appointments.approve', $altApp->id) }}" method="POST" class="shrink-0 ml-4">
-                                @csrf
-                                @method('PATCH')
-                                <button type="submit" class="px-4 py-2 bg-[#011936] hover:bg-[#011936]/90 text-white text-xs font-bold rounded-xl transition shadow-sm whitespace-nowrap">
-                                    Gezien & Bevestigen
-                                </button>
-                            </form>
+                            <div class="flex items-center space-x-2 shrink-0 ml-4 my-auto">
+    <form action="{{ route('admin.appointments.approve', $altApp->id) }}" method="POST" class="m-0">
+        @csrf
+        @method('PATCH')
+        <button type="submit" class="px-4 py-2 bg-[#011936] hover:bg-[#011936]/90 text-white text-xs font-bold rounded-xl transition shadow-sm whitespace-nowrap">
+            Gezien & Bevestigen
+        </button>
+    </form>
+
+    <button type="button" onclick="openCustomRejectModal({{ $altApp->id }})" class="px-4 py-2 border border-gray-200 text-gray-500 hover:text-red-600 text-xs font-bold rounded-xl hover:bg-red-50 transition shadow-sm whitespace-nowrap">
+        Voorstel Weigeren
+    </button>
+</div>
                         </div>
                     @endforeach
                 </div>
@@ -481,6 +487,48 @@
             </div>
         </div>
     </div>
+
+    <div id="customRejectModal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-4 text-center sm:block sm:p-0">
+        <div onclick="closeCustomRejectModal()" class="fixed inset-0 transition-opacity bg-gray-950/40 backdrop-blur-sm" aria-hidden="true"></div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+        <div class="inline-block overflow-hidden text-left align-bottom transition-all transform bg-white rounded-2xl shadow-xl sm:my-8 sm:align-middle sm:max-w-md sm:w-full border border-gray-100 animate-fade-in">
+            <div class="p-6">
+                <div class="flex items-start space-x-4">
+                    <div class="flex items-center justify-center p-3 bg-red-50 text-red-600 rounded-2xl shrink-0">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-[#011936] font-maven">Voorstel definitief weigeren?</h3>
+                        <p class="text-xs text-gray-500 font-medium mt-2 leading-relaxed">
+                            Weet je zeker dat je dit alternatieve tijdstip wilt weigeren? De gehele afspraak komt hiermee te vervallen en wordt definitief geannuleerd.
+                        </p>
+                        <p class="text-[11px] text-gray-400 italic mt-1">
+                            De klant ontvangt hier geen aparte notificatie van.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="mt-6 flex items-center justify-end space-x-3">
+                    <button type="button" onclick="closeCustomRejectModal()" class="px-4 py-2 border border-gray-200 hover:bg-gray-50 text-gray-500 text-xs font-bold rounded-xl transition">
+                        Annuleren
+                    </button>
+                    
+                    <form id="customRejectForm" method="POST" action="">
+                        @csrf
+                        @method('PATCH')
+                        <button type="submit" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl transition shadow-sm">
+                            Ja, weiger en annuleer
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
     <script>
         const dbAppointments = @json($appointments);
@@ -968,6 +1016,24 @@
             modal.classList.add('hidden');
             modal.classList.remove('flex');
         }
+
+        function openCustomRejectModal(appointmentId) {
+    const modal = document.getElementById('customRejectModal');
+    const form = document.getElementById('customRejectForm');
+    
+    // Bouw dynamisch de juiste Laravel URL op voor dit specifieke ID
+    form.action = `/admin/appointments/${appointmentId}/reject`;
+    
+    // Toon de modal
+    modal.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+}
+
+function closeCustomRejectModal() {
+    const modal = document.getElementById('customRejectModal');
+    modal.classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
+}
     </script>
 
     <style>

@@ -230,26 +230,33 @@
                                 </div>
                             </div>
 
-                            <div>
-                                <label class="block text-xs font-bold text-[#011936] uppercase tracking-wider mb-2">Afspraaktype *</label>
-                                <div class="grid grid-cols-3 gap-3">
-                                    <label class="flex flex-col items-center justify-center p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50/50 transition bg-white text-center shadow-sm group">
-                                        <input type="radio" name="type" value="telefoon" required class="sr-only">
-                                        <svg class="w-5 h-5 text-gray-500 mb-1 group-hover:text-[#011936]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.94.725l.548 2.2a1 1 0 01-.321.988l-1.305.98a10.582 10.582 0 004.872 4.872l.98-1.305a1 1 0 01.988-.321l2.2.548a1 1 0 01.725.94V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
-                                        <span class="text-[11px] font-bold text-gray-700">Telefoon</span>
-                                    </label>
-                                    <label class="flex flex-col items-center justify-center p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50/50 transition bg-white text-center shadow-sm group">
-                                        <input type="radio" name="type" value="online" checked class="sr-only">
-                                        <svg class="w-5 h-5 text-gray-500 mb-1 group-hover:text-[#011936]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-                                        <span class="text-[11px] font-bold text-gray-700">Online</span>
-                                    </label>
-                                    <label class="flex flex-col items-center justify-center p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50/50 transition bg-white text-center shadow-sm group">
-                                        <input type="radio" name="type" value="fysiek" class="sr-only">
-                                        <svg class="w-5 h-5 text-gray-500 mb-1 group-hover:text-[#011936]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
-                                        <span class="text-[11px] font-bold text-gray-700">Fysiek</span>
-                                    </label>
-                                </div>
-                            </div>
+                      <div>
+    <label class="block text-xs font-bold text-[#011936] uppercase tracking-wider mb-2">Afspraaktype *</label>
+    <div class="grid grid-cols-3 gap-3">
+        
+        <label class="relative flex flex-col items-center justify-center p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50/50 hover:border-[#011936]/30 transition bg-white text-center shadow-sm group">
+            <input type="radio" name="type" value="telefoon" required class="sr-only peer">
+            <div class="absolute inset-0 rounded-xl border-2 border-transparent peer-checked:border-[#011936] peer-checked:bg-slate-50/20 pointer-events-none transition-all duration-150"></div>
+            <svg class="w-5 h-5 text-gray-500 mb-1 group-hover:text-[#011936] peer-checked:text-[#011936] relative z-10 transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.94.725l.548 2.2a1 1 0 01-.321.988l-1.305.98a10.582 10.582 0 004.872 4.872l.98-1.305a1 1 0 01.988-.321l2.2.548a1 1 0 01.725.94V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
+            <span class="text-[11px] font-bold text-gray-700 peer-checked:text-[#011936] relative z-10 transition-colors">Telefoon</span>
+        </label>
+
+        <label class="relative flex flex-col items-center justify-center p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50/50 hover:border-[#011936]/30 transition bg-white text-center shadow-sm group">
+            <input type="radio" name="type" value="online" checked class="sr-only peer">
+            <div class="absolute inset-0 rounded-xl border-2 border-transparent peer-checked:border-[#011936] peer-checked:bg-slate-50/20 pointer-events-none transition-all duration-150"></div>
+            <svg class="w-5 h-5 text-gray-500 mb-1 group-hover:text-[#011936] peer-checked:text-[#011936] relative z-10 transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+            <span class="text-[11px] font-bold text-gray-700 peer-checked:text-[#011936] relative z-10 transition-colors">Online</span>
+        </label>
+
+        <label class="relative flex flex-col items-center justify-center p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50/50 hover:border-[#011936]/30 transition bg-white text-center shadow-sm group">
+            <input type="radio" name="type" value="fysiek" class="sr-only peer">
+            <div class="absolute inset-0 rounded-xl border-2 border-transparent peer-checked:border-[#011936] peer-checked:bg-slate-50/20 pointer-events-none transition-all duration-150"></div>
+            <svg class="w-5 h-5 text-gray-500 mb-1 group-hover:text-[#011936] peer-checked:text-[#011936] relative z-10 transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+            <span class="text-[11px] font-bold text-gray-700 peer-checked:text-[#011936] relative z-10 transition-colors">Fysiek</span>
+        </label>
+
+    </div>
+</div>
 
                             <div>
                                 <label for="title" class="block text-xs font-bold text-[#011936] uppercase tracking-wider mb-1.5">Onderwerp *</label>

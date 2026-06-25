@@ -28,9 +28,12 @@
             @endif
 
             @php
-                // Haal alle afspraken op waarbij de klant een alternatieve datum heeft gekozen
-                $alternativeAppointments = $appointments->where('status', 'Alternatief gekozen');
-            @endphp
+    // 1. Filteren op afspraken waar de klant zelf een datum koos (Blauw)
+    $alternativeAppointments = $appointments->where('status', 'Alternatief gekozen');
+
+    // 2. Filteren op afspraken waar de klant koos uit jouw 3 voorstellen (Nieuw -> Groen)
+    $confirmedByClientAppointments = $appointments->where('status', 'Bevestigd door klant');
+@endphp
 
             @if($alternativeAppointments->count() > 0)
                 <div class="space-y-3">
@@ -64,6 +67,21 @@
                     @endforeach
                 </div>
             @endif
+
+            @if($confirmedByClientAppointments->count() > 0)
+    <div class="space-y-3 mt-4">
+        @foreach($confirmedByClientAppointments as $confApp)
+            <div class="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-start justify-between shadow-sm animate-fade-in">
+                <form action="{{ route('admin.appointments.approve', $confApp->id) }}" method="POST" class="shrink-0 ml-4">
+                    @csrf @method('PATCH')
+                    <button type="submit" class="px-4 py-2 bg-[#011936] hover:bg-[#011936]/90 text-white text-xs font-bold rounded-xl transition shadow-sm whitespace-nowrap">
+                        Gezien & Sluiten
+                    </button>
+                </form>
+            </div>
+        @endforeach
+    </div>
+@endif
 
             @php
                 $myPendingAppointments = $appointments->where('status', 'In afwachting')->filter(function($app) {
@@ -500,7 +518,7 @@
                         }
 
                         let color = "bg-gray-150 text-gray-700";
-                        if (app.status === 'Bevestigd') {
+                        if (app.status === 'Bevestigd' || app.status === 'Bevestigd door klant'){
                             color = isAttendee ? "bg-[#011936] text-white border-[#011936]" : "bg-slate-200 text-slate-700 border-slate-300 opacity-60";
                         }
                         if (app.status === 'In afwachting' || app.status === 'Voorstel') {
@@ -880,7 +898,7 @@
             const statusLabel = document.getElementById('modal_detail_status');
             statusLabel.innerText = app.status;
             statusLabel.className = "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ";
-            if (app.status === 'Bevestigd') {
+           if (app.status === 'Bevestigd' || app.status === 'Bevestigd door klant') {
                 statusLabel.classList.add('bg-emerald-50', 'text-emerald-700', 'border-emerald-100');
             } else if (app.status === 'Voorstel') {
                 statusLabel.classList.add('bg-orange-50', 'text-orange-700', 'border-orange-100');

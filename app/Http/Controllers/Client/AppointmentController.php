@@ -104,11 +104,11 @@ public function confirmSlot(Request $request, Appointment $appointment)
         return response()->json(['status' => 'error', 'message' => 'Dit tijdslot is niet geldig voor deze afspraak.'], 422);
     }
 
-    // 1. Update de hoofdafspraak met de definitieve tijden en status
+    // 1. Update de hoofdafspraak met de definitieve tijden en de NIEUWE status
     $appointment->update([
         'start_time' => $selectedOption->start_time,
         'end_time'   => $selectedOption->end_time,
-        'status'     => 'Alternatief gekozen' // De afspraak staat nu definitief in de agenda!
+        'status'     => 'Bevestigd door klant' // <--- AANGEPAST: Dit triggert straks de groene banner bij de admin!
     ]);
 
     // 2. Verwijder de overige 3 opties uit de keuzetabel, want de keuze is gemaakt

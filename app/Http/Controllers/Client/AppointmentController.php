@@ -152,5 +152,54 @@ public function confirmSlot(Request $request, Appointment $appointment)
     }
 
 
+    /**
+ * Genereer en download een .ics bestand voor Apple/Outlook Agenda.
+ */
+public function downloadIcs(Appointment $appointment)
+{
+    // 1. Formatteer de tijden naar het iCalendar-formaat (YYYYMMDDTHMMSSZ)
+    $startTime = Carbon::parse($appointment->start_time)->format('Ymd\THms\Z');
+    $endTime = Carbon::parse($appointment->end_time)->format('Ymd\THms\Z');
+
+    // 2. Maak de teksten veilig voor het bestand (escapen van komma's en enters)
+    $title = $this->sanitizeIcsText($appointment->title);
+    $description = $this->sanitizeIcsText($appointment->description ?? 'Gesprek via GKR Klantportaal');
+    $location = $this->sanitizeIcsText($appointment->type ?? 'Online / GKR Portaal');
+
+    // 3. Bouw de universele iCalendar-bestandsstructuur op
+    $icsContent = "BEGIN:VCALENDAR\n" .
+                  "VERSION:2.0\n" .
+                  "PRODID:-//GKR Klantportaal//NONSGML v1.0//NL\n" .
+                  "CALSCALE:GREGORIAN\n" .
+                  "BEGIN:VEVENT\n" .
+                  "UID:" . uniqid() . "@gkr-klantportaal.nl\n" .
+                  "DTSTAMP:" . Carbon::now()->format('Ymd\THms\Z') . "\n" .
+                  "DTSTART:" . $startTime . "\n" .
+                  "DTEND:" . $endTime . "\n" .
+                  "SUMMARY:" . $title . "\n" .
+                  "DESCRIPTION:" . $description . "\n" .
+                  "LOCATION:" . $location . "\n" .
+                  "END:VEVENT\n" .
+                  "END:VCALENDAR";
+
+    // 4. Stuur het bestand terug als een actieve download
+    return response($icsContent)
+        ->header('Content-Type', 'text/calendar; charset=utf-8')
+        ->header('Content-Disposition', 'attachment; filename="gkr-afspraak-' . $appointment->id . '.ics"');
+}
+
+/**
+ * Hulpfunctie om speciale tekens te filteren volgens de iCalendar-richtlijnen.
+ */
+private function sanitizeIcsText($text)
+{
+    $text = str_replace('\\', '\\\\', $text);
+    $text = str_replace(';', '\;', $text);
+    $text = str_replace(',', '\,', $text);
+    $text = str_replace("\n", '\\n', $text);
+    $text = str_replace("\r", '', $text);
+    return $text;
+}
+
 
 }

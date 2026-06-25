@@ -45,6 +45,18 @@
                 </td>
             </tr>
         </table>
+
+        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px dashed #e2e8f0;">
+            <p style="margin: 0 0 12px 0; font-size: 13px; color: #6b7280; font-weight: 600;">Afspraak toevoegen aan je agenda:</p>
+            
+            <a href="{{ route('appointments.ics', $appointment->id) }}" style="background-color: #ffffff; color: #011936; text-decoration: none; padding: 8px 16px; font-size: 13px; font-weight: 700; border-radius: 10px; display: inline-block; margin-right: 8px; border: 1px solid #cbd5e1; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);">
+                 Apple / Outlook App
+            </a>
+            
+            <a href="https://outlook.live.com/calendar/0/deeplink/compose?path=/calendar/action/compose&subject={{ urlencode($appointment->title) }}&startdt={{ urlencode($appointment->start_time) }}&enddt={{ urlencode($appointment->end_time) }}&body={{ urlencode($appointment->description ?? 'Gesprek via GKR Klantportaal') }}" target="_blank" style="background-color: #ffffff; color: #011936; text-decoration: none; padding: 8px 16px; font-size: 13px; font-weight: 700; border-radius: 10px; display: inline-block; border: 1px solid #cbd5e1; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);">
+                ✉ Outlook Web
+            </a>
+        </div>
     </div>
 
     <p style="font-size: 15px; color: #4b5563; margin-bottom: 32px;">Je kunt inloggen op het dashboard om eventuele documenten, voorbereidingen of details te bekijken.</p>

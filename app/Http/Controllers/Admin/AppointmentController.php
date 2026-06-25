@@ -103,7 +103,13 @@ $appointment->attendees()->sync($request->employees);
     /**
      * Admin keurt een afspraak goed
      */
-   public function approve(Appointment $appointment)
+use App\Mail\AppointmentConfirmed;
+use Illuminate\Support\Facades\Mail;
+
+/**
+ * Admin keurt een afspraak goed en triggert e-mails (Demo Veilige Versie)
+ */
+public function approve(Appointment $appointment)
 {
     // 1. Update de status naar Bevestigd
     $appointment->update(['status' => 'Bevestigd']);
@@ -111,21 +117,26 @@ $appointment->attendees()->sync($request->employees);
     // 2. Laad de relaties in om de e-mailadressen op te halen
     $appointment->load(['client', 'attendees']);
 
-    // 3. Stuur de mail naar de klant (als de klant een geldig e-mailadres heeft)
-    if ($appointment->client && $appointment->client->email) {
-        Mail::to($appointment->client->email)->send(new AppointmentConfirmed($appointment));
+    // Jouw enige geverifieerde e-mailadres in de Resend Sandbox
+    $allowedEmail = 'yusuftascidhl@gmail.com';
+
+    // 3. Check de klant: stuur alleen als het jouw e-mail is
+    if ($appointment->client && $appointment->client->email === $allowedEmail) {
+        Mail::to($allowedEmail)->send(new AppointmentConfirmed($appointment));
     }
 
-    // 4. Stuur de mail naar alle gekoppelde medewerkers (GKR Employees)
+    // 4. Loop door alle gekoppelde medewerkers / admins
     if ($appointment->attendees && $appointment->attendees->count() > 0) {
         foreach ($appointment->attendees as $employee) {
-            if ($employee->email) {
-                Mail::to($employee->email)->send(new AppointmentConfirmed($appointment));
+            // Stuur de mail alléén als de medewerker jouw e-mailadres heeft
+            // Hierdoor krijgt de andere admin GEEN mail en Resend geeft GEEN error!
+            if ($employee->email === $allowedEmail) {
+                Mail::to($allowedEmail)->send(new AppointmentConfirmed($appointment));
             }
         }
     }
 
-    return redirect()->back()->with('success', 'Afspraak is succesvol bevestigd en de bevestigingsmails zijn verzonden!');
+    return redirect()->back()->with('success', 'Afspraak is succesvol bevestigd en de e-mailnotificaties zijn verwerkt!');
 }
 
     /**

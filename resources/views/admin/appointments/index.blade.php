@@ -68,16 +68,37 @@
                 </div>
             @endif
 
-            @if($confirmedByClientAppointments->count() > 0)
-    <div class="space-y-3 mt-4">
+   @if($confirmedByClientAppointments->count() > 0)
+    <div class="space-y-3 mb-4">
         @foreach($confirmedByClientAppointments as $confApp)
             <div class="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-start justify-between shadow-sm animate-fade-in">
+                
+                <div class="flex items-start space-x-3">
+                    <div class="p-2 bg-emerald-500 text-white rounded-xl mt-0.5 shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    
+                    <div>
+                        <h4 class="text-sm font-bold text-emerald-900">Afspraak akkoord door klant</h4>
+                        <p class="text-xs text-emerald-700 font-medium mt-0.5">
+                            <span class="font-bold">{{ $confApp->client->name ?? $confApp->user->name ?? 'Een klant' }}</span> heeft een van de 3 voorgestelde momenten gekozen voor <span class="italic">"{{ $confApp->title }}"</span>!
+                        </p>
+                        <p class="text-[11px] text-emerald-600 mt-1 font-semibold">
+                            Gekozen tijdstip: {{ \Carbon\Carbon::parse($confApp->start_time)->translatedFormat('l d F Y \o\m H:i') }} uur.
+                        </p>
+                    </div>
+                </div>
+
                 <form action="{{ route('admin.appointments.approve', $confApp->id) }}" method="POST" class="shrink-0 ml-4">
-                    @csrf @method('PATCH')
+                    @csrf 
+                    @method('PATCH')
                     <button type="submit" class="px-4 py-2 bg-[#011936] hover:bg-[#011936]/90 text-white text-xs font-bold rounded-xl transition shadow-sm whitespace-nowrap">
                         Gezien & Sluiten
                     </button>
                 </form>
+
             </div>
         @endforeach
     </div>

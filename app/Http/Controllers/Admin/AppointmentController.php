@@ -103,8 +103,6 @@ $appointment->attendees()->sync($request->employees);
     /**
      * Admin keurt een afspraak goed
      */
-use App\Mail\AppointmentConfirmed;
-use Illuminate\Support\Facades\Mail;
 
 /**
  * Admin keurt een afspraak goed en triggert e-mails (Demo Veilige Versie)

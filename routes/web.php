@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\AppointmentController as AdminAppointmentController;
 use App\Http\Controllers\SitePasswordController;
 use App\Http\Controllers\Client\AppointmentController;
+use App\Http\Controllers\MessageController;
 
 // Publieke route voor het genereren van het agenda-bestand (werkt voor iedereen via de mail)
 Route::get('/appointments/{appointment}/ics', [AppointmentController::class, 'downloadIcs'])->name('appointments.ics');
@@ -41,6 +42,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     
     // Klant Dashboard (Home)
     Route::get('/dashboard', [ClientDashboardController::class, 'index'])->name('dashboard');
+
+    Route::get('/chat', [MessageController::class, 'index'])->name('chat.index');
+    Route::post('/chat', [MessageController::class, 'store'])->name('chat.store');
 
     // Het totale documentenoverzicht voor de klant
     Route::get('/mijn-documenten', [ClientProjectController::class, 'allDocuments'])->name('documents.index');

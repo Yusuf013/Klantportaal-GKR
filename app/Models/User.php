@@ -7,10 +7,11 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password','role'])]
+#[Fillable(['name', 'email', 'password', 'role', 'is_admin'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -30,23 +31,37 @@ class User extends Authenticatable
         ];
     }
 
-public function projects(): \Illuminate\Database\Eloquent\Relations\HasMany
-{
-    return $this->hasMany(Project::class);
-}
+    public function projects(): HasMany
+    {
+        return $this->hasMany(Project::class);
+    }
 
-public function comments(): \Illuminate\Database\Eloquent\Relations\HasMany
-{
-    return $this->hasMany(Comment::class);
-}
+    public function comments(): HasMany
+    {
+        return $this->hasMany(Comment::class);
+    }
 
-/**
- * Controleer of de gebruiker een GKR Admin/Medewerker is.
- */
-public function isAdmin(): bool
-{
-    return (bool) $this->is_admin; // Geeft true of false terug
-}
+    /**
+     * Berichten die door deze gebruiker zijn verzonden.
+     */
+    public function sentMessages(): HasMany
+    {
+        return $this->hasMany(Message::class, 'sender_id');
+    }
 
-}
+    /**
+     * Berichten die door deze gebruiker zijn ontvangen.
+     */
+    public function receivedMessages(): HasMany
+    {
+        return $this->hasMany(Message::class, 'receiver_id');
+    }
 
+    /**
+     * Controleer of de gebruiker een GKR Admin/Medewerker is.
+     */
+    public function isAdmin(): bool
+    {
+        return (bool) $this->is_admin; // Geeft true of false terug
+    }
+}

@@ -122,38 +122,36 @@
                                         <p class="{{ $message->file_path ? 'mb-2.5' : '' }}">{{ $message->body }}</p>
                                     @endif
 
-                                    {{-- Bijlage Card (Design uit voorbeeldfoto) --}}
-                                    @if($message->file_path)
-                                        <a href="{{ route('chat.download', $message->id) }}" 
-                                           class="flex items-center justify-between gap-4 p-3 bg-white rounded-xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all group my-0.5">
-                                            
-                                            <div class="flex items-center gap-3 min-w-0">
-                                                {{-- Rood PDF / Document Icoon --}}
-                                                <div class="w-10 h-10 rounded-lg bg-red-50 text-red-500 flex items-center justify-center shrink-0">
-                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
-                                                    </svg>
-                                                </div>
+                                  {{-- Bijlage Card die de Modal opent --}}
+@if($message->file_path)
+    <div onclick="openDocumentModal('{{ $message->file_name }}', '{{ $message->formatted_file_size }}', '{{ $message->sender->name }}', '{{ $message->created_at->format('d M') }}', '{{ route('chat.download', $message->id) }}', '{{ asset('storage/' . $message->file_path) }}', '{{ $message->file_type }}', '{{ addslashes($message->body) }}')" 
+         class="flex items-center justify-between gap-4 p-3 bg-white rounded-xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all cursor-pointer group my-0.5">
+        
+        <div class="flex items-center gap-3 min-w-0">
+            <div class="w-10 h-10 rounded-lg bg-red-50 text-red-500 flex items-center justify-center shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                </svg>
+            </div>
 
-                                                {{-- Bestandsinformatie --}}
-                                                <div class="min-w-0">
-                                                    <p class="text-xs font-bold text-slate-800 truncate group-hover:text-indigo-600 transition-colors">
-                                                        {{ $message->file_name ?? 'Document' }}
-                                                    </p>
-                                                    <p class="text-[10px] text-slate-400 mt-0.5">
-                                                        {{ $message->formatted_file_size }} • {{ strtoupper($message->file_type ?? 'PDF') }}
-                                                    </p>
-                                                </div>
-                                            </div>
+            <div class="min-w-0">
+                <p class="text-xs font-bold text-slate-800 truncate group-hover:text-indigo-600 transition-colors">
+                    {{ $message->file_name ?? 'Document' }}
+                </p>
+                <p class="text-[10px] text-slate-400 mt-0.5">
+                    {{ $message->formatted_file_size }} • {{ strtoupper($message->file_type ?? 'PDF') }}
+                </p>
+            </div>
+        </div>
 
-                                            {{-- Download Pijltje --}}
-                                            <div class="text-slate-400 group-hover:text-slate-700 transition-colors shrink-0">
-                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                                                </svg>
-                                            </div>
-                                        </a>
-                                    @endif
+        <div class="text-slate-400 group-hover:text-slate-700 transition-colors shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+            </svg>
+        </div>
+    </div>
+@endif
 
                                 </div>
 
@@ -238,6 +236,73 @@
         </div>
     </div>
 
+    {{-- Document Preview Modal --}}
+<div id="document-preview-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-4xl w-full overflow-hidden flex flex-col md:flex-row min-h-[480px] max-h-[90vh] relative border border-slate-100">
+        
+        {{-- Linkerkolom: Document Preview --}}
+        <div class="w-full md:w-1/2 bg-slate-100/80 p-6 md:p-8 flex items-center justify-center border-b md:border-b-0 md:border-r border-slate-200/60">
+            <div id="modal-preview-container" class="w-full h-full max-h-[400px] flex items-center justify-center overflow-hidden rounded-xl shadow-lg bg-white border border-slate-200">
+                <iframe id="modal-iframe-preview" class="w-full h-full border-0 hidden"></iframe>
+                <img id="modal-img-preview" src="" class="max-h-full max-w-full object-contain hidden">
+            </div>
+        </div>
+
+        {{-- Rechterkolom: Details & Acties --}}
+        <div class="w-full md:w-1/2 p-6 md:p-8 flex flex-col justify-between bg-white relative">
+            
+            <div>
+                {{-- Titel + Sluitknop --}}
+                <div class="flex items-start justify-between gap-4">
+                    <h3 id="modal-file-name" class="text-lg md:text-xl font-bold text-slate-900 break-all leading-tight">
+                        Document.pdf
+                    </h3>
+                    <button onclick="closeDocumentModal()" class="text-slate-400 hover:text-slate-700 transition-colors p-1 -mr-2">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </button>
+                </div>
+
+                {{-- Metadata --}}
+                <p id="modal-file-meta" class="text-xs text-slate-400 mt-2 font-medium">
+                    2.4 MB • Toegevoegd door...
+                </p>
+
+                <hr class="my-6 border-slate-100">
+
+                {{-- Document Beschrijving --}}
+                <div>
+                    <h4 class="text-xs font-bold text-[#011936] uppercase tracking-wider mb-2">
+                        DOCUMENT BESCHRIJVING
+                    </h4>
+                    <p id="modal-file-desc" class="text-xs md:text-sm text-slate-600 leading-relaxed">
+                        Geen beschrijving beschikbaar.
+                    </p>
+                </div>
+            </div>
+
+            {{-- Actieknoppen (Onderaan) --}}
+            <div class="flex items-center gap-3 mt-8">
+                <a id="modal-download-btn" href="#" download class="flex-1 bg-[#011936] hover:bg-slate-800 text-white font-semibold py-3 px-4 rounded-xl text-xs md:text-sm flex items-center justify-center gap-2 transition-all shadow-md">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                    Downloaden
+                </a>
+
+                <button onclick="copyDocumentLink()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-3 px-4 rounded-xl text-xs md:text-sm flex items-center justify-center gap-2 transition-all">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>
+                    </svg>
+                    <span id="share-text">Deel Bestand</span>
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
     {{-- CSS & JS scripts --}}
     <style>
         .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -266,5 +331,77 @@
             document.getElementById('file-preview').classList.add('hidden');
             document.getElementById('file-preview').classList.remove('flex');
         }
+
+
+
+        let currentDownloadUrl = '';
+
+function openDocumentModal(fileName, fileSize, senderName, date, downloadUrl, fileUrl, fileType, description) {
+    currentDownloadUrl = downloadUrl;
+
+    // Vullen van metadata
+    document.getElementById('modal-file-name').innerText = fileName;
+    document.getElementById('modal-file-meta').innerText = `${fileSize} • Toegevoegd door ${senderName} op ${date}`;
+    document.getElementById('modal-file-desc').innerText = description && description.trim() !== '' ? description : 'Geen aanvullende beschrijving bijgewerkt.';
+    document.getElementById('modal-download-btn').href = downloadUrl;
+
+    // Voorbeeld weergave (Afbeelding vs PDF)
+    const iframe = document.getElementById('modal-iframe-preview');
+    const img = document.getElementById('modal-img-preview');
+
+    if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(fileType.toLowerCase())) {
+        img.src = fileUrl;
+        img.classList.remove('hidden');
+        iframe.classList.add('hidden');
+    } else {
+        iframe.src = fileUrl;
+        iframe.classList.remove('hidden');
+        img.classList.add('hidden');
+    }
+
+    // Modal openen & scrollen op achtergrond blokkeren
+    const modal = document.getElementById('document-preview-modal');
+    modal.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+}
+
+function closeDocumentModal() {
+    const modal = document.getElementById('document-preview-modal');
+    modal.classList.add('hidden');
+    document.getElementById('modal-iframe-preview').src = '';
+    
+    // Scrollen op achtergrond weer inschakelen
+    document.body.classList.remove('overflow-hidden');
+}
+
+document.addEventListener('keydown', function(event) {
+    if (event.key === "Escape") {
+        closeDocumentModal();
+    }
+});
+
+// Sluiten door op de donkere achtergrond te klikken
+document.getElementById('document-preview-modal')?.addEventListener('click', function(event) {
+    if (event.target === this) {
+        closeDocumentModal();
+    }
+});
+
+function closeDocumentModal() {
+    const modal = document.getElementById('document-preview-modal');
+    modal.classList.add('hidden');
+    document.getElementById('modal-iframe-preview').src = '';
+}
+
+function copyDocumentLink() {
+    if (currentDownloadUrl) {
+        navigator.clipboard.writeText(currentDownloadUrl);
+        const shareText = document.getElementById('share-text');
+        shareText.innerText = 'Lnk Gekopieerd!';
+        setTimeout(() => {
+            shareText.innerText = 'Deel Bestand';
+        }, 2000);
+    }
+}
     </script>
 </x-app-layout>

@@ -14,6 +14,7 @@ use App\Http\Controllers\MessageController;
 
 // Publieke route voor het genereren van het agenda-bestand (werkt voor iedereen via de mail)
 Route::get('/appointments/{appointment}/ics', [AppointmentController::class, 'downloadIcs'])->name('appointments.ics');
+Route::get('/chat/download/{message}', [MessageController::class, 'download'])->name('chat.download');
 /*
 |--------------------------------------------------------------------------
 | Site Password Routes

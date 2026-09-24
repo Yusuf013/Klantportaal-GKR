@@ -62,57 +62,59 @@ class MessageController extends Controller
     }
 
     /**
-     * Bericht opslaan en versturen (inclusief optioneel bestand).
+     * Bericht opslaan en versturen (inclusief optioneel meerdere bestanden).
      */
     public function store(Request $request)
     {
         $authUser = Auth::user();
 
-        // 1. Validatie op velden
+        // 1. Validatie op velden (accepteer een array van bestanden, max 5 bestanden)
         $request->validate([
             'receiver_id' => 'nullable|exists:users,id',
             'body' => 'nullable|string|max:2000',
-            'file' => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,png,jpg,jpeg,zip|max:10240', // Max 10MB
+            'files' => 'nullable|array|max:5',
+            'files.*' => 'file|mimes:pdf,doc,docx,xls,xlsx,png,jpg,jpeg,zip|max:10240', // Max 10MB per bestand
         ]);
 
-        // 2. Zorg dat er ten minste tekst of een bestand aanwezig is
-     if (!$request->filled('body') && !$request->file('file')) {
-    return redirect()->back()->withErrors(['body' => 'Vul een bericht in of kies een bestand.']);
-}
+        // 2. Zorg dat er ten minste tekst of bestanden aanwezig zijn
+        if (!$request->filled('body') && !$request->hasFile('files')) {
+            return redirect()->back()->withErrors(['body' => 'Vul een bericht in of kies ten minste één bestand.']);
+        }
 
-        // 3. Bestand opslaan en metadata verzamelen (indien aanwezig)
-        $fileData = [];
-      if ($request->hasFile('file') || ($request->file('file') && $request->file('file')->isValid())) {
-    $file = $request->file('file');
-    
-    // Sla op in storage/app/public/chat-files
-    $path = $file->store('chat-files', 'public');
-
-    $fileData = [
-        'file_path' => $path,
-        'file_name' => $file->getClientOriginalName(),
-        'file_size' => $file->getSize(),
-        'file_type' => strtolower($file->getClientOriginalExtension()),
-    ];
-}
-
-        // 4. Bericht aanmaken op basis van rol (originele logica)
-        if ($authUser->isAdmin()) {
-            // Admin stuurt bericht naar gekozen klant
-            Message::create(array_merge([
-                'sender_id' => $authUser->id,
-                'receiver_id' => $request->receiver_id,
-                'body' => $request->body,
-            ], $fileData));
-        } else {
-            // Klant stuurt bericht naar GKR (hoofd-admin)
+        // 3. Bepaal de ontvanger (originele logica)
+        $receiverId = $request->receiver_id;
+        if (!$authUser->isAdmin()) {
             $mainAdmin = User::where('is_admin', true)->first();
+            $receiverId = $mainAdmin ? $mainAdmin->id : $request->receiver_id;
+        }
 
-            Message::create(array_merge([
+        // 4. Als er bestanden zijn meegegeven, verwerk elk bestand apart
+        if ($request->hasFile('files')) {
+            $uploadedFiles = $request->file('files');
+            
+            foreach ($uploadedFiles as $index => $file) {
+                if ($file->isValid()) {
+                    $path = $file->store('chat-files', 'public');
+
+                    Message::create([
+                        'sender_id' => $authUser->id,
+                        'receiver_id' => $receiverId,
+                        // Voeg de tekst alleen toe aan het eerste bericht in de loop
+                        'body' => ($index === 0) ? $request->body : null,
+                        'file_path' => $path,
+                        'file_name' => $file->getClientOriginalName(),
+                        'file_size' => $file->getSize(),
+                        'file_type' => strtolower($file->getClientOriginalExtension()),
+                    ]);
+                }
+            }
+        } else {
+            // Alleen een tekstbericht zonder bestanden
+            Message::create([
                 'sender_id' => $authUser->id,
-                'receiver_id' => $mainAdmin ? $mainAdmin->id : $request->receiver_id,
+                'receiver_id' => $receiverId,
                 'body' => $request->body,
-            ], $fileData));
+            ]);
         }
 
         return redirect()->back()->with('success', 'Bericht verzonden!');

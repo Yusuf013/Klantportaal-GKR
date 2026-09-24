@@ -188,7 +188,7 @@
                             <input type="hidden" name="receiver_id" value="{{ $receiverId }}">
                             
                             {{-- Verborgen File Input --}}
-                            <input type="file" name="file" id="file-input" class="hidden" onchange="showFilePreview(this)">
+                            <input type="file" name="files[]" id="file-input" class="hidden" multiple onchange="showFilePreview(this)">
 
                             {{-- Preview-balkje als er een bestand is gekozen --}}
                             <div id="file-preview" class="hidden items-center justify-between bg-slate-100 px-3 py-1.5 rounded-xl text-xs text-slate-700">
@@ -318,19 +318,29 @@
         });
 
         function showFilePreview(input) {
-            if (input.files && input.files[0]) {
-                document.getElementById('file-name-text').innerText = input.files[0].name;
-                document.getElementById('file-preview').classList.remove('hidden');
-                document.getElementById('file-preview').classList.add('flex');
-            }
+    const previewContainer = document.getElementById('file-preview');
+    const fileNameText = document.getElementById('file-name-text');
+
+    if (input.files && input.files.length > 0) {
+        if (input.files.length === 1) {
+            fileNameText.innerText = input.files[0].name;
+        } else {
+            fileNameText.innerText = `${input.files.length} bestanden geselecteerd`;
         }
 
-        function clearFile() {
-            const input = document.getElementById('file-input');
-            input.value = '';
-            document.getElementById('file-preview').classList.add('hidden');
-            document.getElementById('file-preview').classList.remove('flex');
-        }
+        previewContainer.classList.remove('hidden');
+        previewContainer.classList.add('flex');
+    }
+}
+
+function clearFile() {
+    const input = document.getElementById('file-input');
+    input.value = '';
+    
+    const previewContainer = document.getElementById('file-preview');
+    previewContainer.classList.add('hidden');
+    previewContainer.classList.remove('flex');
+}
 
 
 

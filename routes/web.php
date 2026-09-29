@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\AppointmentController as AdminAppointmentControll
 use App\Http\Controllers\SitePasswordController;
 use App\Http\Controllers\Client\AppointmentController;
 use App\Http\Controllers\MessageController;
+use App\Http\Controllers\Admin\AnalyticsController;
 
 // Publieke route voor het genereren van het agenda-bestand (werkt voor iedereen via de mail)
 Route::get('/appointments/{appointment}/ics', [AppointmentController::class, 'downloadIcs'])->name('appointments.ics');
@@ -134,6 +135,11 @@ Route::middleware(['auth', 'verified', 'admin'])
         // Route voor de live beschikbaarheids-check van medewerkers (Mock data)
         Route::post('/appointments/check-availability', [AdminAppointmentController::class, 'checkAvailability'])->name('appointments.check');
 
+        // Analytics Beheer voor Admins
+        Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics.index');
+
+        // Analytics Detailpagina per klant
+        Route::get('/analytics/{client}', [AnalyticsController::class, 'show'])->name('analytics.show');
 });
 
 

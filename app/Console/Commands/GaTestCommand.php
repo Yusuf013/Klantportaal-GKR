@@ -23,7 +23,7 @@ class GaTestCommand extends Command
 
         // Het pad naar de sleutel komt uit .env, zodat het niet in de code staat.
         $client = new BetaAnalyticsDataClient([
-            'credentials' => env('GA_CREDENTIALS_PATH'),
+            'credentials' => config('services.google_analytics.credentials'),
             'transport'   => 'rest', // werkt zonder extra PHP-extensie (gRPC)
         ]);
 

@@ -135,11 +135,11 @@ Route::middleware(['auth', 'verified', 'admin'])
         // Route voor de live beschikbaarheids-check van medewerkers (Mock data)
         Route::post('/appointments/check-availability', [AdminAppointmentController::class, 'checkAvailability'])->name('appointments.check');
 
-        // Analytics Beheer voor Admins
+        // Websitecijfers van GKR (Google Analytics)
         Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics.index');
 
-        // Analytics Detailpagina per klant
-        Route::get('/analytics/{client}', [AnalyticsController::class, 'show'])->name('analytics.show');
+        // Cache legen en de cijfers opnieuw ophalen
+        Route::post('/analytics/vernieuwen', [AnalyticsController::class, 'refresh'])->name('analytics.refresh');
 });
 
 
@@ -149,5 +149,3 @@ Route::middleware(['auth', 'verified', 'admin'])
 |--------------------------------------------------------------------------
 */
 require __DIR__.'/auth.php';
-
-

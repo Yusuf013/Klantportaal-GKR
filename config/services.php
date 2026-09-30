@@ -14,6 +14,12 @@ return [
     |
     */
 
+    'google_analytics' => [
+    'credentials' => env('GA_CREDENTIALS_PATH'),
+    'property_id' => env('GA_PROPERTY_ID'),
+    'cache_minutes' => env('GA_CACHE_MINUTES', 180),
+],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],

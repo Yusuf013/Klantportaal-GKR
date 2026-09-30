@@ -27,7 +27,7 @@ class AdminAnalyticsTest extends TestCase
             'daily' => ['labels' => ['1 sep', '2 sep'], 'values' => [10, 12]],
             'channels' => [['name' => 'Organic Search', 'sessions' => 200]],
             'top_pages' => [['path' => '/contact', 'views' => 50, 'engagement_rate' => 0.3]],
-            'period' => ['start' => '2026-09-01', 'end' => '2026-09-28'],
+            'period' => ['days' => 28, 'label' => '28 dagen', 'start' => '2026-09-01', 'end' => '2026-09-28'],
             'fetched_at' => now()->toIso8601String(),
         ];
     }
@@ -55,7 +55,7 @@ class AdminAnalyticsTest extends TestCase
     {
         $this->mock(GoogleAnalyticsService::class, function ($mock) {
             $mock->shouldReceive('isConfigured')->andReturn(true);
-            $mock->shouldReceive('getDashboard')->once()->andReturn($this->fakeDashboard());
+            $mock->shouldReceive('getDashboard')->once()->with(28)->andReturn($this->fakeDashboard());
         });
 
         $admin = User::factory()->create(['is_admin' => true]);
@@ -103,7 +103,35 @@ class AdminAnalyticsTest extends TestCase
 
         $this->actingAs($admin)
             ->post(route('admin.analytics.refresh'))
-            ->assertRedirect(route('admin.analytics.index'))
+                        ->assertRedirect(route('admin.analytics.index', ['periode' => 28]))
             ->assertSessionHas('warning');
+    }
+
+    public function test_een_gekozen_periode_wordt_doorgegeven(): void
+    {
+        $this->mock(GoogleAnalyticsService::class, function ($mock) {
+            $mock->shouldReceive('isConfigured')->andReturn(true);
+            $mock->shouldReceive('getDashboard')->once()->with(90)->andReturn($this->fakeDashboard());
+        });
+
+        $admin = User::factory()->create(['is_admin' => true]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.analytics.index', ['periode' => 90]))
+            ->assertOk();
+    }
+
+    public function test_een_onbekende_periode_valt_terug_op_28_dagen(): void
+    {
+        // Alleen de vaste keuzes zijn toegestaan; al het andere wordt 28 dagen.
+        $this->mock(GoogleAnalyticsService::class, function ($mock) {
+            $mock->shouldReceive('isConfigured')->andReturn(true);
+            $mock->shouldReceive('getDashboard')->twice()->with(28)->andReturn($this->fakeDashboard());
+        });
+
+        $admin = User::factory()->create(['is_admin' => true]);
+
+        $this->actingAs($admin)->get('/admin/analytics?periode=5000')->assertOk();
+        $this->actingAs($admin)->get('/admin/analytics?periode=abc')->assertOk();
     }
 }

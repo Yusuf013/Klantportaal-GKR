@@ -25,17 +25,17 @@
     <div class="py-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
         {{-- Header --}}
-        <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8">
+        <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
             <div>
                 <h1 class="text-2xl font-bold text-gray-900">Website GKR</h1>
                 <p class="text-sm text-gray-500 mt-1">
                     @if($data)
-                        {{ \Illuminate\Support\Carbon::parse($data['period']['start'])->locale('nl')->isoFormat('D MMM') }}
+                        {{ \Illuminate\Support\Carbon::parse($data['period']['start'])->locale('nl')->isoFormat('D MMM YYYY') }}
                         t/m {{ \Illuminate\Support\Carbon::parse($data['period']['end'])->locale('nl')->isoFormat('D MMM YYYY') }},
-                        vergeleken met de 28 dagen daarvoor.
+                        vergeleken met de {{ $data['period']['label'] }} daarvoor.
                         Cijfers van vandaag zijn nog niet verwerkt door Google.
                     @else
-                        Cijfers uit Google Analytics over de afgelopen 28 dagen.
+                        Cijfers uit Google Analytics over de afgelopen {{ $periods[$days] }}.
                     @endif
                 </p>
             </div>
@@ -45,7 +45,7 @@
                     <span class="text-xs text-gray-500">
                         Opgehaald om {{ \Illuminate\Support\Carbon::parse($data['fetched_at'])->timezone(config('app.timezone'))->format('H:i') }}
                     </span>
-                    <form method="POST" action="{{ route('admin.analytics.refresh') }}">
+                    <form method="POST" action="{{ route('admin.analytics.refresh', ['periode' => $days]) }}">
                         @csrf
                         <button type="submit" class="px-3 py-1.5 text-xs font-bold text-[#011936] bg-white border border-gray-200 hover:bg-gray-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-[#011936]/30">
                             Cijfers vernieuwen
@@ -54,6 +54,17 @@
                 </div>
             @endif
         </div>
+
+        {{-- Periodefilter: gewone links, zodat de gekozen periode in de URL staat --}}
+        <nav class="mb-8 inline-flex flex-wrap gap-1 p-1 bg-white rounded-xl border border-gray-100 shadow-sm" aria-label="Periode kiezen">
+            @foreach($periods as $optionDays => $optionLabel)
+                <a href="{{ route('admin.analytics.index', ['periode' => $optionDays]) }}"
+                   @if($optionDays === $days) aria-current="page" @endif
+                   class="px-3 py-1.5 text-xs font-bold rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-[#011936]/30 {{ $optionDays === $days ? 'bg-[#011936] text-white' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50' }}">
+                    {{ $optionLabel }}
+                </a>
+            @endforeach
+        </nav>
 
         @if(session('warning'))
             <div class="mb-6 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-900">
@@ -115,9 +126,9 @@
             {{-- Grafieken --}}
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
                 <div class="lg:col-span-2 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                    <h3 class="font-bold text-gray-800 mb-4">Bezoekers per dag</h3>
+                    <h3 class="font-bold text-gray-800 mb-4">Bezoekers per {{ $days >= 365 ? 'maand' : 'dag' }}</h3>
                     <div class="relative h-64">
-                        <canvas id="trafficChart" aria-label="Lijngrafiek met bezoekers per dag"></canvas>
+                        <canvas id="trafficChart" aria-label="Lijngrafiek met bezoekers over tijd"></canvas>
                     </div>
                 </div>
 

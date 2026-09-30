@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Services\GoogleAnalyticsService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 
@@ -13,17 +14,22 @@ use Illuminate\Support\Facades\RateLimiter;
  */
 class AnalyticsController extends Controller
 {
-    public function index(GoogleAnalyticsService $analytics)
+    public function index(Request $request, GoogleAnalyticsService $analytics)
     {
+        $days = $this->period($request);
+        $periods = GoogleAnalyticsService::PERIODS;
+
         if (! $analytics->isConfigured()) {
             return view('admin.analytics.index', [
                 'data' => null,
-                'error' => 'De koppeling met Google Analytics is nog niet ingesteld. Vul GA_PROPERTY_ID en GA_CREDENTIALS_PATH in bij de omgevingsvariabelen.',
+                'days' => $days,
+                'periods' => $periods,
+                'error' => 'De koppeling met Google Analytics is nog niet ingesteld. Stel GA_PROPERTY_ID en de sleutel (GA_CREDENTIALS_BASE64 of GA_CREDENTIALS_PATH) in bij de omgevingsvariabelen.',
             ]);
         }
 
         try {
-            $data = $analytics->getDashboard();
+            $data = $analytics->getDashboard($days);
             $error = null;
         } catch (\Throwable $e) {
             // Volledige fout in de log; de gebruiker krijgt een korte melding.
@@ -33,7 +39,21 @@ class AnalyticsController extends Controller
             $error = 'De cijfers konden niet worden opgehaald bij Google Analytics. Probeer het later opnieuw. Blijft dit gebeuren, controleer dan de toegang van het service account.';
         }
 
-        return view('admin.analytics.index', compact('data', 'error'));
+        return view('admin.analytics.index', compact('data', 'error', 'days', 'periods'));
+    }
+
+    /**
+     * De gekozen periode uit de URL (?periode=90).
+     * Alleen waarden uit de vaste lijst worden geaccepteerd; al het andere
+     * valt terug op de standaardperiode.
+     */
+    private function period(Request $request): int
+    {
+        $days = (int) $request->query('periode', GoogleAnalyticsService::DEFAULT_PERIOD);
+
+        return array_key_exists($days, GoogleAnalyticsService::PERIODS)
+            ? $days
+            : GoogleAnalyticsService::DEFAULT_PERIOD;
     }
 
     /**
@@ -43,16 +63,16 @@ class AnalyticsController extends Controller
      * van Google gelden per property, dus niet per gebruiker; een gezamenlijke
      * limiet beschermt die het best (zie deelvraag 4).
      */
-    public function refresh(GoogleAnalyticsService $analytics)
+    public function refresh(Request $request, GoogleAnalyticsService $analytics)
     {
         $key = 'ga4-refresh';
+        $back = route('admin.analytics.index', ['periode' => $this->period($request)]);
 
         if (RateLimiter::tooManyAttempts($key, 3)) {
             $minutes = (int) ceil(RateLimiter::availableIn($key) / 60);
             $unit = $minutes === 1 ? 'minuut' : 'minuten';
 
-            return redirect()
-                ->route('admin.analytics.index')
+            return redirect($back)
                 ->with('warning', "De cijfers zijn net al een paar keer vernieuwd. Probeer het over {$minutes} {$unit} opnieuw.");
         }
 
@@ -60,8 +80,7 @@ class AnalyticsController extends Controller
 
         $analytics->clearCache();
 
-        return redirect()
-            ->route('admin.analytics.index')
+        return redirect($back)
             ->with('success', 'De cijfers zijn opnieuw opgehaald.');
     }
 }

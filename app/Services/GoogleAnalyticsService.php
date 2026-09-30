@@ -22,11 +22,20 @@ use Illuminate\Support\Facades\Cache;
  *   toch maar een paar keer per dag bijwerkt (zie deelvraag 4).
  * - De periode eindigt altijd op "gisteren", omdat de cijfers van
  *   vandaag nog niet volledig verwerkt zijn.
+ * - Alleen vaste periodes zijn toegestaan (zie PERIODS), zodat er per
+ *   periode maar één variant in de cache staat.
  */
 class GoogleAnalyticsService
 {
-    private const CURRENT = ['28daysAgo', 'yesterday'];
-    private const PREVIOUS = ['56daysAgo', '29daysAgo'];
+    /** Toegestane periodes in dagen, met het label voor de pagina. */
+    public const PERIODS = [
+        7 => '7 dagen',
+        28 => '28 dagen',
+        90 => '90 dagen',
+        365 => '12 maanden',
+    ];
+
+    public const DEFAULT_PERIOD = 28;
 
     private ?BetaAnalyticsDataClient $client = null;
 
@@ -41,27 +50,52 @@ class GoogleAnalyticsService
      * Gaat het ophalen mis, dan wordt er niets gecachet en komt de fout
      * bij de controller terecht.
      */
-    public function getDashboard(): array
+    public function getDashboard(int $days = self::DEFAULT_PERIOD): array
     {
-        $propertyId = config('services.google_analytics.property_id');
+        if (! array_key_exists($days, self::PERIODS)) {
+            $days = self::DEFAULT_PERIOD;
+        }
+
         $minutes = (int) config('services.google_analytics.cache_minutes', 180);
 
         return Cache::remember(
-            "ga4:dashboard:{$propertyId}",
+            $this->cacheKey($days),
             now()->addMinutes($minutes),
-            fn () => $this->fetchDashboard()
+            fn () => $this->fetchDashboard($days)
         );
     }
 
+    /** Leegt de cache voor alle periodes. */
     public function clearCache(): void
     {
-        Cache::forget('ga4:dashboard:' . config('services.google_analytics.property_id'));
+        foreach (array_keys(self::PERIODS) as $days) {
+            Cache::forget($this->cacheKey($days));
+        }
     }
 
-    private function fetchDashboard(): array
+    private function cacheKey(int $days): string
     {
-        $current = $this->totals(...self::CURRENT);
-        $previous = $this->totals(...self::PREVIOUS);
+        return 'ga4:dashboard:' . config('services.google_analytics.property_id') . ":{$days}";
+    }
+
+    /**
+     * Huidige periode: X dagen t/m gisteren.
+     * Vorige periode: de X dagen daarvoor, zodat beide even lang zijn.
+     */
+    private function ranges(int $days): array
+    {
+        return [
+            'current' => ["{$days}daysAgo", 'yesterday'],
+            'previous' => [($days * 2) . 'daysAgo', ($days + 1) . 'daysAgo'],
+        ];
+    }
+
+    private function fetchDashboard(int $days): array
+    {
+        $ranges = $this->ranges($days);
+
+        $current = $this->totals(...$ranges['current']);
+        $previous = $this->totals(...$ranges['previous']);
 
         return [
             'kpis' => [
@@ -71,11 +105,13 @@ class GoogleAnalyticsService
                 'avg_session_duration' => $this->kpi($current['averageSessionDuration'], $previous['averageSessionDuration']),
                 'engagement_rate' => $this->kpi($current['engagementRate'], $previous['engagementRate']),
             ],
-            'daily' => $this->dailyUsers(),
-            'channels' => $this->channels(),
-            'top_pages' => $this->topPages(),
+            'daily' => $this->usersOverTime($ranges['current'], $days),
+            'channels' => $this->channels($ranges['current']),
+            'top_pages' => $this->topPages($ranges['current']),
             'period' => [
-                'start' => now()->subDays(28)->toDateString(),
+                'days' => $days,
+                'label' => self::PERIODS[$days],
+                'start' => now()->subDays($days)->toDateString(),
                 'end' => now()->subDay()->toDateString(),
             ],
             'fetched_at' => now()->toIso8601String(),
@@ -101,15 +137,21 @@ class GoogleAnalyticsService
         return $result;
     }
 
-    /** Bezoekers per dag, voor de lijngrafiek. */
-    private function dailyUsers(): array
+    /**
+     * Bezoekers over tijd, voor de lijngrafiek.
+     * Per dag, behalve bij 12 maanden: dan per maand, anders wordt de grafiek onleesbaar.
+     */
+    private function usersOverTime(array $range, int $days): array
     {
+        $perMonth = $days >= 365;
+        $dimension = $perMonth ? 'yearMonth' : 'date';
+
         $response = $this->run(
-            $this->request(...self::CURRENT)
-                ->setDimensions([new Dimension(['name' => 'date'])])
+            $this->request(...$range)
+                ->setDimensions([new Dimension(['name' => $dimension])])
                 ->setMetrics($this->metrics(['activeUsers']))
                 ->setOrderBys([new OrderBy([
-                    'dimension' => new DimensionOrderBy(['dimension_name' => 'date']),
+                    'dimension' => new DimensionOrderBy(['dimension_name' => $dimension]),
                 ])])
         );
 
@@ -117,9 +159,12 @@ class GoogleAnalyticsService
         $values = [];
 
         foreach ($response->getRows() as $row) {
-            // GA4 geeft datums terug als "20260929".
-            $labels[] = Carbon::createFromFormat('Ymd', $row->getDimensionValues()[0]->getValue())
-                ->locale('nl')->isoFormat('D MMM');
+            $raw = $row->getDimensionValues()[0]->getValue();
+
+            // GA4 geeft datums terug als "20260929" en maanden als "202609".
+            $labels[] = $perMonth
+                ? Carbon::createFromFormat('Ym|', $raw)->locale('nl')->isoFormat('MMM YYYY')
+                : Carbon::createFromFormat('Ymd|', $raw)->locale('nl')->isoFormat('D MMM');
             $values[] = (int) $row->getMetricValues()[0]->getValue();
         }
 
@@ -127,10 +172,10 @@ class GoogleAnalyticsService
     }
 
     /** Sessies per kanaal (Organic Search, Direct, Paid Social, ...). */
-    private function channels(): array
+    private function channels(array $range): array
     {
         $response = $this->run(
-            $this->request(...self::CURRENT)
+            $this->request(...$range)
                 ->setDimensions([new Dimension(['name' => 'sessionDefaultChannelGroup'])])
                 ->setMetrics($this->metrics(['sessions']))
                 ->setOrderBys([new OrderBy([
@@ -152,10 +197,10 @@ class GoogleAnalyticsService
     }
 
     /** De tien meest bekeken pagina's, met hun engagement rate. */
-    private function topPages(): array
+    private function topPages(array $range): array
     {
         $response = $this->run(
-            $this->request(...self::CURRENT)
+            $this->request(...$range)
                 ->setDimensions([new Dimension(['name' => 'pagePath'])])
                 ->setMetrics($this->metrics(['screenPageViews', 'engagementRate']))
                 ->setOrderBys([new OrderBy([

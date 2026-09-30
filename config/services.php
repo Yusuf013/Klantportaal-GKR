@@ -15,10 +15,14 @@ return [
     */
 
     'google_analytics' => [
-    'credentials' => env('GA_CREDENTIALS_PATH'),
-    'property_id' => env('GA_PROPERTY_ID'),
-    'cache_minutes' => env('GA_CACHE_MINUTES', 180),
-],
+        // Op Railway: de sleutel als base64-tekst in een variabele.
+        // Lokaal: het pad naar het sleutelbestand.
+        'credentials' => env('GA_CREDENTIALS_BASE64')
+            ? json_decode(base64_decode(env('GA_CREDENTIALS_BASE64')), true)
+            : env('GA_CREDENTIALS_PATH'),
+        'property_id' => env('GA_PROPERTY_ID'),
+        'cache_minutes' => env('GA_CACHE_MINUTES', 180),
+    ],
 
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),

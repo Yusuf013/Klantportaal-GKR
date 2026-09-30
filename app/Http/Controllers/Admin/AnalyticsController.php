@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Services\GoogleAnalyticsService;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 
 /**
  * Websitecijfers van GKR zelf. Alleen bereikbaar voor admins,
@@ -35,8 +36,28 @@ class AnalyticsController extends Controller
         return view('admin.analytics.index', compact('data', 'error'));
     }
 
+    /**
+     * Leegt de cache zodat de cijfers opnieuw worden opgehaald.
+     *
+     * Beperkt tot 3 keer per 10 minuten, voor alle admins samen. De limieten
+     * van Google gelden per property, dus niet per gebruiker; een gezamenlijke
+     * limiet beschermt die het best (zie deelvraag 4).
+     */
     public function refresh(GoogleAnalyticsService $analytics)
     {
+        $key = 'ga4-refresh';
+
+        if (RateLimiter::tooManyAttempts($key, 3)) {
+            $minutes = (int) ceil(RateLimiter::availableIn($key) / 60);
+            $unit = $minutes === 1 ? 'minuut' : 'minuten';
+
+            return redirect()
+                ->route('admin.analytics.index')
+                ->with('warning', "De cijfers zijn net al een paar keer vernieuwd. Probeer het over {$minutes} {$unit} opnieuw.");
+        }
+
+        RateLimiter::hit($key, 600); // 600 seconden = 10 minuten
+
         $analytics->clearCache();
 
         return redirect()

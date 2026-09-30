@@ -83,4 +83,27 @@ class AdminAnalyticsTest extends TestCase
             ->assertSee('De cijfers konden niet worden opgehaald')
             ->assertDontSee('PERMISSION_DENIED');
     }
+
+    public function test_cijfers_vernieuwen_is_beperkt_tot_drie_keer_per_tien_minuten(): void
+    {
+        \Illuminate\Support\Facades\RateLimiter::clear('ga4-refresh');
+
+        // De cache mag maar drie keer geleegd worden; de vierde klik doet niets.
+        $this->mock(GoogleAnalyticsService::class, function ($mock) {
+            $mock->shouldReceive('clearCache')->times(3);
+        });
+
+        $admin = User::factory()->create(['is_admin' => true]);
+
+        for ($i = 0; $i < 3; $i++) {
+            $this->actingAs($admin)
+                ->post(route('admin.analytics.refresh'))
+                ->assertSessionHas('success');
+        }
+
+        $this->actingAs($admin)
+            ->post(route('admin.analytics.refresh'))
+            ->assertRedirect(route('admin.analytics.index'))
+            ->assertSessionHas('warning');
+    }
 }

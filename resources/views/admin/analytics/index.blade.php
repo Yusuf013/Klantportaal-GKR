@@ -55,6 +55,12 @@
             @endif
         </div>
 
+        @if(session('warning'))
+            <div class="mb-6 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-900">
+                {{ session('warning') }}
+            </div>
+        @endif
+
         @if(session('success'))
             <div class="mb-6 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-800">
                 {{ session('success') }}

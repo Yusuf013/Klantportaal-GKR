@@ -24,6 +24,14 @@ return [
         'cache_minutes' => env('GA_CACHE_MINUTES', 180),
     ],
 
+    'meta_ads' => [
+    // true = nepdata, false = echte Meta-koppeling (komt later)
+    'fake' => env('META_ADS_FAKE', true),
+    'access_token' => env('META_ADS_ACCESS_TOKEN'),
+    'api_version' => env('META_ADS_API_VERSION'),
+    'cache_minutes' => env('META_ADS_CACHE_MINUTES', 180),
+    ],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],

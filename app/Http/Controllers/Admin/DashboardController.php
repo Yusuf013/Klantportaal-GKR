@@ -35,7 +35,7 @@ class DashboardController extends Controller
         $admins = User::where('is_admin', true)->orderBy('name')->get();
 
         // Haal alle klanten op, gesorteerd op naam
-        $clients = User::where('is_admin', false)->orderBy('name')->get();
+        $clients = User::where('is_admin', false)->with('metaAdAccount')->orderBy('name')->get();
 
         return view('admin.users.index', compact('admins', 'clients'));
     }
@@ -52,6 +52,13 @@ public function toggleAdmin(\App\Models\User $user)
 
     // Wijzig de status (0 naar 1, of 1 naar 0)
     $user->is_admin = $user->is_admin ? 0 : 1;
+
+      // NIEUW: admins hebben geen eigen advertentieaccount, dus koppeling opruimen
+   // Admins hebben geen eigen advertentieaccounts: koppelingen opruimen
+        if ($user->is_admin) {
+            $user->adAccounts()->delete();
+        }
+
     $user->save();
 
     $statusText = $user->is_admin ? 'GKR Admin' : 'Klant';

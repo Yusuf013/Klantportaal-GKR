@@ -140,6 +140,10 @@ Route::middleware(['auth', 'verified', 'admin'])
 
         // Cache legen en de cijfers opnieuw ophalen
         Route::post('/analytics/vernieuwen', [AnalyticsController::class, 'refresh'])->name('analytics.refresh');
+
+        //Meta ads
+        Route::patch('/gebruikers/{user}/meta-account', [\App\Http\Controllers\Admin\MetaAccountController::class, 'update'])
+        ->name('users.meta-account.update');
 });
 
 

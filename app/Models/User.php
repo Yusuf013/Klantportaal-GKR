@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable(['name', 'email', 'password', 'role', 'is_admin'])]
 #[Hidden(['password', 'remember_token'])]
@@ -35,6 +36,20 @@ class User extends Authenticatable
     {
         return $this->hasMany(Project::class);
     }
+
+    // Alle advertentieaccounts van deze klant (Meta, later Google Ads)
+        public function adAccounts(): HasMany
+        {
+            return $this->hasMany(AdAccount::class);
+        }
+
+// Alleen het Meta-account van deze klant
+        public function metaAdAccount(): HasOne
+        {
+            return $this->hasOne(AdAccount::class)->where('platform', AdAccount::PLATFORM_META);
+}
+
+
 
     public function comments(): HasMany
     {

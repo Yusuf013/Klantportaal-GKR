@@ -23,6 +23,13 @@
                     {{ session('error') }}
                 </div>
             @endif
+            {{-- NIEUW: foutmelding bij het koppelen van een Meta-advertentieaccount --}}
+            @if($errors->has('meta_ad_account_id'))
+                <div class="p-4 bg-red-50 border border-red-150 text-red-700 rounded-xl text-sm font-medium flex items-center shadow-sm">
+                    <svg class="w-5 h-5 mr-2 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    {{ $errors->first('meta_ad_account_id') }}
+                </div>
+            @endif
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 
@@ -50,7 +57,8 @@
                                         <td class="p-3 text-gray-500 text-xs">{{ $admin->email }}</td>
                                         <td class="p-3 text-right">
                                             @if($admin->id !== auth()->id())
-                                                <button type="button" onclick="openConfirmAdminModal({{ $admin->id }}, '{{ $admin->name }}', 'intrekken')" class="text-xs font-bold text-red-500 hover:text-red-700 transition underline">
+                                                {{-- AANGEPAST: @js() zet de naam veilig om naar JavaScript (XSS-fix) --}}
+                                                <button type="button" onclick="openConfirmAdminModal({{ $admin->id }}, @js($admin->name), 'intrekken')" class="text-xs font-bold text-red-500 hover:text-red-700 transition underline">
                                                     Intrekken
                                                 </button>
                                             @else
@@ -87,7 +95,8 @@
                                         <td class="p-3 font-semibold text-gray-800">{{ $client->name }}</td>
                                         <td class="p-3 text-gray-400 text-xs">{{ $client->email }}</td>
                                         <td class="p-3 text-right">
-                                            <button type="button" onclick="openConfirmAdminModal({{ $client->id }}, '{{ $client->name }}', 'toewijzen')" class="inline-flex items-center px-2.5 py-1 border border-gray-200 text-[11px] font-bold rounded-lg text-gray-600 hover:bg-[#011936] hover:text-white hover:border-[#011936] transition shadow-2xs">
+                                            {{-- AANGEPAST: @js() zet de naam veilig om naar JavaScript (XSS-fix) --}}
+                                            <button type="button" onclick="openConfirmAdminModal({{ $client->id }}, @js($client->name), 'toewijzen')" class="inline-flex items-center px-2.5 py-1 border border-gray-200 text-[11px] font-bold rounded-lg text-gray-600 hover:bg-[#011936] hover:text-white hover:border-[#011936] transition shadow-2xs">
                                                 Maak Admin +
                                             </button>
                                         </td>
@@ -103,6 +112,62 @@
                 </div>
 
             </div>
+
+            {{-- NIEUW: kaart om klanten aan een Meta-advertentieaccount te koppelen --}}
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-150 overflow-hidden">
+                <div class="px-6 py-4 bg-gray-50/50 border-b border-gray-100">
+                    <h3 class="text-xs font-bold text-[#011936] uppercase tracking-wider flex items-center">
+                        <span class="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
+                        Advertentiekoppelingen
+                    </h3>
+                    <p class="text-[11px] text-gray-400 mt-1">Koppel een klant pas nadat de klant is geïnformeerd. Een klant ziet alleen de cijfers van het eigen account.</p>
+                </div>
+                <div class="p-4 overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100 bg-gray-50/30">
+                                <th class="p-3">Klant</th>
+                                <th class="p-3">Meta-advertentieaccount</th>
+                                <th class="p-3">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100 font-medium text-gray-700">
+                            @forelse($clients as $client)
+                                <tr class="hover:bg-gray-50/40 transition">
+                                    <td class="p-3 font-semibold text-gray-800">{{ $client->name }}</td>
+                                    <td class="p-3">
+                                        <form method="POST" action="{{ route('admin.users.meta-account.update', $client) }}" class="flex items-center gap-2">
+                                            @csrf
+                                            @method('PATCH')
+                                            <input type="text"
+                                                   name="meta_ad_account_id"
+                                                   value="{{ $client->metaAdAccount?->account_id }}"
+                                                   placeholder="act_123456789"
+                                                   class="w-40 rounded-lg border-gray-200 text-xs py-1.5 px-2 focus:border-[#011936] focus:ring-[#011936]">
+                                            <button type="submit" class="px-3 py-1.5 bg-[#011936] text-white text-[11px] font-bold rounded-lg hover:opacity-90 transition">
+                                                Opslaan
+                                            </button>
+                                        </form>
+                                    </td>
+                                    <td class="p-3 text-xs">
+                                        @if($client->metaAdAccount)
+                                            <span class="text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-md font-bold">Gekoppeld</span>
+                                            <span class="text-gray-400 ml-1">sinds {{ $client->metaAdAccount->created_at->format('d-m-Y') }}</span>
+                                        @else
+                                            <span class="text-gray-400">Niet gekoppeld</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="3" class="p-6 text-center text-xs text-gray-400 italic">Er zijn nog geen klanten om te koppelen.</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
         </div>
     </div>
 

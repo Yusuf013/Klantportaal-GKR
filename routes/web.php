@@ -83,6 +83,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::post('/appointments/{appointment}/suggest-alternative', [App\Http\Controllers\Client\AppointmentController::class, 'suggestAlternative'])
     ->name('client.appointments.suggest-alternative');
+
+
+    //Meta ads paginatoegang bij gekopplede account aan klant
+    Route::get('/advertenties', [\App\Http\Controllers\MetaAdsController::class, 'index'])
+    ->name('meta-ads.index');
+    
+
+
+
 });
 
 
@@ -144,6 +153,12 @@ Route::middleware(['auth', 'verified', 'admin'])
         //Meta ads
         Route::patch('/gebruikers/{user}/meta-account', [\App\Http\Controllers\Admin\MetaAccountController::class, 'update'])
         ->name('users.meta-account.update');
+
+        Route::get('/advertenties', [\App\Http\Controllers\Admin\MetaAdsController::class, 'index'])
+    ->name('meta-ads.index');
+        Route::get('/advertenties/{user}', [\App\Http\Controllers\Admin\MetaAdsController::class, 'show'])
+    ->name('meta-ads.show');
+
 });
 
 

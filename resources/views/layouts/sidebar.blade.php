@@ -75,6 +75,25 @@
 
                     {{ __('Kalender & Afspraken') }}
                 </x-nav-link>
+
+                {{-- NIEUW: advertentieresultaten voor de klant (Meta Ads) --}}
+                @php
+                    $isMetaAdsActive = request()->routeIs('meta-ads.*');
+                @endphp
+                <x-nav-link :href="route('meta-ads.index')" :active="$isMetaAdsActive" 
+                    class="w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-150 group {{ $isMetaAdsActive ? 'bg-white/10 text-white font-bold' : 'text-gray-400 hover:bg-white/5 hover:text-white' }}">
+                    
+                    <svg class="w-5 h-5 mr-3 shrink-0 transition-colors {{ $isMetaAdsActive ? 'text-white' : 'text-gray-400 group-hover:text-white' }}" 
+                         fill="none" 
+                         stroke="currentColor" 
+                         stroke-width="2" 
+                         viewBox="0 0 24 24" 
+                         xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"></path>
+                    </svg>
+
+                    {{ __('Advertenties') }}
+                </x-nav-link>
             @endif
 
             {{-- INTERFACE VOOR ADMINS / GKR MEDEWERKERS --}}
@@ -116,6 +135,25 @@
 
         <span>{{ __('Analytics Beheer') }}</span>
     </x-nav-link>
+
+                {{-- NIEUW: Meta Ads-overzicht van alle klanten voor GKR --}}
+                @php
+                    $isAdminMetaAdsActive = request()->routeIs('admin.meta-ads.*');
+                @endphp
+                <x-nav-link :href="route('admin.meta-ads.index')" :active="$isAdminMetaAdsActive" 
+                    class="w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-150 group {{ $isAdminMetaAdsActive ? 'bg-white/10 text-white font-bold' : 'text-gray-400 hover:bg-white/5 hover:text-white' }}">
+                    
+                    <svg class="w-5 h-5 mr-3 shrink-0 transition-colors {{ $isAdminMetaAdsActive ? 'text-white' : 'text-gray-400 group-hover:text-white' }}" 
+                         fill="none" 
+                         stroke="currentColor" 
+                         stroke-width="2" 
+                         viewBox="0 0 24 24" 
+                         xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"></path>
+                    </svg>
+
+                    <span>{{ __('Meta Ads') }}</span>
+                </x-nav-link>
 
 
 

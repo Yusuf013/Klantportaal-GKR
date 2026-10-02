@@ -123,4 +123,28 @@ class MetaAdsPagesTest extends TestCase
             ->assertOk()
             ->assertSee($this->impressionsFor($client));
     }
+
+
+    public function test_klant_ziet_uitleg_bij_cijfers(): void
+{
+    $client = $this->client('111111111');
+
+    $this->actingAs($client)->get(route('meta-ads.index'))
+        ->assertOk()
+        ->assertSee('meerdere keren zien');
+}
+
+public function test_cijferkaarten_zijn_klikbaar(): void
+{
+    $client = $this->client('111111111');
+
+    $this->actingAs($client)->get(route('meta-ads.index'))
+        ->assertOk()
+        ->assertSee('data-metric="impressions"', false)
+        ->assertSee('data-metric="conversions"', false);
+}
+
+
+
+
 }

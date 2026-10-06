@@ -4,7 +4,9 @@ namespace App\Services;
 
 use App\Models\AdAccount;
 use Carbon\CarbonImmutable;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use InvalidArgumentException;
 use Random\Engine\Mt19937;
 use Random\Randomizer;
@@ -13,9 +15,10 @@ use RuntimeException;
 /**
  * Haalt advertentiecijfers op voor één Meta-advertentieaccount.
  *
- * Voorlopig met nepdata (META_ADS_FAKE=true). Later vervangen we alleen
- * fetchDailyRows() door een echte aanroep naar de Meta Marketing API;
- * de rest (periodes, totalen, trends, cache) blijft hetzelfde.
+ * META_ADS_FAKE=true  -> nepdata (voor demo's en lokaal ontwikkelen)
+ * META_ADS_FAKE=false -> echte cijfers via de Meta Marketing API
+ *
+ * De rest (periodes, totalen, trends, cache) is voor beide hetzelfde.
  */
 class MetaAdsService
 {
@@ -23,6 +26,12 @@ class MetaAdsService
     public const DEFAULT_PERIOD = 28;
 
     private const METRICS = ['impressions', 'clicks', 'conversions', 'spend'];
+
+    // De token wordt alleen naar dit adres gestuurd, nergens anders naartoe
+    private const GRAPH_URL = 'https://graph.facebook.com/';
+
+    // Veiligheidsgrens: nooit eindeloos doorbladeren
+    private const MAX_PAGES = 10;
 
     /**
      * Let op: deze methode vraagt bewust een AdAccount-model en geen los nummer.
@@ -90,7 +99,7 @@ class MetaAdsService
     }
 
     /**
-     * Cijfers per dag: impressions, clicks, conversions, spend.
+     * Cijfers per dag: date, impressions, clicks, conversions, spend.
      */
     private function fetchDailyRows(string $accountId, CarbonImmutable $start, CarbonImmutable $end): array
     {
@@ -98,16 +107,101 @@ class MetaAdsService
             return $this->fakeDailyRows($accountId, $start, $end);
         }
 
-        // Volgt later: echte aanroep naar de Meta Marketing API
-        throw new RuntimeException('De echte Meta-koppeling is nog niet gebouwd. Zet META_ADS_FAKE=true.');
+        return $this->liveDailyRows($accountId, $start, $end);
+    }
+
+    /**
+     * Echte cijfers per dag via de Meta Marketing API (Insights).
+     */
+    private function liveDailyRows(string $accountId, CarbonImmutable $start, CarbonImmutable $end): array
+    {
+        $token = config('services.meta_ads.access_token');
+        $version = config('services.meta_ads.api_version');
+
+        if (blank($token) || blank($version)) {
+            throw new RuntimeException('Meta-koppeling is niet ingesteld: token of API-versie ontbreekt.');
+        }
+
+        $url = self::GRAPH_URL . "{$version}/act_{$accountId}/insights";
+        $query = [
+            'level'          => 'account',
+            'fields'         => 'impressions,clicks,spend,actions',
+            'time_range'     => json_encode(['since' => $start->toDateString(), 'until' => $end->toDateString()]),
+            'time_increment' => 1,   // één rij per dag
+            'limit'          => 100,
+        ];
+
+        $byDate = [];
+        $pages = 0;
+
+        while ($url && $pages < self::MAX_PAGES) {
+            $response = Http::withToken($token)
+                ->acceptJson()
+                ->timeout(15)
+                // Alleen opnieuw proberen bij netwerkproblemen, niet bij bijv. een ongeldige token
+                ->retry(2, 500, fn ($e) => $e instanceof ConnectionException, throw: false)
+                ->get($url, $query);
+
+            if ($response->failed()) {
+                // Foutmelding van Meta (zonder token) doorgeven; de controller logt hem
+                $message = $response->json('error.message') ?? 'onbekende fout';
+                throw new RuntimeException("Meta API gaf een fout ({$response->status()}): {$message}");
+            }
+
+            foreach ($response->json('data', []) as $row) {
+                $byDate[$row['date_start']] = [
+                    'impressions' => (int) ($row['impressions'] ?? 0),
+                    'clicks'      => (int) ($row['clicks'] ?? 0),
+                    'conversions' => $this->countConversions($row['actions'] ?? []),
+                    'spend'       => round((float) ($row['spend'] ?? 0), 2),
+                ];
+            }
+
+            // Volgende pagina? Die link bevat alle parameters al.
+            // Alleen volgen als hij echt naar Meta wijst, zodat de token nooit ergens anders heen gaat.
+            $next = $response->json('paging.next');
+            $url = (is_string($next) && str_starts_with($next, self::GRAPH_URL)) ? $next : null;
+            $query = [];
+            $pages++;
+        }
+
+        // Meta laat dagen zonder advertenties weg. Die vullen we aan met nullen,
+        // zodat de grafiek geen gaten heeft en het aantal dagen altijd klopt.
+        $rows = [];
+        for ($date = $start; $date->lte($end); $date = $date->addDay()) {
+            $key = $date->toDateString();
+            $rows[] = ['date' => $key] + ($byDate[$key] ?? [
+                'impressions' => 0,
+                'clicks'      => 0,
+                'conversions' => 0,
+                'spend'       => 0.0,
+            ]);
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Meta geeft conversies als lijst met soorten acties. We tellen alleen de
+     * soorten mee die in config/services.php staan (meta_ads.conversion_action_types).
+     */
+    private function countConversions(array $actions): int
+    {
+        $types = config('services.meta_ads.conversion_action_types', ['lead']);
+        $total = 0;
+
+        foreach ($actions as $action) {
+            if (in_array($action['action_type'] ?? null, $types, true)) {
+                $total += (int) round((float) ($action['value'] ?? 0));
+            }
+        }
+
+        return $total;
     }
 
     /**
      * Nepdata die er realistisch uitziet en altijd hetzelfde is voor
-     * hetzelfde account op dezelfde dag. Daardoor:
-     * - veranderen de cijfers niet bij elke refresh;
-     * - heeft elke klant andere cijfers;
-     * - zijn 7 dagen precies een deel van 28 dagen (net als echte data).
+     * hetzelfde account op dezelfde dag.
      */
     private function fakeDailyRows(string $accountId, CarbonImmutable $start, CarbonImmutable $end): array
     {

@@ -30,6 +30,8 @@ return [
     'access_token' => env('META_ADS_ACCESS_TOKEN'),
     'api_version' => env('META_ADS_API_VERSION'),
     'cache_minutes' => env('META_ADS_CACHE_MINUTES', 180),
+    // Welke Meta-acties tellen als conversie (voorlopig alleen leads, nog afstemmen met Stijn)
+    'conversion_action_types' => ['lead'],
     ],
 
     'postmark' => [

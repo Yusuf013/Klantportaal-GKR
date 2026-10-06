@@ -32,5 +32,7 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="META_ADS_FAKE" value="true" force="true"/>
+        <env name="META_ADS_ACCESS_TOKEN" value="" force="true"/>
     </php>
 </phpunit>

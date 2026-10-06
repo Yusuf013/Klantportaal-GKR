@@ -34,6 +34,12 @@ return [
     'conversion_action_types' => ['lead'],
     ],
 
+    'google_ads' => [
+    // true = nepdata, false = echte Google Ads-koppeling (komt in stap 4)
+    'fake' => env('GOOGLE_ADS_FAKE', true),
+    'cache_minutes' => env('GOOGLE_ADS_CACHE_MINUTES', 180),
+    ],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],

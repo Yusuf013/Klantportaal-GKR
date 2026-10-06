@@ -1,0 +1,59 @@
+<?php
+
+namespace App\Console\Commands;
+
+use App\Models\AdAccount;
+use App\Services\GoogleAdsService;
+use Illuminate\Console\Command;
+
+class GoogleAdsTest extends Command
+{
+    protected $signature = 'google-ads:test {customerId : Het Google Ads-klantnummer, bijv. 123-456-7890} {--days=28 : 7, 28, 90 of 365}';
+
+    protected $description = 'Test de Google Ads-service (nepdata of echt) voor één klantaccount';
+
+    public function handle(GoogleAdsService $googleAds): int
+    {
+        $customerId = GoogleAdsService::normalizeCustomerId($this->argument('customerId'));
+
+        if (! preg_match('/^\d{10}$/', $customerId)) {
+            $this->error('Een Google Ads-klantnummer bestaat uit 10 cijfers, bijv. 123-456-7890.');
+
+            return self::FAILURE;
+        }
+
+        // Tijdelijk account, wordt NIET opgeslagen in de database
+        $account = new AdAccount([
+            'platform'   => AdAccount::PLATFORM_GOOGLE_ADS,
+            'account_id' => $customerId,
+        ]);
+
+        try {
+            $report = $googleAds->getInsights($account, (int) $this->option('days'));
+        } catch (\Throwable $e) {
+            $this->error('Ophalen mislukt: ' . $e->getMessage());
+
+            return self::FAILURE;
+        }
+
+        $this->info(($report['is_fake'] ? '[NEPDATA] ' : '[LIVE] ') . "Periode {$report['start']} t/m {$report['end']} ({$report['days']} dagen)");
+
+        $rows = [];
+        foreach ($report['totals'] as $metric => $value) {
+            $trend = $report['trends'][$metric];
+            $rows[] = [$metric, $value, $report['previous'][$metric], $trend === null ? '-' : $trend . '%'];
+        }
+
+        $this->table(['Cijfer', 'Deze periode', 'Vorige periode', 'Trend'], $rows);
+        $this->line('Aantal punten in de grafiek: ' . count($report['series']));
+
+        $this->newLine();
+        $this->info('Per campagne');
+        $this->table(
+            ['Campagne', 'Vertoningen', 'Klikken', 'CTR %', 'Conversies', 'Kosten'],
+            array_map(fn ($c) => [$c['name'], $c['impressions'], $c['clicks'], $c['ctr'], $c['conversions'], $c['spend']], $report['campaigns'])
+        );
+
+        return self::SUCCESS;
+    }
+}

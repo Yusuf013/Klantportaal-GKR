@@ -23,13 +23,15 @@
                     {{ session('error') }}
                 </div>
             @endif
-            {{-- NIEUW: foutmelding bij het koppelen van een Meta-advertentieaccount --}}
-            @if($errors->has('meta_ad_account_id'))
-                <div class="p-4 bg-red-50 border border-red-150 text-red-700 rounded-xl text-sm font-medium flex items-center shadow-sm">
-                    <svg class="w-5 h-5 mr-2 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                    {{ $errors->first('meta_ad_account_id') }}
-                </div>
-            @endif
+            {{-- Foutmeldingen bij het koppelen van een advertentieaccount (Meta of Google Ads) --}}
+            @foreach(['meta_ad_account_id', 'google_ads_customer_id'] as $adField)
+                @if($errors->has($adField))
+                    <div class="p-4 bg-red-50 border border-red-150 text-red-700 rounded-xl text-sm font-medium flex items-center shadow-sm">
+                        <svg class="w-5 h-5 mr-2 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                        {{ $errors->first($adField) }}
+                    </div>
+                @endif
+            @endforeach
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 
@@ -113,14 +115,20 @@
 
             </div>
 
-            {{-- NIEUW: kaart om klanten aan een Meta-advertentieaccount te koppelen --}}
+            {{-- Kaart om klanten aan hun advertentieaccounts te koppelen (Meta en Google Ads) --}}
+            @php
+                // Google toont klantnummers als 123-456-7890; in de database staan alleen de cijfers
+                $formatGoogleAdsId = fn (?string $id) => $id
+                    ? substr($id, 0, 3) . '-' . substr($id, 3, 3) . '-' . substr($id, 6)
+                    : null;
+            @endphp
             <div class="bg-white rounded-2xl shadow-sm border border-gray-150 overflow-hidden">
                 <div class="px-6 py-4 bg-gray-50/50 border-b border-gray-100">
                     <h3 class="text-xs font-bold text-[#011936] uppercase tracking-wider flex items-center">
                         <span class="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
                         Advertentiekoppelingen
                     </h3>
-                    <p class="text-[11px] text-gray-400 mt-1">Koppel een klant pas nadat de klant is geïnformeerd. Een klant ziet alleen de cijfers van het eigen account.</p>
+                    <p class="text-[11px] text-gray-400 mt-1">Koppel een klant pas nadat de klant is geïnformeerd. Een klant ziet alleen de cijfers van de eigen accounts. Laat een veld leeg en klik op Opslaan om te ontkoppelen.</p>
                 </div>
                 <div class="p-4 overflow-x-auto">
                     <table class="w-full text-left border-collapse text-sm">
@@ -128,13 +136,15 @@
                             <tr class="text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100 bg-gray-50/30">
                                 <th class="p-3">Klant</th>
                                 <th class="p-3">Meta-advertentieaccount</th>
-                                <th class="p-3">Status</th>
+                                <th class="p-3">Google Ads-klantnummer</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100 font-medium text-gray-700">
                             @forelse($clients as $client)
-                                <tr class="hover:bg-gray-50/40 transition">
+                                <tr class="hover:bg-gray-50/40 transition align-top">
                                     <td class="p-3 font-semibold text-gray-800">{{ $client->name }}</td>
+
+                                    {{-- Meta --}}
                                     <td class="p-3">
                                         <form method="POST" action="{{ route('admin.users.meta-account.update', $client) }}" class="flex items-center gap-2">
                                             @csrf
@@ -148,14 +158,38 @@
                                                 Opslaan
                                             </button>
                                         </form>
+                                        <div class="mt-1.5 text-[11px]">
+                                            @if($client->metaAdAccount)
+                                                <span class="text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-md font-bold">Gekoppeld</span>
+                                                <span class="text-gray-400 ml-1">sinds {{ $client->metaAdAccount->created_at->format('d-m-Y') }}</span>
+                                            @else
+                                                <span class="text-gray-400">Niet gekoppeld</span>
+                                            @endif
+                                        </div>
                                     </td>
-                                    <td class="p-3 text-xs">
-                                        @if($client->metaAdAccount)
-                                            <span class="text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-md font-bold">Gekoppeld</span>
-                                            <span class="text-gray-400 ml-1">sinds {{ $client->metaAdAccount->created_at->format('d-m-Y') }}</span>
-                                        @else
-                                            <span class="text-gray-400">Niet gekoppeld</span>
-                                        @endif
+
+                                    {{-- Google Ads --}}
+                                    <td class="p-3">
+                                        <form method="POST" action="{{ route('admin.users.google-ads-account.update', $client) }}" class="flex items-center gap-2">
+                                            @csrf
+                                            @method('PATCH')
+                                            <input type="text"
+                                                   name="google_ads_customer_id"
+                                                   value="{{ $formatGoogleAdsId($client->googleAdsAccount?->account_id) }}"
+                                                   placeholder="123-456-7890"
+                                                   class="w-40 rounded-lg border-gray-200 text-xs py-1.5 px-2 focus:border-[#011936] focus:ring-[#011936]">
+                                            <button type="submit" class="px-3 py-1.5 bg-[#011936] text-white text-[11px] font-bold rounded-lg hover:opacity-90 transition">
+                                                Opslaan
+                                            </button>
+                                        </form>
+                                        <div class="mt-1.5 text-[11px]">
+                                            @if($client->googleAdsAccount)
+                                                <span class="text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-md font-bold">Gekoppeld</span>
+                                                <span class="text-gray-400 ml-1">sinds {{ $client->googleAdsAccount->created_at->format('d-m-Y') }}</span>
+                                            @else
+                                                <span class="text-gray-400">Niet gekoppeld</span>
+                                            @endif
+                                        </div>
                                     </td>
                                 </tr>
                             @empty

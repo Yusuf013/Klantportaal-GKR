@@ -159,6 +159,11 @@ Route::middleware(['auth', 'verified', 'admin'])
         Route::get('/advertenties/{user}', [\App\Http\Controllers\Admin\MetaAdsController::class, 'show'])
     ->name('meta-ads.show');
 
+
+        // Google Ads: klant koppelen aan een Google Ads-account
+        Route::patch('/gebruikers/{user}/google-ads-account', [\App\Http\Controllers\Admin\GoogleAdsAccountController::class, 'update'])
+            ->name('users.google-ads-account.update');
+
 });
 
 

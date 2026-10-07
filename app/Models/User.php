@@ -8,9 +8,9 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable(['name', 'email', 'password', 'role', 'is_admin'])]
 #[Hidden(['password', 'remember_token'])]
@@ -37,19 +37,23 @@ class User extends Authenticatable
         return $this->hasMany(Project::class);
     }
 
-    // Alle advertentieaccounts van deze klant (Meta, later Google Ads)
-        public function adAccounts(): HasMany
-        {
-            return $this->hasMany(AdAccount::class);
-        }
+    // Alle advertentieaccounts van deze klant (Meta en Google Ads)
+    public function adAccounts(): HasMany
+    {
+        return $this->hasMany(AdAccount::class);
+    }
 
-// Alleen het Meta-account van deze klant
-        public function metaAdAccount(): HasOne
-        {
-            return $this->hasOne(AdAccount::class)->where('platform', AdAccount::PLATFORM_META);
-}
+    // Alleen het Meta-account van deze klant
+    public function metaAdAccount(): HasOne
+    {
+        return $this->hasOne(AdAccount::class)->where('platform', AdAccount::PLATFORM_META);
+    }
 
-
+    // Alleen het Google Ads-account van deze klant
+    public function googleAdsAccount(): HasOne
+    {
+        return $this->hasOne(AdAccount::class)->where('platform', AdAccount::PLATFORM_GOOGLE_ADS);
+    }
 
     public function comments(): HasMany
     {

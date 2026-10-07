@@ -35,7 +35,7 @@ class DashboardController extends Controller
         $admins = User::where('is_admin', true)->orderBy('name')->get();
 
         // Haal alle klanten op, gesorteerd op naam
-        $clients = User::where('is_admin', false)->with('metaAdAccount')->orderBy('name')->get();
+        $clients = User::where('is_admin', false)->with(['metaAdAccount', 'googleAdsAccount'])->orderBy('name')->get();
 
         return view('admin.users.index', compact('admins', 'clients'));
     }

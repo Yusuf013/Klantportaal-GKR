@@ -90,6 +90,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     ->name('meta-ads.index');
     
 
+    // Google Ads: klantpagina (account komt altijd van de ingelogde klant, nooit uit de URL)
+    Route::get('/google-ads', [\App\Http\Controllers\GoogleAdsController::class, 'index'])
+        ->name('google-ads.index');
+
 
 
 });
@@ -163,6 +167,12 @@ Route::middleware(['auth', 'verified', 'admin'])
         // Google Ads: klant koppelen aan een Google Ads-account
         Route::patch('/gebruikers/{user}/google-ads-account', [\App\Http\Controllers\Admin\GoogleAdsAccountController::class, 'update'])
             ->name('users.google-ads-account.update');
+
+        
+        Route::get('/google-ads', [\App\Http\Controllers\Admin\GoogleAdsController::class, 'index'])
+            ->name('google-ads.index');
+        Route::get('/google-ads/{user}', [\App\Http\Controllers\Admin\GoogleAdsController::class, 'show'])
+            ->name('google-ads.show');
 
 });
 

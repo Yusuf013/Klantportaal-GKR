@@ -76,7 +76,7 @@
                     {{ __('Kalender & Afspraken') }}
                 </x-nav-link>
 
-                {{-- NIEUW: advertentieresultaten voor de klant (Meta Ads) --}}
+                {{-- Advertentieresultaten voor de klant (Meta Ads) --}}
                 @php
                     $isMetaAdsActive = request()->routeIs('meta-ads.*');
                 @endphp
@@ -92,8 +92,30 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"></path>
                     </svg>
 
-                    {{ __('Advertenties') }}
+                    {{ __('Meta Ads') }}
                 </x-nav-link>
+
+                {{-- NIEUW: Google Ads-resultaten, alleen zichtbaar als de klant een Google Ads-account heeft --}}
+                @if(auth()->user()->googleAdsAccount)
+                    @php
+                        $isGoogleAdsActive = request()->routeIs('google-ads.*');
+                    @endphp
+                    <x-nav-link :href="route('google-ads.index')" :active="$isGoogleAdsActive" 
+                        class="w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-150 group {{ $isGoogleAdsActive ? 'bg-white/10 text-white font-bold' : 'text-gray-400 hover:bg-white/5 hover:text-white' }}">
+                        
+                        {{-- Vergrootglas (zoekadvertenties). Bewust geen Google-logo: daar zijn merkrichtlijnen voor. --}}
+                        <svg class="w-5 h-5 mr-3 shrink-0 transition-colors {{ $isGoogleAdsActive ? 'text-white' : 'text-gray-400 group-hover:text-white' }}" 
+                             fill="none" 
+                             stroke="currentColor" 
+                             stroke-width="2" 
+                             viewBox="0 0 24 24" 
+                             xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+
+                        {{ __('Google Ads') }}
+                    </x-nav-link>
+                @endif
             @endif
 
             {{-- INTERFACE VOOR ADMINS / GKR MEDEWERKERS --}}
@@ -136,7 +158,7 @@
         <span>{{ __('Analytics Beheer') }}</span>
     </x-nav-link>
 
-                {{-- NIEUW: Meta Ads-overzicht van alle klanten voor GKR --}}
+                {{-- Meta Ads-overzicht van alle klanten voor GKR --}}
                 @php
                     $isAdminMetaAdsActive = request()->routeIs('admin.meta-ads.*');
                 @endphp
@@ -153,6 +175,25 @@
                     </svg>
 
                     <span>{{ __('Meta Ads') }}</span>
+                </x-nav-link>
+
+                {{-- NIEUW: Google Ads-overzicht van alle klanten voor GKR --}}
+                @php
+                    $isAdminGoogleAdsActive = request()->routeIs('admin.google-ads.*');
+                @endphp
+                <x-nav-link :href="route('admin.google-ads.index')" :active="$isAdminGoogleAdsActive" 
+                    class="w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-150 group {{ $isAdminGoogleAdsActive ? 'bg-white/10 text-white font-bold' : 'text-gray-400 hover:bg-white/5 hover:text-white' }}">
+                    
+                    <svg class="w-5 h-5 mr-3 shrink-0 transition-colors {{ $isAdminGoogleAdsActive ? 'text-white' : 'text-gray-400 group-hover:text-white' }}" 
+                         fill="none" 
+                         stroke="currentColor" 
+                         stroke-width="2" 
+                         viewBox="0 0 24 24" 
+                         xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+
+                    <span>{{ __('Google Ads') }}</span>
                 </x-nav-link>
 
 

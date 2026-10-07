@@ -16,7 +16,7 @@ use Throwable;
  * Outlook-agenda's via Microsoft Graph, met één koppeling voor heel GKR (ADR-011).
  *
  * - Authenticatie: client credentials (applicatierechten Calendars.ReadWrite en
- *   MailboxSettings.ReadWrite), in Exchange ingeperkt tot de groep "Klantportaal-agenda's".
+ *   MailboxSettings.ReadWrite), in Exchange ingeperkt tot de groep "Klantportaal-agendas".
  * - Elke aanroep heeft een expliciete timeout. Tijdelijke fouten (timeout, 429, 5xx) worden
  *   CalendarTemporarilyUnavailable, blijvende fouten CalendarRejected. Graph-foutcodes en
  *   -berichten komen nooit buiten deze klasse.
@@ -202,8 +202,11 @@ class GraphCalendarProvider implements CalendarProvider
                 : null;
         }
 
+        // array_key_exists, niet `??=`: null betekent hier "OK" en mag niet overschreven worden.
         foreach ($emails as $email) {
-            $result[strtolower($email)] ??= 'niet teruggekregen van Outlook';
+            if (! array_key_exists(strtolower($email), $result)) {
+                $result[strtolower($email)] = 'niet teruggekregen van Outlook';
+            }
         }
 
         return $result;

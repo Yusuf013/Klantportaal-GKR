@@ -260,4 +260,23 @@ class GraphCalendarProviderTest extends TestCase
         $this->expectException(CalendarRejected::class);
         (new GraphCalendarProvider('', '', '', self::GRAPH, 10, 'Europe/Amsterdam'))->upsertMeeting($this->meeting());
     }
+
+    public function test_check_mailboxes_reports_ok_errors_and_missing_mailboxes_separately(): void
+    {
+        Http::fake($this->fakeToken() + [
+            self::GRAPH.'/users/owen%40gkr.nl/calendar/getSchedule' => Http::response(['value' => [
+                ['scheduleId' => 'Owen@gkr.nl', 'availabilityView' => '0000', 'scheduleItems' => []],
+                ['scheduleId' => 'bo@gkr.nl', 'error' => ['message' => 'Geen toegang', 'responseCode' => 'ErrorAccessDenied']],
+            ]]),
+        ]);
+
+        $result = $this->provider()->checkMailboxes(['owen@gkr.nl', 'bo@gkr.nl', 'noah@gkr.nl']);
+
+        // Een geslaagde mailbox (null) mag niet als "ontbrekend" worden overschreven.
+        $this->assertSame([
+            'owen@gkr.nl' => null,
+            'bo@gkr.nl' => 'ErrorAccessDenied',
+            'noah@gkr.nl' => 'niet teruggekregen van Outlook',
+        ], $result);
+    }
 }

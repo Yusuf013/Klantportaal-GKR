@@ -57,7 +57,7 @@ class CalendarCheck extends Command
 
         if ($failed > 0) {
             $this->newLine();
-            $this->line('Controleer of het e-mailadres in het platform gelijk is aan het Microsoft 365-adres, en of de mailbox in de groep "Klantportaal-agenda\'s" zit.');
+            $this->line('Controleer of het e-mailadres in het platform gelijk is aan het Microsoft 365-adres, en of de mailbox in de groep "Klantportaal-agendas" zit.');
 
             return self::FAILURE;
         }

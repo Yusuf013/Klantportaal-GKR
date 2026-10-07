@@ -40,6 +40,12 @@ return [
     'cache_minutes' => env('GOOGLE_ADS_CACHE_MINUTES', 180),
     ],
 
+    'appointments' => [
+    // false = alleen mailen naar het testadres (veilig zolang Resend in testmodus staat)
+    'mail_everyone' => env('APPOINTMENT_MAIL_EVERYONE', false),
+    'mail_test_recipient' => env('APPOINTMENT_MAIL_TEST_RECIPIENT'),
+],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],

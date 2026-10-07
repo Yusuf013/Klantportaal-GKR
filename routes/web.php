@@ -13,9 +13,10 @@ use App\Http\Controllers\Client\AppointmentController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\Admin\AnalyticsController;
 
-// Publieke route voor het genereren van het agenda-bestand (werkt voor iedereen via de mail)
-Route::get('/appointments/{appointment}/ics', [AppointmentController::class, 'downloadIcs'])->name('appointments.ics');
-Route::get('/chat/download/{message}', [MessageController::class, 'download'])->name('chat.download');
+// Publieke route voor het agenda-bestand. Alleen met een geldige handtekening (link uit de mail).
+Route::get('/appointments/{appointment}/ics', [AppointmentController::class, 'downloadIcs'])
+    ->middleware('signed:relative')
+    ->name('appointments.ics');
 /*
 |--------------------------------------------------------------------------
 | Site Password Routes

@@ -3,27 +3,29 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Appointment;
-use App\Models\User;
-use App\Models\Project;
-use Illuminate\Http\Request;
-use Carbon\Carbon;
-use App\Models\AppointmentOption;
 use App\Mail\AppointmentConfirmed;
+use App\Models\Appointment;
+use App\Models\AppointmentOption;
+use App\Models\Project;
+use App\Models\User;
+use App\Services\AppointmentAvailability;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
-
+use Illuminate\Validation\Rule;
 
 class AppointmentController extends Controller
 {
+    // Alleen afspraken met deze status kan een admin goedkeuren
+    private const APPROVABLE_STATUSES = ['In afwachting', 'Bevestigd door klant', 'Alternatief gekozen'];
+
     /**
-     * Toon het grote admin kalender dashboard
-     */
-/**
      * Toon het grote admin kalender dashboard
      */
     public function index()
     {
-        // FIX: Filter geannuleerde eruit én neem nu ook 'Alternatief gekozen' mee naast de rest!
+        // Geannuleerde afspraken worden niet getoond
         $appointments = Appointment::where('status', '!=', 'Geannuleerd')
             ->with(['client', 'project', 'attendees'])
             ->get();
@@ -36,109 +38,130 @@ class AppointmentController extends Controller
     }
 
     /**
-     * Sla een handmatig geplande afspraak vanuit de admin op
+     * Admin stuurt een afspraakvoorstel met 1 tot 3 momenten naar de klant.
      */
-
-
-public function store(Request $request)
-{
-    $request->validate([
-        'project_id'       => 'required|exists:projects,id',
-        'client_id'        => 'required|exists:users,id',
-        'title'            => 'required|string|max:255',
-        'type'             => 'required|string',
-        'description'      => 'nullable|string|max:500',
-        'employees'        => 'required|array',
-        'proposal_dates'   => 'required|array|min:1',
-    ]);
-
-    // Filter alle rijen die daadwerkelijk zijn ingevuld door de admin
-    $filledSlots = collect($request->proposal_dates)->filter(function ($slot) {
-        return !empty($slot['date']) && !empty($slot['time_slot']);
-    })->values();
-
-    // Bepaal de flow: Status is NU ALTIJD een voorstel, de klant moet zelf bevestigen!
-    $status = 'Voorstel';
-
-    // Formatteer de eerste (of enige) datum voor de hoofdtabel
-    $times = explode(' - ', $filledSlots[0]['time_slot']);
-    $startTime = \Carbon\Carbon::parse($filledSlots[0]['date'] . ' ' . $times[0]);
-    $endTime = \Carbon\Carbon::parse($filledSlots[0]['date'] . ' ' . $times[1]);
-
-    // Haal de klant ID op uit het request, of zoek de user_id op via het gekozen Project
-    $userId = $request->client_id ?? $request->user_id;
-
-    if (!$userId && $request->project_id) {
-        $project = \App\Models\Project::find($request->project_id);
-        $userId = $project ? $project->user_id : null; // Pakt automatisch de klant van het project
-    }
-
-    // Sla nu de afspraak op
-    $appointment = Appointment::create([
-        'project_id'  => $request->project_id,
-        'user_id'     => $userId, // Dit kan nu nóóit meer null zijn!
-        'title'       => $request->title,
-        'type'        => $request->type,
-        'description' => $request->description,
-        'status'      => $status,
-        'start_time'  => $startTime,
-        'end_time'    => $endTime,
-]);
-
-$appointment->attendees()->sync($request->employees);
-
-    // Sla ELK ingevuld slot op in de opties-tabel, of het er nu 1, 2 of 3 zijn
-    foreach ($filledSlots as $slot) {
-        $slotTimes = explode(' - ', $slot['time_slot']);
-        \App\Models\AppointmentOption::create([
-            'appointment_id' => $appointment->id,
-            'start_time'     => \Carbon\Carbon::parse($slot['date'] . ' ' . $slotTimes[0]),
-            'end_time'       => \Carbon\Carbon::parse($slot['date'] . ' ' . $slotTimes[1]),
+    public function store(Request $request, AppointmentAvailability $availability)
+    {
+        // Lege keuzes uit de medewerker-dropdowns weghalen
+        $request->merge([
+            'employees' => array_values(array_filter((array) $request->input('employees', []))),
         ]);
-    }
 
-    return redirect()->back()->with('success', 'Afspraakvoorstel succesvol verzonden naar de klant!');
-}
+        $validated = $request->validate([
+            // De klant moet echt een klant zijn (geen admin)
+            'client_id'                  => ['required', Rule::exists('users', 'id')->where('is_admin', 0)],
+            // Het project moet van DIE klant zijn
+            'project_id'                 => ['required', Rule::exists('projects', 'id')->where('user_id', $request->input('client_id'))],
+            'title'                      => 'required|string|max:255',
+            'type'                       => 'required|in:telefoon,online,fysiek',
+            'description'                => 'nullable|string|max:500',
+            'employees'                  => 'required|array|min:1',
+            'employees.*'                => ['distinct', Rule::exists('users', 'id')->where('is_admin', true)],
+            'proposal_dates'             => 'required|array|min:1',
+            'proposal_dates.*.date'      => ['nullable', 'date_format:Y-m-d', 'after_or_equal:today', $this->noWeekend()],
+            'proposal_dates.*.time_slot' => ['nullable', Rule::in(AppointmentAvailability::SLOTS)],
+        ], [
+            'project_id.exists'          => 'Dit project hoort niet bij de gekozen klant.',
+            'employees.*.exists'         => 'Kies alleen GKR-medewerkers.',
+            'proposal_dates.*.time_slot.in' => 'Kies een van de vaste tijdslots.',
+        ]);
 
-    /**
-     * Admin keurt een afspraak goed
-     */
+        // Alleen rijen waarin zowel datum als tijdslot is ingevuld
+        $filledSlots = collect($validated['proposal_dates'])
+            ->filter(fn ($slot) => ! empty($slot['date']) && ! empty($slot['time_slot']))
+            ->unique(fn ($slot) => $slot['date'] . ' ' . $slot['time_slot'])
+            ->values();
 
-/**
- * Admin keurt een afspraak goed en triggert e-mails (Demo Veilige Versie)
- */
-public function approve(Appointment $appointment)
-{
-    // 1. Update de status naar Bevestigd
-    $appointment->update(['status' => 'Bevestigd']);
-
-    // 2. Laad de relaties in om de e-mailadressen op te halen
-    $appointment->load(['client', 'attendees']);
-
-    // Jouw enige geverifieerde e-mailadres in de Resend Sandbox
-    $allowedEmail = 'yusuftascidhl@gmail.com';
-
-    // 3. Check de klant: stuur alleen als het jouw e-mail is
-    if ($appointment->client && $appointment->client->email === $allowedEmail) {
-        Mail::to($allowedEmail)->send(new AppointmentConfirmed($appointment));
-    }
-
-    // 4. Loop door alle gekoppelde medewerkers / admins
-    if ($appointment->attendees && $appointment->attendees->count() > 0) {
-        foreach ($appointment->attendees as $employee) {
-            // Stuur de mail alléén als de medewerker jouw e-mailadres heeft
-            // Hierdoor krijgt de andere admin GEEN mail en Resend geeft GEEN error!
-            if ($employee->email === $allowedEmail) {
-                Mail::to($allowedEmail)->send(new AppointmentConfirmed($appointment));
-            }
+        if ($filledSlots->isEmpty() || $filledSlots->count() > 3) {
+            return back()->withErrors(['proposal_dates' => 'Vul 1 tot 3 momenten in (datum én tijdslot).'])->withInput();
         }
+
+        // Zet elk moment om naar tijden en controleer of het nog kan
+        $options = [];
+        foreach ($filledSlots as $slot) {
+            [$start, $end] = AppointmentAvailability::slotTimes($slot['date'], $slot['time_slot']);
+
+            if (AppointmentAvailability::hasStarted($start)) {
+                return back()->withErrors(['proposal_dates' => "Het moment {$slot['date']} {$slot['time_slot']} is al voorbij."])->withInput();
+            }
+
+            $busy = $availability->busyEmployeeNames($validated['employees'], $start, $end);
+            if ($busy) {
+                return back()->withErrors([
+                    'proposal_dates' => "Op {$slot['date']} {$slot['time_slot']} is " . implode(' en ', $busy) . ' al bezet.',
+                ])->withInput();
+            }
+
+            $options[] = [$start, $end];
+        }
+
+        DB::transaction(function () use ($validated, $options) {
+            // De hoofdafspraak krijgt voorlopig het eerste moment; de klant kiest straks
+            $appointment = Appointment::create([
+                'project_id'  => $validated['project_id'],
+                'user_id'     => $validated['client_id'],
+                'title'       => $validated['title'],
+                'type'        => $validated['type'],
+                'description' => $validated['description'] ?? null,
+                'status'      => 'Voorstel',
+                'start_time'  => $options[0][0],
+                'end_time'    => $options[0][1],
+            ]);
+
+            $appointment->attendees()->sync($validated['employees']);
+
+            foreach ($options as [$start, $end]) {
+                AppointmentOption::create([
+                    'appointment_id' => $appointment->id,
+                    'start_time'     => $start,
+                    'end_time'       => $end,
+                ]);
+            }
+        });
+
+        return redirect()->back()->with('success', 'Afspraakvoorstel succesvol verzonden naar de klant!');
     }
 
-    return redirect()->back()->with('success', 'Afspraak is succesvol bevestigd en de e-mailnotificaties zijn verwerkt!');
-}
+    /**
+     * Admin keurt een afspraak goed en verstuurt de bevestigingsmails.
+     */
+    public function approve(Appointment $appointment, AppointmentAvailability $availability)
+    {
+        // Een voorstel moet eerst door de klant gekozen worden; een geannuleerde of
+        // al bevestigde afspraak kan niet (nog een keer) goedgekeurd worden
+        if (! in_array($appointment->status, self::APPROVABLE_STATUSES, true)) {
+            return redirect()->back()->with('error', "Een afspraak met status '{$appointment->status}' kan niet worden goedgekeurd.");
+        }
+
+        $result = $availability->withBookingLock(function () use ($appointment, $availability) {
+            // Laatste controle: is er intussen iets anders op dit moment gepland?
+            $busy = $availability->busyEmployeeNames(
+                $appointment->attendees()->pluck('users.id')->all(),
+                $appointment->start_time,
+                $appointment->end_time,
+                $appointment->id
+            );
+
+            if ($busy) {
+                return implode(' en ', $busy);
+            }
+
+            $appointment->update(['status' => 'Bevestigd']);
+
+            return null;
+        });
+
+        if ($result !== null) {
+            return redirect()->back()->with('error', "Goedkeuren lukt niet: {$result} heeft op dit moment al een andere afspraak.");
+        }
+
+        $this->sendConfirmationMails($appointment->fresh(['client', 'attendees']));
+
+        return redirect()->back()->with('success', 'Afspraak is succesvol bevestigd en de e-mailnotificaties zijn verwerkt!');
+    }
 
     /**
-     * Admin wijst een afspraak af / verwijdert deze
+     * Admin wijst een afspraak af
      */
     public function reject(Appointment $appointment)
     {
@@ -148,42 +171,69 @@ public function approve(Appointment $appointment)
     }
 
     /**
-     * Controleer live de beschikbaarheid van een medewerker (Iteratie 1 Mock Data)
+     * Controleer de beschikbaarheid van één medewerker op één tijdslot.
+     * Wordt door de kalender (klant én admin) per tijdslot aangeroepen.
      */
- public function checkAvailability(Request $request)
-{
-    // 1. Valideer de binnenkomende data van de klant
-    $request->validate([
-        'employee_id' => 'required|exists:users,id',
-        'date'        => 'required|date_format:Y-m-d',
-        'time_slot'   => 'required|string',
-    ]);
+    public function checkAvailability(Request $request, AppointmentAvailability $availability)
+    {
+        $validated = $request->validate([
+            // Alleen medewerkers van GKR; zo kan niemand de agenda van een klant aftasten
+            'employee_id' => ['required', Rule::exists('users', 'id')->where('is_admin', true)],
+            'date'        => ['required', 'date_format:Y-m-d'],
+            'time_slot'   => ['required', Rule::in(AppointmentAvailability::SLOTS)],
+        ]);
 
-    // 2. Splits het gekozen urenslot op (bijv. "09:00 - 10:00")
-    $slots = explode(' - ', $request->time_slot);
-    if (count($slots) !== 2) {
-        return response()->json(['status' => 'error', 'message' => 'Ongeldig tijdslot formaat'], 400);
+        [$start, $end] = AppointmentAvailability::slotTimes($validated['date'], $validated['time_slot']);
+
+        // Telt nu ALLE afspraken mee die een slot bezet houden, niet alleen 'Bevestigd'
+        $busy = $availability->busyEmployeeNames([$validated['employee_id']], $start, $end);
+
+        // Bewust zonder namen of details: de klant ziet alleen Bezet of Beschikbaar
+        return $busy
+            ? response()->json(['status' => 'conflict', 'message' => 'Bezet'])
+            : response()->json(['status' => 'available', 'message' => 'Beschikbaar']);
     }
 
-    $startTimeStr = $request->date . ' ' . trim($slots[0]) . ':00'; 
-    $endTimeStr   = $request->date . ' ' . trim($slots[1]) . ':00'; 
+    /**
+     * Stuurt de bevestiging naar de klant en de medewerkers.
+     *
+     * Veilige standaard: zolang APPOINTMENT_MAIL_EVERYONE niet op true staat,
+     * gaat er alleen mail naar het testadres (zoals de Resend-testomgeving vereist).
+     * Zo staat er geen persoonlijk e-mailadres meer in de code.
+     */
+    private function sendConfirmationMails(Appointment $appointment): void
+    {
+        $recipients = collect([$appointment->client])
+            ->merge($appointment->attendees)
+            ->filter()
+            ->pluck('email')
+            ->filter()
+            ->unique(fn ($email) => strtolower($email));
 
-    // 3. Waterdichte overlap-check met de juiste relatie: attendees
-    $conflictExists = Appointment::where('status', 'Bevestigd')
-        ->where(function ($query) use ($startTimeStr, $endTimeStr) {
-            $query->where('start_time', '<', $endTimeStr)
-                  ->where('end_time', '>', $startTimeStr);
-        })
-        ->whereHas('attendees', function ($query) use ($request) {
-            $query->where('users.id', $request->employee_id);
-        })
-        ->exists();
+        if (! config('services.appointments.mail_everyone')) {
+            $testRecipient = (string) config('services.appointments.mail_test_recipient');
+            $recipients = $recipients->filter(fn ($email) => $testRecipient !== '' && strcasecmp($email, $testRecipient) === 0);
+        }
 
-    // 4. Geef het resultaat terug aan het JavaScript van de klant
-    if ($conflictExists) {
-        return response()->json(['status' => 'conflict', 'message' => 'Bezet']);
+        foreach ($recipients as $email) {
+            try {
+                Mail::to($email)->send(new AppointmentConfirmed($appointment));
+            } catch (\Throwable $e) {
+                // Een mislukte mail mag de goedkeuring niet ongedaan maken
+                Log::error('Bevestigingsmail afspraak mislukt', [
+                    'appointment_id' => $appointment->id,
+                    'message'        => $e->getMessage(),
+                ]);
+            }
+        }
     }
 
-    return response()->json(['status' => 'available', 'message' => 'Beschikbaar']);
-}
+    private function noWeekend(): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail) {
+            if ($value && AppointmentAvailability::isWeekend((string) $value)) {
+                $fail('In het weekend kunnen geen afspraken worden gepland.');
+            }
+        };
+    }
 }

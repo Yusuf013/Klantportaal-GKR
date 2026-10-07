@@ -14,6 +14,34 @@
         </div>
     </x-slot>
 
+    @php
+        // Duidelijke teksten per status, zodat de klant begrijpt waar een afspraak staat
+        $statusLabels = [
+            'In afwachting'        => 'In afwachting',
+            'Voorstel'             => 'Kies een moment',
+            'Bevestigd door klant' => 'Gekozen, wacht op GKR',
+            'Alternatief gekozen'  => 'Alternatief, wacht op GKR',
+            'Bevestigd'            => 'Bevestigd',
+        ];
+
+        // NIEUW: alleen de gegevens die de detailpopup nodig heeft naar JavaScript sturen.
+        // Voorheen ging het hele model mee (inclusief e-mailadressen van GKR-medewerkers).
+        // Datum en tijd worden hier al opgemaakt, zodat de browser niets met tijdzones hoeft te doen.
+        $appointmentsForJs = $appointments->map(fn ($appointment) => [
+            'id'           => $appointment->id,
+            'title'        => $appointment->title,
+            'status'       => $appointment->status,
+            'status_label' => $statusLabels[$appointment->status] ?? $appointment->status,
+            'type'         => $appointment->type,
+            'project'      => $appointment->project?->name,
+            'description'  => $appointment->description,
+            'attendees'    => $appointment->attendees->pluck('name')->values(),
+            'when'         => $appointment->status === 'Voorstel'
+                ? null
+                : $appointment->start_time->translatedFormat('l j F Y') . ' om ' . $appointment->start_time->format('H:i') . ' - ' . $appointment->end_time->format('H:i') . ' uur',
+        ])->values();
+    @endphp
+
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             
@@ -32,7 +60,7 @@
                 <div class="flex items-center justify-between border-b border-gray-100 pb-4 mb-5">
                     <div>
                         <p class="text-xs font-semibold text-slate-400 tracking-wide uppercase">
-                            {{ $appointmentProposal->project->name ?? 'E-commerce Ontwikkeling' }}
+                            {{ $appointmentProposal->project->name ?? 'Algemeen' }}
                         </p>
                         <h2 class="text-xl font-bold text-[#011936] font-maven mt-0.5">
                             {{ $appointmentProposal->title }}
@@ -49,16 +77,21 @@
 
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                     @foreach($appointmentProposal->options as $index => $option)
+                        @php
+                            $optionDate = $option->start_time->translatedFormat('j F Y');
+                            $optionTime = $option->start_time->format('H:i') . ' - ' . $option->end_time->format('H:i');
+                        @endphp
                         <label class="relative block cursor-pointer group">
+                            {{-- AANGEPAST: @js() zet waarden veilig om naar JavaScript --}}
                             <input type="radio" name="selected_proposal_option" value="{{ $option->id }}" class="sr-only peer" 
-                                   onclick="selectProposalCard(this, {{ $appointmentProposal->id }}, {{ $option->id }}, '{{ \Carbon\Carbon::parse($option->start_time)->translatedFormat('j F Y') }}', '{{ \Carbon\Carbon::parse($option->start_time)->format('H:i') }} - {{ \Carbon\Carbon::parse($option->end_time)->format('H:i') }}')">
+                                   onclick="selectProposalCard(this, {{ $appointmentProposal->id }}, {{ $option->id }}, @js($optionDate), @js($optionTime))">
                             
                             <div class="border border-gray-200 rounded-xl p-5 bg-white text-center transition-all duration-200 hover:border-[#011936] hover:shadow-md peer-checked:border-[#011936] peer-checked:bg-slate-50/50 peer-checked:ring-1 peer-checked:ring-[#011936]">
                                 <span class="block text-sm font-bold text-gray-800 transition group-hover:text-[#011936]">
-                                    {{ \Carbon\Carbon::parse($option->start_time)->translatedFormat('j F Y') }}
+                                    {{ $optionDate }}
                                 </span>
                                 <span class="block text-xs font-semibold text-gray-400 mt-1">
-                                    {{ \Carbon\Carbon::parse($option->start_time)->format('H:i') }} - {{ \Carbon\Carbon::parse($option->end_time)->format('H:i') }} uur
+                                    {{ $optionTime }} uur
                                 </span>
                             </div>
                         </label>
@@ -70,7 +103,8 @@
                         <div class="flex items-center -space-x-2">
                             @foreach($appointmentProposal->attendees as $emp)
                                 <div class="w-8 h-8 rounded-full bg-[#011936] border-2 border-white flex items-center justify-center text-[10px] font-bold text-white uppercase tracking-wider" title="{{ $emp->name }}">
-                                    {{ substr($emp->name, 0, 2) }}
+                                    {{-- mb_substr: knipt niet midden in een letter als é --}}
+                                    {{ mb_substr($emp->name, 0, 2) }}
                                 </div>
                             @endforeach
                         </div>
@@ -80,11 +114,10 @@
                     </div>
 
                     <div class="flex items-center space-x-6">
-                        @if(isset($appointmentProposal))
-                        <button type="button" onclick="openAlternativeDatePicker({{ $appointmentProposal->id }}, {{ json_encode($appointmentProposal->attendees->pluck('id')) }}, '{{ $appointmentProposal->attendees->pluck('name')->join(' en ') }}')" class="text-xs font-bold text-gray-650 underline hover:text-[#011936] transition cursor-pointer">
+                        {{-- AANGEPAST (XSS-fix): namen en ID's via @js() in plaats van '{{ }}' binnen een onclick --}}
+                        <button type="button" onclick="openAlternativeDatePicker({{ $appointmentProposal->id }}, @js($appointmentProposal->attendees->pluck('id')->values()), @js($appointmentProposal->attendees->pluck('name')->join(' en ')))" class="text-xs font-bold text-gray-650 underline hover:text-[#011936] transition cursor-pointer">
                             Past geen van de tijden?
                         </button>
-                        @endif
                         
                         <button type="button" id="confirm-proposal-btn" disabled onclick="submitSelectedSlot()" class="px-5 py-2.5 bg-slate-400 text-white text-xs font-bold rounded-xl transition cursor-not-allowed shadow-sm">
                             Bevestigen
@@ -146,11 +179,12 @@
                         <th class="p-4 pl-6 w-1/4">Projectnaam</th>
                         <th class="p-4">Afspraak titel</th>
                         <th class="p-4 w-44">Voorkeursdatum</th>
-                        <th class="p-4 w-32">Status</th>
+                        <th class="p-4 w-40">Status</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 text-sm">
-                    @forelse($appointments->whereIn('status', ['In afwachting', 'Voorstel']) as $appointment)
+                    {{-- AANGEPAST: ook gekozen voorstellen en alternatieven tonen (die verdwenen eerst uit beide lijsten) --}}
+                    @forelse($appointments->whereIn('status', ['In afwachting', 'Voorstel', 'Bevestigd door klant', 'Alternatief gekozen']) as $appointment)
                         <tr onclick="openClientDetailModal({{ $appointment->id }})" class="hover:bg-gray-50/50 transition duration-150 group cursor-pointer" title="Klik voor details">
                             <td class="p-4 pl-6 font-bold text-[#011936]">{{ $appointment->project->name ?? 'Geen project' }}</td>
                             <td class="p-4">
@@ -158,18 +192,18 @@
                                 <div class="text-[11px] font-semibold text-gray-400 uppercase mt-0.5 tracking-wider">{{ ucfirst($appointment->type) }}</div>
                             </td>
                             <td class="p-4 text-gray-650 font-medium">
-                                <div>{{ $appointment->start_time->translatedFormat('d M Y') }}</div>
-                                <div class="text-xs text-gray-400 mt-0.5 font-normal">
-                                    @if($appointment->status === 'Voorstel')
-                                        Tijd nog te bepalen
-                                    @else
+                                @if($appointment->status === 'Voorstel')
+                                    <div class="text-xs text-gray-400 font-normal">Kies hierboven een moment</div>
+                                @else
+                                    <div>{{ $appointment->start_time->translatedFormat('d M Y') }}</div>
+                                    <div class="text-xs text-gray-400 mt-0.5 font-normal">
                                         {{ $appointment->start_time->format('H:i') }} - {{ $appointment->end_time->format('H:i') }} uur
-                                    @endif
-                                </div>
+                                    </div>
+                                @endif
                             </td>
                             <td class="p-4">
                                 <span class="inline-flex items-center text-[11px] font-bold px-2.5 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-100 uppercase tracking-wider">
-                                    {{ $appointment->status === 'Voorstel' ? 'Voorstel Klant' : 'In afwachting' }}
+                                    {{ $statusLabels[$appointment->status] ?? $appointment->status }}
                                 </span>
                             </td>
                         </tr>
@@ -203,6 +237,18 @@
 
                 <form action="{{ route('client.appointments.store') }}" method="POST" class="p-8">
                     @csrf
+
+                    {{-- NIEUW: foutmeldingen tonen. De modal ging al open bij een fout, maar je zag niet wát er mis was. --}}
+                    @if ($errors->any())
+                        <div class="mb-6 p-4 bg-red-50 border border-red-150 text-red-700 rounded-xl text-sm font-medium">
+                            <p class="font-bold mb-1">De afspraak kon niet worden aangevraagd:</p>
+                            <ul class="list-disc pl-5 space-y-0.5">
+                                @foreach ($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
                     
                     <div class="grid grid-cols-1 md:grid-cols-12 gap-8">
                         
@@ -220,19 +266,21 @@
 
                             <div>
                                 <label class="block text-xs font-bold text-[#011936] uppercase tracking-wider mb-3">Afspraaktype *</label>
+                                {{-- AANGEPAST: na een fout blijft het gekozen type geselecteerd --}}
+                                @php $oldType = old('type', 'online'); @endphp
                                 <div class="grid grid-cols-3 gap-4">
                                     <label class="flex flex-col items-center justify-center p-5 border border-gray-200 rounded-2xl cursor-pointer hover:bg-gray-50/50 transition bg-white text-center shadow-sm group">
-                                        <input type="radio" name="type" value="telefoon" required class="sr-only">
+                                        <input type="radio" name="type" value="telefoon" required class="sr-only" {{ $oldType === 'telefoon' ? 'checked' : '' }}>
                                         <svg class="w-6 h-6 text-gray-600 mb-2 group-hover:text-[#011936]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.94.725l.548 2.2a1 1 0 01-.321.988l-1.305.98a10.582 10.582 0 004.872 4.872l.98-1.305a1 1 0 01.988-.321l2.2.548a1 1 0 01.725.94V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
                                         <span class="text-xs font-bold text-gray-700">Telefoon</span>
                                     </label>
                                     <label class="flex flex-col items-center justify-center p-5 border border-gray-200 rounded-2xl cursor-pointer hover:bg-gray-50/50 transition bg-white text-center shadow-sm group">
-                                        <input type="radio" name="type" value="online" checked class="sr-only">
+                                        <input type="radio" name="type" value="online" class="sr-only" {{ $oldType === 'online' ? 'checked' : '' }}>
                                         <svg class="w-6 h-6 text-gray-600 mb-2 group-hover:text-[#011936]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
                                         <span class="text-xs font-bold text-gray-700">Online</span>
                                     </label>
                                     <label class="flex flex-col items-center justify-center p-5 border border-gray-200 rounded-2xl cursor-pointer hover:bg-gray-50/50 transition bg-white text-center shadow-sm group">
-                                        <input type="radio" name="type" value="fysiek" class="sr-only">
+                                        <input type="radio" name="type" value="fysiek" class="sr-only" {{ $oldType === 'fysiek' ? 'checked' : '' }}>
                                         <svg class="w-6 h-6 text-gray-600 mb-2 group-hover:text-[#011936]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
                                         <span class="text-xs font-bold text-gray-700">Fysiek</span>
                                     </label>
@@ -243,7 +291,7 @@
                                 <label for="title" class="block text-xs font-bold text-[#011936] uppercase tracking-wider mb-2">Onderwerp *</label>
                                 <div class="relative">
                                     <svg class="w-5 h-5 text-gray-400 absolute left-4 top-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-                                    <input type="text" name="title" id="title" required value="{{ old('title') }}" placeholder="Bijv. Maandelijkse begrotingsreview" class="w-full rounded-xl border border-gray-200 text-sm pl-12 p-3.5 focus:border-[#011936] focus:ring-[#011936]">
+                                    <input type="text" name="title" id="title" required maxlength="255" value="{{ old('title') }}" placeholder="Bijv. Maandelijkse begrotingsreview" class="w-full rounded-xl border border-gray-200 text-sm pl-12 p-3.5 focus:border-[#011936] focus:ring-[#011936]">
                                 </div>
                             </div>
 
@@ -298,8 +346,9 @@
 
                             <div>
                                 <label for="description" class="block text-xs font-bold text-[#011936] uppercase tracking-wider mb-2">Aanvullende opmerkingen</label>
-                                <textarea name="description" id="description" rows="4" maxlength="500" oninput="updateCharCount(this)" placeholder="Beschrijf kort het doel van deze vergadering..." class="w-full rounded-2xl border border-gray-200 text-sm p-4 focus:border-[#011936] focus:ring-[#011936] bg-gray-50/20"></textarea>
-                                <p class="text-right text-[10px] text-gray-400 mt-1"><span id="char-counter">0</span>/500</p>
+                                {{-- AANGEPAST: na een fout blijft de ingevulde tekst staan --}}
+                                <textarea name="description" id="description" rows="4" maxlength="500" oninput="updateCharCount(this)" placeholder="Beschrijf kort het doel van deze vergadering..." class="w-full rounded-2xl border border-gray-200 text-sm p-4 focus:border-[#011936] focus:ring-[#011936] bg-gray-50/20">{{ old('description') }}</textarea>
+                                <p class="text-right text-[10px] text-gray-400 mt-1"><span id="char-counter">{{ mb_strlen(old('description', '')) }}</span>/500</p>
                             </div>
                         </div>
                     </div>
@@ -458,7 +507,8 @@
     </style>
 
     <script>
-    const dbAppointments = @json($appointments);
+    // AANGEPAST: alleen de velden die de popup nodig heeft, al opgemaakt door de server (zie @php bovenaan)
+    const dbAppointments = @js($appointmentsForJs);
 
     // Geheugen voor het geselecteerde voorstel van de klant
     let currentSelection = {
@@ -555,6 +605,7 @@
                 }
                 setTimeout(() => { window.location.reload(); }, 300);
             } else {
+                // Meldingen van de server (bijv. "inmiddels bezet") komen hier in beeld
                 alert(data.message || "Er is iets misgegaan bij het verwerken van uw keuze.");
                 executeBtn.disabled = false;
                 btnText.innerText = "Afspraak vastleggen";
@@ -581,108 +632,64 @@
         picker.classList.remove('flex');
     }
 
+    // AANGEPAST: eenvoudiger en veiliger.
+    // - Datum/tijd komt kant-en-klaar van de server (geen tijdzone-rekenwerk in de browser).
+    // - Alle tekst via innerText/createTextNode: een naam of titel kan nooit als HTML worden uitgevoerd.
     function openClientDetailModal(appointmentId) {
-    const app = dbAppointments.find(a => a.id === appointmentId);
-    if (!app) return;
+        const app = dbAppointments.find(a => a.id === appointmentId);
+        if (!app) return;
 
-    document.getElementById('client_modal_title').innerText = app.title;
-    
-    // --- TIJDZONE-PROOF DATUM EN TIJD PARSER ---
-    if (app.status === 'Voorstel') {
-        document.getElementById('client_modal_datetime').innerText = "Datum nog te bepalen (zie openstaand voorstel)";
-    } else {
-        // Maak een Date-object van de binnenkomende string
-        let dateObj = new Date(app.start_time);
+        document.getElementById('client_modal_title').innerText = app.title;
+        document.getElementById('client_modal_datetime').innerText = app.when ?? "Datum nog te bepalen (zie openstaand voorstel)";
+        document.getElementById('client_modal_project').innerText = app.project ?? 'Algemeen';
+        document.getElementById('client_modal_type').innerText = app.type || 'Online';
 
-        // CHECK: Als Laravel er een UTC-string van heeft gemaakt, compenseert de browser 
-        // dit lokaal. Als dat misgaat, dwingen we hier de juiste lokale uren af:
-        let hoursStart = String(dateObj.getHours()).padStart(2, '0');
-        let minutesStart = String(dateObj.getMinutes()).padStart(2, '0');
-        
-        // Mocht de browser alsnog verschuiven, kijken we naar de rauwe tekst in de string:
-        if (app.start_time.includes('Z') || app.start_time.includes('+')) {
-            // Als er een tijdzone-indicator in zit, klopt dateObj.getHours() direct via de browser
-        } else if (app.start_time.includes('T')) {
-            // Als er een T in zit zonder tijdzone (bijv: 2026-06-30T09:00:00.000000Z)
-            const timePart = app.start_time.split('T')[1];
-            hoursStart = timePart.substring(0, 2);
-            minutesStart = timePart.substring(3, 5);
+        const statusLabel = document.getElementById('client_modal_status');
+        statusLabel.innerText = app.status_label;
+        statusLabel.className = "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ";
+        if (app.status === 'Bevestigd') {
+            statusLabel.classList.add('bg-emerald-50', 'text-emerald-700', 'border-emerald-100');
+        } else if (['In afwachting', 'Bevestigd door klant', 'Alternatief gekozen'].includes(app.status)) {
+            statusLabel.classList.add('bg-amber-50', 'text-amber-700', 'border-amber-100');
+        } else if (app.status === 'Voorstel') {
+            statusLabel.classList.add('bg-orange-50', 'text-orange-600', 'border-orange-100');
+        } else {
+            statusLabel.classList.add('bg-gray-50', 'text-gray-700', 'border-gray-150');
         }
 
-        // Bepaal de eindtijd op exact dezelfde, veilige manier
-        let hoursEnd = '00';
-        let minutesEnd = '00';
-        if (app.end_time) {
-            let endDateObj = new Date(app.end_time);
-            hoursEnd = String(endDateObj.getHours()).padStart(2, '0');
-            minutesEnd = String(endDateObj.getMinutes()).padStart(2, '0');
-            
-            if (!app.end_time.includes('Z') && !app.end_time.includes('+') && app.end_time.includes('T')) {
-                const endTimePart = app.end_time.split('T')[1];
-                hoursEnd = endTimePart.substring(0, 2);
-                minutesEnd = endTimePart.substring(3, 5);
-            }
+        const descWrapper = document.getElementById('client_modal_desc_wrapper');
+        if (app.description && app.description.trim() !== "") {
+            document.getElementById('client_modal_description').innerText = app.description;
+            descWrapper.classList.remove('hidden');
+        } else {
+            descWrapper.classList.add('hidden');
         }
 
-        // Genereer de Nederlandse datum (dag en maand voluit)
-        // We splitsen de pure datum om verschuiving naar de vorige dag te voorkomen!
-        const pureDateStr = app.start_time.split(/[\sT]+/)[0];
-        const [year, month, day] = pureDateStr.split('-');
-        const localDate = new Date(year, month - 1, day);
-        
-        const humanDate = localDate.toLocaleDateString('nl-NL', { 
-            weekday: 'long', 
-            day: 'numeric', 
-            month: 'long', 
-            year: 'numeric' 
-        });
+        const attendeesContainer = document.getElementById('client_modal_attendees');
+        attendeesContainer.replaceChildren(); // leegmaken zonder innerHTML
 
-        document.getElementById('client_modal_datetime').innerText = `${humanDate} om ${hoursStart}:${minutesStart} - ${hoursEnd}:${minutesEnd} uur`;
+        if (app.attendees.length > 0) {
+            app.attendees.forEach(name => {
+                const chip = document.createElement('span');
+                chip.className = "inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200";
+                const dot = document.createElement('span');
+                dot.className = "w-1.5 h-1.5 bg-[#011936] rounded-full mr-1.5";
+                chip.appendChild(dot);
+                // Als tekst toevoegen, nooit als HTML
+                chip.appendChild(document.createTextNode(name));
+                attendeesContainer.appendChild(chip);
+            });
+        } else {
+            const empty = document.createElement('span');
+            empty.className = "text-xs text-gray-400 italic";
+            empty.innerText = "Nog geen medewerker toegewezen";
+            attendeesContainer.appendChild(empty);
+        }
+
+        const modal = document.getElementById('clientDetailModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
     }
-    // --- EINDE DATUM REPARATIE ---
-
-    document.getElementById('client_modal_project').innerText = app.project ? app.project.name : 'Algemeen';
-    document.getElementById('client_modal_type').innerText = app.type || 'Online';
-
-    const statusLabel = document.getElementById('client_modal_status');
-    statusLabel.innerText = app.status;
-    statusLabel.className = "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ";
-    if (app.status === 'Bevestigd') {
-        statusLabel.classList.add('bg-emerald-50', 'text-emerald-700', 'border-emerald-100');
-    } else if (app.status === 'In afwachting') {
-        statusLabel.classList.add('bg-amber-50', 'text-amber-700', 'border-amber-100');
-    } else {
-        statusLabel.classList.add('bg-gray-50', 'text-gray-700', 'border-gray-150');
-    }
-
-    const descWrapper = document.getElementById('client_modal_desc_wrapper');
-    if (app.description && app.description.trim() !== "") {
-        document.getElementById('client_modal_description').innerText = app.description;
-        descWrapper.classList.remove('hidden');
-    } else {
-        descWrapper.classList.add('hidden');
-    }
-
-    const attendeesContainer = document.getElementById('client_modal_attendees');
-    attendeesContainer.innerHTML = "";
-    const activeAttendees = app.attendees || app.employees || [];
-
-    if (activeAttendees.length > 0) {
-        activeAttendees.forEach(att => {
-            attendeesContainer.innerHTML += `
-                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200">
-                    <span class="w-1.5 h-1.5 bg-[#011936] rounded-full mr-1.5"></span>
-                    ${att.name}
-                </span>`;
-        });
-    } else {
-        attendeesContainer.innerHTML = `<span class="text-xs text-gray-400 italic">Nog geen medewerker toegewezen</span>`;
-    }
-
-    const modal = document.getElementById('clientDetailModal');
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-}
 
     function closeClientDetailModal() {
         const modal = document.getElementById('clientDetailModal');
@@ -715,7 +722,8 @@
     let selectedDateStr = "";
 
     const monthsNl = ["januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december"];
-    const standardSlots = ["09:00 - 10:00", "10:00 - 11:00", "11:00 - 12:00", "13:00 - 14:00", "14:00 - 15:00", "15:00 - 16:00",];
+    // Komt nu van de server, zodat het altijd gelijk is aan de controle in AppointmentAvailability
+    const standardSlots = @js(\App\Services\AppointmentAvailability::SLOTS);
 
     function initCalendar() {
         renderCalendar();
@@ -1080,7 +1088,6 @@ function executeAlternativeSlotSubmit() {
     submitBtn.disabled = true;
     submitBtn.innerText = "Verzenden...";
 
-    // We schieten een POST-request naar een nieuwe endpoint om het alternatief op te slaan
     fetch(`/appointments/${altProposalConfig.appointmentId}/suggest-alternative`, {
         method: "POST",
         headers: {
@@ -1099,6 +1106,7 @@ function executeAlternativeSlotSubmit() {
             closeAlternativeDatePickerModal();
             window.location.reload();
         } else {
+            // Meldingen van de server (bijv. "inmiddels bezet" of een validatiefout)
             alert(data.message || "Er is iets misgegaan.");
             submitBtn.disabled = false;
             submitBtn.innerText = "Voorstel indienen";

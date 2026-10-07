@@ -48,6 +48,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/chat', [MessageController::class, 'index'])->name('chat.index');
     Route::post('/chat', [MessageController::class, 'store'])->name('chat.store');
+    // Bijlagen: alleen ingelogd; de controller controleert of het bericht van jou is
+    Route::get('/chat/download/{message}', [MessageController::class, 'download'])->name('chat.download');
+    Route::get('/chat/voorbeeld/{message}', [MessageController::class, 'preview'])->name('chat.preview');
 
     // Het totale documentenoverzicht voor de klant
     Route::get('/mijn-documenten', [ClientProjectController::class, 'allDocuments'])->name('documents.index');

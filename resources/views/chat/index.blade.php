@@ -26,8 +26,9 @@
                         <ul class="space-y-1">
                             @forelse($clients as $client)
                                 @php
-                                    $isSelected = isset($selectedClient) && $selectedClient->id === $client->id;
-                                    $initials = strtoupper(substr($client->name, 0, 2));
+                                    $isSelected = isset($selectedClient) && $selectedClient && $selectedClient->id === $client->id;
+                                    // mb_substr: knipt niet midden in een letter als é
+                                    $initials = mb_strtoupper(mb_substr($client->name, 0, 2));
                                 @endphp
                                 <li>
                                     <a href="{{ route('chat.index', ['client_id' => $client->id]) }}" 
@@ -69,7 +70,7 @@
 
                         @php
                             $headerUser = auth()->user()->isAdmin() ? $selectedClient : null;
-                            $headerInitials = $headerUser ? strtoupper(substr($headerUser->name, 0, 2)) : 'GKR';
+                            $headerInitials = $headerUser ? mb_strtoupper(mb_substr($headerUser->name, 0, 2)) : 'GKR';
                         @endphp
                         <div class="w-9 h-9 rounded-full bg-indigo-100 text-indigo-900 font-bold text-xs flex items-center justify-center shrink-0">
                             {{ $headerInitials }}
@@ -85,6 +86,15 @@
                     </div>
                 </div>
 
+                {{-- NIEUW: foutmeldingen bij versturen (bijv. leeg bericht, verkeerd bestandstype, te groot) --}}
+                @if ($errors->any())
+                    <div class="mx-4 mt-3 p-3 bg-red-50 border border-red-150 text-red-700 rounded-xl text-xs font-medium">
+                        @foreach ($errors->all() as $error)
+                            <p>{{ $error }}</p>
+                        @endforeach
+                    </div>
+                @endif
+
                 {{-- Berichtenstroom --}}
                 <div class="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 bg-[#F8FAFC] no-scrollbar" id="message-container">
                     
@@ -97,7 +107,8 @@
                     @forelse($messages as $message)
                         @php
                             $isMe = $message->sender_id === auth()->id();
-                            $senderInitials = strtoupper(substr($message->sender->name ?? 'U', 0, 2));
+                            $senderName = $message->sender->name ?? 'Onbekend';
+                            $senderInitials = mb_strtoupper(mb_substr($senderName, 0, 2));
                         @endphp
 
                         <div class="flex gap-2.5 {{ $isMe ? 'flex-row-reverse' : 'flex-row' }} items-end">
@@ -110,7 +121,7 @@
                                 
                                 @if(!$isMe)
                                     <span class="text-[10px] font-bold text-slate-600 mb-0.5 pl-1">
-                                        {{ $message->sender->name }} <span class="text-[9px] font-normal text-slate-400 ml-1">{{ $message->created_at->format('H:i') }}</span>
+                                        {{ $senderName }} <span class="text-[9px] font-normal text-slate-400 ml-1">{{ $message->created_at->format('H:i') }}</span>
                                     </span>
                                 @endif
 
@@ -122,36 +133,47 @@
                                         <p class="{{ $message->file_path ? 'mb-2.5' : '' }}">{{ $message->body }}</p>
                                     @endif
 
-                                  {{-- Bijlage Card die de Modal opent --}}
-@if($message->file_path)
-    <div onclick="openDocumentModal('{{ $message->file_name }}', '{{ $message->formatted_file_size }}', '{{ $message->sender->name }}', '{{ $message->created_at->format('d M') }}', '{{ route('chat.download', $message->id) }}', '{{ asset('storage/' . $message->file_path) }}', '{{ $message->file_type }}', '{{ addslashes($message->body) }}')" 
-         class="flex items-center justify-between gap-4 p-3 bg-white rounded-xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all cursor-pointer group my-0.5">
-        
-        <div class="flex items-center gap-3 min-w-0">
-            <div class="w-10 h-10 rounded-lg bg-red-50 text-red-500 flex items-center justify-center shrink-0">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
-                </svg>
-            </div>
+                                    {{-- Bijlage-kaart die de modal opent --}}
+                                    @if($message->file_path)
+                                        @php
+                                            // Type van het OPGESLAGEN bestand (bepaald door Laravel), niet de naam van de gebruiker
+                                            $storedType = strtolower(pathinfo($message->file_path, PATHINFO_EXTENSION));
+                                            $previewUrl = \App\Http\Controllers\MessageController::canPreview($message->file_path)
+                                                ? route('chat.preview', $message)
+                                                : null;
+                                        @endphp
+                                        {{-- AANGEPAST (XSS-fix): alle waarden via @js() in plaats van '{{ }}'.
+                                             De bestandsnaam en de naam van de afzender kiest de gebruiker zelf;
+                                             met een apostrof erin kon je uit de JavaScript-tekst breken.
+                                             Het voorbeeld gaat nu via de beveiligde route, niet meer via /storage/... --}}
+                                        <div onclick="openDocumentModal(@js($message->file_name ?? 'Document'), @js($message->formatted_file_size), @js($senderName), @js($message->created_at->format('d M')), @js(route('chat.download', $message)), @js($previewUrl), @js($storedType), @js($message->body))" 
+                                             class="flex items-center justify-between gap-4 p-3 bg-white rounded-xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all cursor-pointer group my-0.5">
+                                            
+                                            <div class="flex items-center gap-3 min-w-0">
+                                                <div class="w-10 h-10 rounded-lg bg-red-50 text-red-500 flex items-center justify-center shrink-0">
+                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                                                    </svg>
+                                                </div>
 
-            <div class="min-w-0">
-                <p class="text-xs font-bold text-slate-800 truncate group-hover:text-indigo-600 transition-colors">
-                    {{ $message->file_name ?? 'Document' }}
-                </p>
-                <p class="text-[10px] text-slate-400 mt-0.5">
-                    {{ $message->formatted_file_size }} • {{ strtoupper($message->file_type ?? 'PDF') }}
-                </p>
-            </div>
-        </div>
+                                                <div class="min-w-0">
+                                                    <p class="text-xs font-bold text-slate-800 truncate group-hover:text-indigo-600 transition-colors">
+                                                        {{ $message->file_name ?? 'Document' }}
+                                                    </p>
+                                                    <p class="text-[10px] text-slate-400 mt-0.5">
+                                                        {{ $message->formatted_file_size }} • {{ strtoupper($storedType ?: 'bestand') }}
+                                                    </p>
+                                                </div>
+                                            </div>
 
-        <div class="text-slate-400 group-hover:text-slate-700 transition-colors shrink-0">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-            </svg>
-        </div>
-    </div>
-@endif
+                                            <div class="text-slate-400 group-hover:text-slate-700 transition-colors shrink-0">
+                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                                </svg>
+                                            </div>
+                                        </div>
+                                    @endif
 
                                 </div>
 
@@ -188,7 +210,7 @@
                             <input type="hidden" name="receiver_id" value="{{ $receiverId }}">
                             
                             {{-- Verborgen File Input --}}
-                            <input type="file" name="files[]" id="file-input" class="hidden" multiple onchange="showFilePreview(this)">
+                            <input type="file" name="files[]" id="file-input" class="hidden" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.zip" onchange="showFilePreview(this)">
 
                             {{-- Preview-balkje als er een bestand is gekozen --}}
                             <div id="file-preview" class="hidden items-center justify-between bg-slate-100 px-3 py-1.5 rounded-xl text-xs text-slate-700">
@@ -217,6 +239,7 @@
                                 {{-- Tekst Invoer --}}
                                 <input type="text" 
                                        name="body" 
+                                       maxlength="2000"
                                        placeholder="Typ een bericht..." 
                                        autocomplete="off"
                                        class="flex-1 bg-transparent border-0 px-2 text-xs text-slate-800 focus:outline-none focus:ring-0 placeholder:text-slate-400">
@@ -244,7 +267,11 @@
         <div class="w-full md:w-1/2 bg-slate-100/80 p-6 md:p-8 flex items-center justify-center border-b md:border-b-0 md:border-r border-slate-200/60">
             <div id="modal-preview-container" class="w-full h-full max-h-[400px] flex items-center justify-center overflow-hidden rounded-xl shadow-lg bg-white border border-slate-200">
                 <iframe id="modal-iframe-preview" class="w-full h-full border-0 hidden"></iframe>
-                <img id="modal-img-preview" src="" class="max-h-full max-w-full object-contain hidden">
+                <img id="modal-img-preview" src="" alt="Voorbeeld van de bijlage" class="max-h-full max-w-full object-contain hidden">
+                {{-- NIEUW: voor Word, Excel en zip is er geen voorbeeld --}}
+                <p id="modal-no-preview" class="hidden text-xs text-slate-400 p-6 text-center">
+                    Voor dit bestandstype is geen voorbeeld beschikbaar. Download het bestand om het te openen.
+                </p>
             </div>
         </div>
 
@@ -318,100 +345,99 @@
         });
 
         function showFilePreview(input) {
-    const previewContainer = document.getElementById('file-preview');
-    const fileNameText = document.getElementById('file-name-text');
+            const previewContainer = document.getElementById('file-preview');
+            const fileNameText = document.getElementById('file-name-text');
 
-    if (input.files && input.files.length > 0) {
-        if (input.files.length === 1) {
-            fileNameText.innerText = input.files[0].name;
-        } else {
-            fileNameText.innerText = `${input.files.length} bestanden geselecteerd`;
+            if (input.files && input.files.length > 0) {
+                if (input.files.length === 1) {
+                    fileNameText.innerText = input.files[0].name;
+                } else {
+                    fileNameText.innerText = `${input.files.length} bestanden geselecteerd`;
+                }
+
+                previewContainer.classList.remove('hidden');
+                previewContainer.classList.add('flex');
+            }
         }
 
-        previewContainer.classList.remove('hidden');
-        previewContainer.classList.add('flex');
-    }
-}
-
-function clearFile() {
-    const input = document.getElementById('file-input');
-    input.value = '';
-    
-    const previewContainer = document.getElementById('file-preview');
-    previewContainer.classList.add('hidden');
-    previewContainer.classList.remove('flex');
-}
-
-
+        function clearFile() {
+            const input = document.getElementById('file-input');
+            input.value = '';
+            
+            const previewContainer = document.getElementById('file-preview');
+            previewContainer.classList.add('hidden');
+            previewContainer.classList.remove('flex');
+        }
 
         let currentDownloadUrl = '';
 
-function openDocumentModal(fileName, fileSize, senderName, date, downloadUrl, fileUrl, fileType, description) {
-    currentDownloadUrl = downloadUrl;
+        // AANGEPAST: previewUrl is de beveiligde voorbeeld-route, of null als er geen voorbeeld kan
+        function openDocumentModal(fileName, fileSize, senderName, date, downloadUrl, previewUrl, fileType, description) {
+            currentDownloadUrl = downloadUrl;
 
-    // Vullen van metadata
-    document.getElementById('modal-file-name').innerText = fileName;
-    document.getElementById('modal-file-meta').innerText = `${fileSize} • Toegevoegd door ${senderName} op ${date}`;
-    document.getElementById('modal-file-desc').innerText = description && description.trim() !== '' ? description : 'Geen aanvullende beschrijving bijgewerkt.';
-    document.getElementById('modal-download-btn').href = downloadUrl;
+            // Alle tekst via innerText: wordt nooit als HTML uitgevoerd
+            document.getElementById('modal-file-name').innerText = fileName;
+            document.getElementById('modal-file-meta').innerText = `${fileSize} • Toegevoegd door ${senderName} op ${date}`;
+            document.getElementById('modal-file-desc').innerText = description && description.trim() !== '' ? description : 'Geen aanvullende beschrijving bijgevoegd.';
+            document.getElementById('modal-download-btn').href = downloadUrl;
 
-    // Voorbeeld weergave (Afbeelding vs PDF)
-    const iframe = document.getElementById('modal-iframe-preview');
-    const img = document.getElementById('modal-img-preview');
+            const iframe = document.getElementById('modal-iframe-preview');
+            const img = document.getElementById('modal-img-preview');
+            const noPreview = document.getElementById('modal-no-preview');
 
-    if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(fileType.toLowerCase())) {
-        img.src = fileUrl;
-        img.classList.remove('hidden');
-        iframe.classList.add('hidden');
-    } else {
-        iframe.src = fileUrl;
-        iframe.classList.remove('hidden');
-        img.classList.add('hidden');
-    }
+            iframe.classList.add('hidden');
+            img.classList.add('hidden');
+            noPreview.classList.add('hidden');
 
-    // Modal openen & scrollen op achtergrond blokkeren
-    const modal = document.getElementById('document-preview-modal');
-    modal.classList.remove('hidden');
-    document.body.classList.add('overflow-hidden');
-}
+            if (!previewUrl) {
+                noPreview.classList.remove('hidden');
+            } else if (['jpg', 'jpeg', 'png'].includes(String(fileType).toLowerCase())) {
+                img.src = previewUrl;
+                img.classList.remove('hidden');
+            } else {
+                iframe.src = previewUrl;
+                iframe.classList.remove('hidden');
+            }
 
-function closeDocumentModal() {
-    const modal = document.getElementById('document-preview-modal');
-    modal.classList.add('hidden');
-    document.getElementById('modal-iframe-preview').src = '';
-    
-    // Scrollen op achtergrond weer inschakelen
-    document.body.classList.remove('overflow-hidden');
-}
+            // Modal openen & scrollen op achtergrond blokkeren
+            const modal = document.getElementById('document-preview-modal');
+            modal.classList.remove('hidden');
+            document.body.classList.add('overflow-hidden');
+        }
 
-document.addEventListener('keydown', function(event) {
-    if (event.key === "Escape") {
-        closeDocumentModal();
-    }
-});
+        // AANGEPAST: deze functie stond er twee keer in. De tweede versie zette het scrollen
+        // niet terug aan, waardoor de pagina na het sluiten van de popup niet meer scrolde.
+        function closeDocumentModal() {
+            const modal = document.getElementById('document-preview-modal');
+            modal.classList.add('hidden');
+            document.getElementById('modal-iframe-preview').src = '';
+            document.getElementById('modal-img-preview').src = '';
+            document.body.classList.remove('overflow-hidden');
+        }
 
-// Sluiten door op de donkere achtergrond te klikken
-document.getElementById('document-preview-modal')?.addEventListener('click', function(event) {
-    if (event.target === this) {
-        closeDocumentModal();
-    }
-});
+        document.addEventListener('keydown', function(event) {
+            if (event.key === "Escape") {
+                closeDocumentModal();
+            }
+        });
 
-function closeDocumentModal() {
-    const modal = document.getElementById('document-preview-modal');
-    modal.classList.add('hidden');
-    document.getElementById('modal-iframe-preview').src = '';
-}
+        // Sluiten door op de donkere achtergrond te klikken
+        document.getElementById('document-preview-modal')?.addEventListener('click', function(event) {
+            if (event.target === this) {
+                closeDocumentModal();
+            }
+        });
 
-function copyDocumentLink() {
-    if (currentDownloadUrl) {
-        navigator.clipboard.writeText(currentDownloadUrl);
-        const shareText = document.getElementById('share-text');
-        shareText.innerText = 'Lnk Gekopieerd!';
-        setTimeout(() => {
-            shareText.innerText = 'Deel Bestand';
-        }, 2000);
-    }
-}
+        function copyDocumentLink() {
+            if (currentDownloadUrl) {
+                // De link werkt alleen voor wie is ingelogd en toegang heeft tot dit gesprek
+                navigator.clipboard.writeText(currentDownloadUrl);
+                const shareText = document.getElementById('share-text');
+                shareText.innerText = 'Link gekopieerd!';
+                setTimeout(() => {
+                    shareText.innerText = 'Deel Bestand';
+                }, 2000);
+            }
+        }
     </script>
 </x-app-layout>

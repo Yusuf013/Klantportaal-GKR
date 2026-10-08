@@ -62,6 +62,20 @@ class OutlookCalendar
     }
 
     /**
+     * Controleert of een link bruikbaar is: toegestaan adres, bereikbaar en echt
+     * een agenda. Er wordt niets onthouden. Is de link niet bruikbaar, dan volgt
+     * een fout met een nette melding (zonder de link erin).
+     */
+    public function verify(string $icsUrl): void
+    {
+        $this->assertAllowedUrl($icsUrl);
+
+        $from = CarbonImmutable::today(self::TIMEZONE);
+
+        $this->parse($this->download($icsUrl), $from, $from->addDays(1));
+    }
+
+    /**
      * Alle bezette momenten van vandaag tot een jaar vooruit, als [begin, einde]
      * in Unix-tijd. Het resultaat wordt kort onthouden, zodat we Outlook niet
      * bij elk tijdslot opnieuw hoeven te vragen.

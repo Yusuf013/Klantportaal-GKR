@@ -59,6 +59,11 @@ public function toggleAdmin(\App\Models\User $user)
             $user->adAccounts()->delete();
         }
 
+        // Andersom: een klant heeft geen agenda in het portaal, dus de Outlook-koppeling opruimen
+        if (! $user->is_admin) {
+            $user->outlook_ics_url = null;
+        }
+
     $user->save();
 
     $statusText = $user->is_admin ? 'GKR Admin' : 'Klant';

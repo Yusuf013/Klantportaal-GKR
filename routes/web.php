@@ -178,6 +178,10 @@ Route::middleware(['auth', 'verified', 'admin'])
         Route::get('/google-ads/{user}', [\App\Http\Controllers\Admin\GoogleAdsController::class, 'show'])
             ->name('google-ads.show');
 
+                // Outlook: gepubliceerde agenda van een medewerker koppelen (alleen vrij/bezet)
+        Route::patch('/gebruikers/{user}/outlook-agenda', [\App\Http\Controllers\Admin\OutlookCalendarController::class, 'update'])
+            ->name('users.outlook-calendar.update');
+
 });
 
 

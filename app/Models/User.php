@@ -13,7 +13,8 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 #[Fillable(['name', 'email', 'password', 'role', 'is_admin'])]
-#[Hidden(['password', 'remember_token'])]
+// outlook_ics_url is geheim: hij komt hierdoor nooit mee als een gebruiker naar JSON of JavaScript gaat
+#[Hidden(['password', 'remember_token', 'outlook_ics_url'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
@@ -29,6 +30,8 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            // De Outlook-link wordt versleuteld opgeslagen en pas bij het uitlezen ontsleuteld
+            'outlook_ics_url' => 'encrypted',
         ];
     }
 
@@ -74,6 +77,15 @@ class User extends Authenticatable
     public function receivedMessages(): HasMany
     {
         return $this->hasMany(Message::class, 'receiver_id');
+    }
+
+    /**
+     * Heeft deze medewerker een Outlook-agenda gekoppeld?
+     * Kijkt alleen of er iets is opgeslagen; de link zelf wordt niet ontsleuteld.
+     */
+    public function hasOutlookCalendar(): bool
+    {
+        return filled($this->attributes['outlook_ics_url'] ?? null);
     }
 
     /**

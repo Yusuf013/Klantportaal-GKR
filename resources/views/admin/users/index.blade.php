@@ -23,8 +23,8 @@
                     {{ session('error') }}
                 </div>
             @endif
-            {{-- Foutmeldingen bij het koppelen van een advertentieaccount (Meta of Google Ads) --}}
-            @foreach(['meta_ad_account_id', 'google_ads_customer_id'] as $adField)
+            {{-- Foutmeldingen bij het koppelen van een advertentieaccount (Meta of Google Ads) of een Outlook-agenda --}}
+            @foreach(['meta_ad_account_id', 'google_ads_customer_id', 'outlook_ics_url'] as $adField)
                 @if($errors->has($adField))
                     <div class="p-4 bg-red-50 border border-red-150 text-red-700 rounded-xl text-sm font-medium flex items-center shadow-sm">
                         <svg class="w-5 h-5 mr-2 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
@@ -113,6 +113,63 @@
                     </div>
                 </div>
 
+            </div>
+
+            {{-- Kaart om de Outlook-agenda van een medewerker te koppelen (alleen vrij/bezet) --}}
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-150 overflow-hidden">
+                <div class="px-6 py-4 bg-gray-50/50 border-b border-gray-100">
+                    <h3 class="text-xs font-bold text-[#011936] uppercase tracking-wider flex items-center">
+                        <span class="w-2 h-2 bg-[#10B981] rounded-full mr-2"></span>
+                        Outlook-agenda's
+                    </h3>
+                    <p class="text-[11px] text-gray-400 mt-1">Met een gekoppelde agenda weet het portaal wanneer een medewerker al bezet is. Publiceer de agenda in Outlook met alleen vrij/bezet (Instellingen &gt; Agenda &gt; Gedeelde agenda's &gt; Een agenda publiceren) en plak hier de ICS-koppeling. De link werkt als een sleutel en wordt na het opslaan niet meer getoond.</p>
+                </div>
+                <div class="p-4 overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100 bg-gray-50/30">
+                                <th class="p-3">Medewerker</th>
+                                <th class="p-3">ICS-koppeling uit Outlook</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100 font-medium text-gray-700">
+                            @foreach($admins as $admin)
+                                <tr class="hover:bg-gray-50/40 transition align-top">
+                                    <td class="p-3 font-semibold text-gray-800">{{ $admin->name }}</td>
+                                    <td class="p-3">
+                                        {{-- Het veld is altijd leeg: de opgeslagen link sturen we nooit terug naar de browser --}}
+                                        <form method="POST" action="{{ route('admin.users.outlook-calendar.update', $admin) }}" class="flex items-center gap-2">
+                                            @csrf
+                                            @method('PATCH')
+                                            <input type="url"
+                                                   name="outlook_ics_url"
+                                                   required
+                                                   autocomplete="off"
+                                                   placeholder="https://outlook.office365.com/.../calendar.ics"
+                                                   class="w-full max-w-md rounded-lg border-gray-200 text-xs py-1.5 px-2 focus:border-[#011936] focus:ring-[#011936]">
+                                            <button type="submit" class="px-3 py-1.5 bg-[#011936] text-white text-[11px] font-bold rounded-lg hover:opacity-90 transition">
+                                                {{ $admin->hasOutlookCalendar() ? 'Vervangen' : 'Koppelen' }}
+                                            </button>
+                                        </form>
+                                        <div class="mt-1.5 text-[11px] flex items-center gap-2">
+                                            @if($admin->hasOutlookCalendar())
+                                                <span class="text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-md font-bold">Gekoppeld</span>
+                                                <form method="POST" action="{{ route('admin.users.outlook-calendar.update', $admin) }}">
+                                                    @csrf
+                                                    @method('PATCH')
+                                                    <input type="hidden" name="remove" value="1">
+                                                    <button type="submit" class="font-bold text-red-500 hover:text-red-700 transition underline">Ontkoppelen</button>
+                                                </form>
+                                            @else
+                                                <span class="text-gray-400">Niet gekoppeld</span>
+                                            @endif
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             {{-- Kaart om klanten aan hun advertentieaccounts te koppelen (Meta en Google Ads) --}}

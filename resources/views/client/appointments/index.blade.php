@@ -81,7 +81,7 @@
 
                     <div class="flex items-center space-x-6">
                         @if(isset($appointmentProposal))
-                        <button type="button" onclick="openAlternativeDatePicker({{ $appointmentProposal->id }}, {{ json_encode($appointmentProposal->attendees->pluck('id')) }}, '{{ $appointmentProposal->attendees->pluck('name')->join(' en ') }}')" class="text-xs font-bold text-gray-650 underline hover:text-[#011936] transition cursor-pointer">
+                        <button type="button" onclick="openAlternativeDatePicker({{ $appointmentProposal->id }}, @js($appointmentProposal->attendees->pluck('id')), @js($appointmentProposal->attendees->pluck('name')->join(' en ')))" class="text-xs font-bold text-gray-650 underline hover:text-[#011936] transition cursor-pointer">
                             Past geen van de tijden?
                         </button>
                         @endif
@@ -150,7 +150,7 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 text-sm">
-                    @forelse($appointments->whereIn('status', ['In afwachting', 'Voorstel']) as $appointment)
+                    @forelse($appointments->whereIn('status', ['In afwachting', 'Voorstel', 'Bevestigd door klant', 'Alternatief gekozen']) as $appointment)
                         <tr onclick="openClientDetailModal({{ $appointment->id }})" class="hover:bg-gray-50/50 transition duration-150 group cursor-pointer" title="Klik voor details">
                             <td class="p-4 pl-6 font-bold text-[#011936]">{{ $appointment->project->name ?? 'Geen project' }}</td>
                             <td class="p-4">
@@ -169,7 +169,12 @@
                             </td>
                             <td class="p-4">
                                 <span class="inline-flex items-center text-[11px] font-bold px-2.5 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-100 uppercase tracking-wider">
-                                    {{ $appointment->status === 'Voorstel' ? 'Voorstel Klant' : 'In afwachting' }}
+                                    @switch($appointment->status)
+                                        @case('Voorstel') Voorstel Klant @break
+                                        @case('Bevestigd door klant')
+                                        @case('Alternatief gekozen') Gekozen, wacht op GKR @break
+                                        @default In afwachting
+                                    @endswitch
                                 </span>
                             </td>
                         </tr>
@@ -458,7 +463,15 @@
     </style>
 
     <script>
-    const dbAppointments = @json($appointments);
+    @php
+        // Alleen wat dit script gebruikt; deelnemers zonder e-mailadres (een klant hoeft dat niet te zien).
+        $appointmentsForScript = $appointments->map(fn ($a) => [
+            ...\Illuminate\Support\Arr::only($a->attributesToArray(), ['id', 'status', 'start_time', 'end_time', 'description', 'type', 'title']),
+            'project' => $a->project ? ['name' => $a->project->name] : null,
+            'attendees' => $a->attendees->map(fn ($u) => ['id' => $u->id, 'name' => $u->name])->values(),
+        ])->values();
+    @endphp
+    const dbAppointments = @json($appointmentsForScript);
 
     // Geheugen voor het geselecteerde voorstel van de klant
     let currentSelection = {
@@ -668,12 +681,15 @@
     const activeAttendees = app.attendees || app.employees || [];
 
     if (activeAttendees.length > 0) {
+        // textContent, niet innerHTML: een naam wordt nooit als HTML uitgevoerd.
         activeAttendees.forEach(att => {
-            attendeesContainer.innerHTML += `
-                <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200">
-                    <span class="w-1.5 h-1.5 bg-[#011936] rounded-full mr-1.5"></span>
-                    ${att.name}
-                </span>`;
+            const pill = document.createElement('span');
+            pill.className = 'inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200';
+            const dot = document.createElement('span');
+            dot.className = 'w-1.5 h-1.5 bg-[#011936] rounded-full mr-1.5';
+            pill.appendChild(dot);
+            pill.appendChild(document.createTextNode(att.name));
+            attendeesContainer.appendChild(pill);
         });
     } else {
         attendeesContainer.innerHTML = `<span class="text-xs text-gray-400 italic">Nog geen medewerker toegewezen</span>`;

@@ -59,7 +59,8 @@ class AdminAppointmentPageTest extends TestCase
             ->followingRedirects()
             ->patch(route('admin.appointments.approve', $pending))
             ->assertOk()
-            ->assertSee('Goedkeuren lukt niet');
+            ->assertSee('Dat lukte niet')
+            ->assertSee('al bezet');
     }
 
     public function test_projecten_weten_bij_welke_klant_ze_horen(): void

@@ -167,6 +167,21 @@ class Appointment extends Model
         ];
     }
 
+    /**
+     * "dinsdag 20 oktober 2026 om 10:00 - 11:00 uur", in de tijdzone van GKR en altijd in het
+     * Nederlands. Voor de detailpopups op de website: de server maakt het op, zodat de browser
+     * niet met tijdzones hoeft te rekenen (een bezoeker buiten Nederland zag anders andere tijden).
+     */
+    public function momentLabel(): string
+    {
+        $timezone = config('app.timezone');
+        $start = $this->start_time->copy()->setTimezone($timezone)->locale('nl');
+        $end = $this->end_time?->copy()->setTimezone($timezone);
+
+        return $start->translatedFormat('l j F Y').' om '.$start->format('H:i')
+            .($end ? ' - '.$end->format('H:i') : '').' uur';
+    }
+
     public function locationLabel(): string
     {
         return match ($this->type) {

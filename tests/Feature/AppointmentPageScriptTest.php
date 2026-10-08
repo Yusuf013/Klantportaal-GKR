@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Enums\AppointmentStatus;
+use App\Models\Appointment;
+use App\Models\Project;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -53,5 +55,35 @@ class AppointmentPageScriptTest extends TestCase
             ->assertOk()
             ->assertSee('const STATUS_BLOCKING = '.json_encode(AppointmentStatus::blockingValues()), false)
             ->assertSee('const STATUS_TENTATIVE = '.json_encode(AppointmentStatus::tentativeValues()), false);
+    }
+
+    public function test_moment_label_is_nederlands_in_de_tijdzone_van_gkr(): void
+    {
+        $winter = new Appointment(['start_time' => '2026-12-01 13:00:00', 'end_time' => '2026-12-01 14:30:00']);
+        $summer = new Appointment(['start_time' => '2026-10-20 09:00:00', 'end_time' => '2026-10-20 10:00:00']);
+
+        $this->assertSame('dinsdag 1 december 2026 om 13:00 - 14:30 uur', $winter->momentLabel());
+        $this->assertSame('dinsdag 20 oktober 2026 om 09:00 - 10:00 uur', $summer->momentLabel());
+    }
+
+    public function test_beide_detailpopups_krijgen_hetzelfde_door_de_server_opgemaakte_moment(): void
+    {
+        // Voorheen rekende elk script zelf met tijdzones (twee verschillende kopieën).
+        $admin = User::factory()->create(['is_admin' => true]);
+        $client = User::factory()->create(['is_admin' => false]);
+        $project = Project::forceCreate(['user_id' => $client->id, 'name' => 'Website']);
+        $appointment = Appointment::create([
+            'user_id' => $client->id, 'project_id' => $project->id, 'title' => 'Review', 'type' => 'online',
+            'start_time' => '2026-10-20 10:00:00', 'end_time' => '2026-10-20 11:00:00', 'status' => 'In afwachting',
+        ]);
+        $appointment->attendees()->attach($admin->id);
+        $label = '"moment_label":"dinsdag 20 oktober 2026 om 10:00 - 11:00 uur"';
+
+        $this->actingAs($client)->get(route('client.appointments.index'))->assertOk()->assertSee($label, false);
+        $this->actingAs($admin)->get(route('admin.appointments.index'))->assertOk()->assertSee($label, false);
+
+        foreach (self::VIEWS as $view) {
+            $this->assertStringNotContainsString('pureDateStr', file_get_contents(base_path($view)), "$view rekent nog zelf met datums.");
+        }
     }
 }

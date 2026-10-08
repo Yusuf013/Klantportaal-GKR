@@ -473,6 +473,7 @@
             ...\Illuminate\Support\Arr::only($a->attributesToArray(), ['id', 'status', 'start_time', 'end_time', 'description', 'type', 'title']),
             'project' => $a->project ? ['name' => $a->project->name] : null,
             'attendees' => $a->attendees->map(fn ($u) => ['id' => $u->id, 'name' => $u->name])->values(),
+            'moment_label' => $a->start_time ? $a->momentLabel() : null,
         ])->values();
     @endphp
     const dbAppointments = @json($appointmentsForScript);
@@ -604,59 +605,10 @@
 
     document.getElementById('client_modal_title').innerText = app.title;
     
-    // --- TIJDZONE-PROOF DATUM EN TIJD PARSER ---
-    if (app.status === 'Voorstel') {
-        document.getElementById('client_modal_datetime').innerText = "Datum nog te bepalen (zie openstaand voorstel)";
-    } else {
-        // Maak een Date-object van de binnenkomende string
-        let dateObj = new Date(app.start_time);
-
-        // CHECK: Als Laravel er een UTC-string van heeft gemaakt, compenseert de browser 
-        // dit lokaal. Als dat misgaat, dwingen we hier de juiste lokale uren af:
-        let hoursStart = String(dateObj.getHours()).padStart(2, '0');
-        let minutesStart = String(dateObj.getMinutes()).padStart(2, '0');
-        
-        // Mocht de browser alsnog verschuiven, kijken we naar de rauwe tekst in de string:
-        if (app.start_time.includes('Z') || app.start_time.includes('+')) {
-            // Als er een tijdzone-indicator in zit, klopt dateObj.getHours() direct via de browser
-        } else if (app.start_time.includes('T')) {
-            // Als er een T in zit zonder tijdzone (bijv: 2026-06-30T09:00:00.000000Z)
-            const timePart = app.start_time.split('T')[1];
-            hoursStart = timePart.substring(0, 2);
-            minutesStart = timePart.substring(3, 5);
-        }
-
-        // Bepaal de eindtijd op exact dezelfde, veilige manier
-        let hoursEnd = '00';
-        let minutesEnd = '00';
-        if (app.end_time) {
-            let endDateObj = new Date(app.end_time);
-            hoursEnd = String(endDateObj.getHours()).padStart(2, '0');
-            minutesEnd = String(endDateObj.getMinutes()).padStart(2, '0');
-            
-            if (!app.end_time.includes('Z') && !app.end_time.includes('+') && app.end_time.includes('T')) {
-                const endTimePart = app.end_time.split('T')[1];
-                hoursEnd = endTimePart.substring(0, 2);
-                minutesEnd = endTimePart.substring(3, 5);
-            }
-        }
-
-        // Genereer de Nederlandse datum (dag en maand voluit)
-        // We splitsen de pure datum om verschuiving naar de vorige dag te voorkomen!
-        const pureDateStr = app.start_time.split(/[\sT]+/)[0];
-        const [year, month, day] = pureDateStr.split('-');
-        const localDate = new Date(year, month - 1, day);
-        
-        const humanDate = localDate.toLocaleDateString('nl-NL', { 
-            weekday: 'long', 
-            day: 'numeric', 
-            month: 'long', 
-            year: 'numeric' 
-        });
-
-        document.getElementById('client_modal_datetime').innerText = `${humanDate} om ${hoursStart}:${minutesStart} - ${hoursEnd}:${minutesEnd} uur`;
-    }
-    // --- EINDE DATUM REPARATIE ---
+    // Datum en tijd maakt de server op (Appointment::momentLabel), in de tijdzone van GKR.
+    document.getElementById('client_modal_datetime').innerText = (app.status === 'Voorstel' || !app.moment_label)
+        ? "Datum nog te bepalen (zie openstaand voorstel)"
+        : app.moment_label;
 
     document.getElementById('client_modal_project').innerText = app.project ? app.project.name : 'Algemeen';
     document.getElementById('client_modal_type').innerText = app.type || 'Online';

@@ -533,7 +533,13 @@
 </div>
 
     <script>
-        const dbAppointments = @json($appointments);
+        @php
+            $appointmentsForScript = $appointments->map(fn ($a) => [
+                ...$a->toArray(),
+                'moment_label' => $a->start_time ? $a->momentLabel() : null,
+            ])->values();
+        @endphp
+        const dbAppointments = @json($appointmentsForScript);
         const currentAdminId = {{ auth()->id() }}; 
 
         // Statusgroepen uit AppointmentStatus: één bron voor server en pagina (ADR-011).
@@ -937,61 +943,11 @@
 
             document.getElementById('modal_detail_title').innerText = app.title;
             
-            // EXACT DEZELFDE TIJDZONE-PROOF LOGICA ALS DE CLIENTSIDE: RAUWE STRING INTERPRETATIE
+            // Datum en tijd maakt de server op (Appointment::momentLabel), in de tijdzone van GKR.
             // Een voorstel heeft nog geen vast moment: de klant kiest uit de opties.
-            if (app.status === STATUS_PROPOSAL || !app.start_time) {
-                document.getElementById('modal_detail_datetime').innerText = "Datum nog te bepalen door de klant";
-            } else {
-                let dateObj = new Date(app.start_time);
-
-                let hoursStart = String(dateObj.getHours()).padStart(2, '0');
-                let minutesStart = String(dateObj.getMinutes()).padStart(2, '0');
-                
-                if (app.start_time.includes('Z') || app.start_time.includes('+')) {
-                    // Browser verwerkt ISO direct correct
-                } else if (app.start_time.includes('T')) {
-                    const timePart = app.start_time.split('T')[1];
-                    hoursStart = timePart.substring(0, 2);
-                    minutesStart = timePart.substring(3, 5);
-                } else if (app.start_time.includes(' ')) {
-                    const timePart = app.start_time.split(' ')[1];
-                    hoursStart = timePart.substring(0, 2);
-                    minutesStart = timePart.substring(3, 5);
-                }
-
-                let hoursEnd = '00';
-                let minutesEnd = '00';
-                if (app.end_time) {
-                    let endDateObj = new Date(app.end_time);
-                    hoursEnd = String(endDateObj.getHours()).padStart(2, '0');
-                    minutesEnd = String(endDateObj.getMinutes()).padStart(2, '0');
-                    
-                    if (!app.end_time.includes('Z') && !app.end_time.includes('+')) {
-                        if (app.end_time.includes('T')) {
-                            const endTimePart = app.end_time.split('T')[1];
-                            hoursEnd = endTimePart.substring(0, 2);
-                            minutesEnd = endTimePart.substring(3, 5);
-                        } else if (app.end_time.includes(' ')) {
-                            const endTimePart = app.end_time.split(' ')[1];
-                            hoursEnd = endTimePart.substring(0, 2);
-                            minutesEnd = endTimePart.substring(3, 5);
-                        }
-                    }
-                }
-
-                const pureDateStr = app.start_time.split(/[\sT]+/)[0];
-                const [year, month, day] = pureDateStr.split('-');
-                const localDate = new Date(year, month - 1, day);
-                
-                const humanDate = localDate.toLocaleDateString('nl-NL', { 
-                    weekday: 'long', 
-                    day: 'numeric', 
-                    month: 'long', 
-                    year: 'numeric' 
-                });
-
-                document.getElementById('modal_detail_datetime').innerText = `${humanDate} om ${hoursStart}:${minutesStart} - ${hoursEnd}:${minutesEnd} uur`;
-            }
+            document.getElementById('modal_detail_datetime').innerText = (app.status === STATUS_PROPOSAL || !app.moment_label)
+                ? "Datum nog te bepalen door de klant"
+                : app.moment_label;
 
             document.getElementById('modal_detail_client').innerText = app.client ? app.client.name : 'Onbekend';
             document.getElementById('modal_detail_project').innerText = app.project ? app.project.name : 'Geen gekoppeld project';

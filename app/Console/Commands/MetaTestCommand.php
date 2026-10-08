@@ -39,6 +39,13 @@ class MetaTestCommand extends Command
         $this->table(['Cijfer', 'Deze periode', 'Vorige periode', 'Trend'], $rows);
         $this->line('Aantal punten in de grafiek: ' . count($report['series']));
 
+        $this->newLine();
+        $this->info('Per campagne');
+        $this->table(
+            ['Campagne', 'Vertoningen', 'Klikken', 'CTR %', 'Conversies', 'Besteed'],
+            array_map(fn ($c) => [$c['name'], $c['impressions'], $c['clicks'], $c['ctr'], $c['conversions'], $c['spend']], $report['campaigns'])
+        );
+
         return self::SUCCESS;
     }
 }

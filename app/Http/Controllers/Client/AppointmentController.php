@@ -6,6 +6,7 @@ use App\Enums\AppointmentStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\AppointmentRules;
 use App\Models\Appointment;
+use App\Models\ClosedDay;
 use App\Models\User;
 use App\Services\Appointments\AppointmentService;
 use App\Services\Appointments\WorkingHours;
@@ -47,7 +48,15 @@ class AppointmentController extends Controller
 
         $standardSlots = $hours->slotLabels();
 
-        return view('client.appointments.index', compact('appointments', 'myProjects', 'gkrEmployees', 'appointmentProposal', 'standardSlots'));
+        // Welke dagen de datumkiezer aanbiedt: dezelfde bron als de controle bij het opslaan
+        // (config/appointments.php en gesloten dagen), niet een vast weekend in JavaScript.
+        $calendarDays = [
+            'working_days' => config('appointments.working_days'),
+            'closed' => ClosedDay::query()->whereDate('date', '>=', today())->orderBy('date')->pluck('date')
+                ->map(fn ($date) => $date->format('Y-m-d'))->values(),
+        ];
+
+        return view('client.appointments.index', compact('appointments', 'myProjects', 'gkrEmployees', 'appointmentProposal', 'standardSlots', 'calendarDays'));
     }
 
     /**

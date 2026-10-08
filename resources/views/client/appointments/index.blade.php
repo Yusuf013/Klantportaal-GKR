@@ -666,117 +666,263 @@
         document.getElementById('char-counter').innerText = textarea.value.length;
     }
 
+    // --- DATUMKIEZER ---
+    // Eén implementatie voor "Nieuwe afspraak" en "Past geen van de tijden?". Welke dagen kunnen,
+    // komt van de server (werkdagen en gesloten dagen): dezelfde bron als de controle bij het
+    // opslaan. Elk tijdslot wordt per gekozen medewerker gecontroleerd (platform én Outlook).
+    const monthsNl = ["januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december"];
+    const standardSlots = @json($standardSlots); // uit config/appointments.php (werktijden)
+    const calendarDays = @json($calendarDays);   // werkdagen (ISO 1-7) en gesloten dagen (Y-m-d)
+
+    function toDateStr(date) {
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    }
+
+    // "2026-10-20" als lokale datum; new Date("2026-10-20") zou UTC zijn en kan een dag verschuiven.
+    function parseDateStr(dateStr) {
+        const [year, month, day] = dateStr.split('-').map(Number);
+        return new Date(year, month - 1, day);
+    }
+
+    function formatDayNl(date) {
+        return date.toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    }
+
+    function isBookableDay(date) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const isoDay = date.getDay() === 0 ? 7 : date.getDay();
+
+        return date >= today
+            && calendarDays.working_days.includes(isoDay)
+            && !calendarDays.closed.includes(toDateStr(date));
+    }
+
+    function slotPlaceholder(text) {
+        const p = document.createElement('p');
+        p.className = 'text-xs text-gray-400 italic py-4 text-center my-auto';
+        p.textContent = text;
+        return p;
+    }
+
+    /**
+     * @param ids          element-id's: days, monthTitle, prev, next, slots, dateLabel
+     * @param employeeIds  functie die de te controleren medewerker-id's geeft
+     * @param onDate       na het kiezen van een dag: (dateStr, humanDate)
+     * @param onSlot       na het kiezen van een vrij tijdslot: (dateStr, slot, humanDate)
+     */
+    function createDatePicker({ ids, employeeIds, onDate = () => {}, onSlot }) {
+        const el = id => document.getElementById(id);
+        let navDate = new Date();
+        let selectedDate = '';
+        let selectedSlot = '';
+
+        function render() {
+            const year = navDate.getFullYear();
+            const month = navDate.getMonth();
+            el(ids.monthTitle).innerText = `${monthsNl[month]} ${year}`;
+
+            const days = el(ids.days);
+            days.replaceChildren();
+
+            const firstDayIndex = (new Date(year, month, 1).getDay() + 6) % 7;
+            for (let i = 0; i < firstDayIndex; i++) {
+                days.appendChild(document.createElement('div'));
+            }
+
+            const lastDay = new Date(year, month + 1, 0).getDate();
+            for (let day = 1; day <= lastDay; day++) {
+                const date = new Date(year, month, day);
+                const dateStr = toDateStr(date);
+
+                const dayBtn = document.createElement('button');
+                dayBtn.type = 'button';
+                dayBtn.className = 'calendar-day-btn py-1.5 w-full text-center hover:bg-gray-100 rounded-full transition relative flex items-center justify-center font-bold text-gray-700';
+                dayBtn.textContent = day;
+
+                if (!isBookableDay(date)) {
+                    dayBtn.disabled = true;
+                } else {
+                    const dot = document.createElement('span');
+                    dot.className = 'absolute bottom-0.5 w-1 h-1 bg-[#011936] rounded-full';
+                    dayBtn.appendChild(dot);
+
+                    if (dateStr === selectedDate) {
+                        dayBtn.classList.add('active');
+                    }
+
+                    dayBtn.onclick = () => {
+                        days.querySelectorAll('.calendar-day-btn').forEach(b => b.classList.remove('active'));
+                        dayBtn.classList.add('active');
+                        selectDate(dateStr);
+                    };
+                }
+                days.appendChild(dayBtn);
+            }
+        }
+
+        function selectDate(dateStr) {
+            selectedDate = dateStr;
+            selectedSlot = '';
+            const humanDate = formatDayNl(parseDateStr(dateStr));
+            el(ids.dateLabel).innerText = humanDate;
+            onDate(dateStr, humanDate);
+            showSlots(dateStr);
+        }
+
+        function showSlots(dateStr) {
+            const humanDate = formatDayNl(parseDateStr(dateStr));
+            const employees = employeeIds();
+            const container = el(ids.slots);
+            container.classList.remove('justify-center');
+            container.replaceChildren();
+
+            if (employees.length === 0) {
+                container.appendChild(slotPlaceholder('Kies eerst een GKR-medewerker.'));
+                return;
+            }
+
+            standardSlots.forEach(slot => {
+                const slotBtn = document.createElement('button');
+                slotBtn.type = 'button';
+                slotBtn.textContent = slot;
+                slotBtn.className = 'time-slot-btn w-full text-left p-3 border border-gray-200 rounded-xl text-xs font-bold text-[#011936] hover:bg-gray-50 transition bg-white flex items-center justify-between shadow-sm';
+
+                const statusSpan = document.createElement('span');
+                statusSpan.className = 'text-[10px] uppercase font-bold text-gray-400 tracking-wider';
+                statusSpan.textContent = 'Checken...';
+                slotBtn.appendChild(statusSpan);
+                container.appendChild(slotBtn);
+
+                let conflictFound = false;
+                let checksCompleted = 0;
+
+                employees.forEach(empId => {
+                    fetch("{{ route('client.appointments.check') }}", {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        },
+                        body: JSON.stringify({ employee_id: empId, date: dateStr, time_slot: slot }),
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        checksCompleted++;
+                        if (data.status === 'conflict') {
+                            conflictFound = true;
+                        }
+                        if (checksCompleted !== employees.length) {
+                            return;
+                        }
+
+                        if (conflictFound) {
+                            slotBtn.disabled = true;
+                            slotBtn.className = 'w-full text-left p-3 border border-gray-100 bg-gray-50 text-gray-300 rounded-xl text-xs font-semibold flex items-center justify-between cursor-not-allowed opacity-60';
+                            statusSpan.className = 'text-[10px] text-red-500 font-bold tracking-wider';
+                            statusSpan.textContent = 'BEZET';
+                            return;
+                        }
+
+                        statusSpan.className = 'text-[10px] text-emerald-600 font-bold tracking-wider';
+                        statusSpan.textContent = 'VRIJ';
+                        if (slot === selectedSlot) {
+                            slotBtn.classList.add('active');
+                        }
+
+                        slotBtn.onclick = () => {
+                            container.querySelectorAll('.time-slot-btn').forEach(b => b.classList.remove('active'));
+                            slotBtn.classList.add('active');
+                            selectedSlot = slot;
+                            onSlot(dateStr, slot, humanDate);
+                        };
+                    })
+                    .catch(err => {
+                        console.error('Fout tijdens check:', err);
+                        checksCompleted++;
+                    });
+                });
+            });
+        }
+
+        function reset() {
+            selectedDate = '';
+            selectedSlot = '';
+            const container = el(ids.slots);
+            container.classList.add('justify-center');
+            container.replaceChildren(slotPlaceholder('Kies links een beschikbare dag.'));
+            el(ids.dateLabel).innerText = 'Selecteer een datum';
+        }
+
+        function init() {
+            render();
+            el(ids.prev).onclick = () => { navDate.setMonth(navDate.getMonth() - 1); render(); };
+            el(ids.next).onclick = () => { navDate.setMonth(navDate.getMonth() + 1); render(); };
+        }
+
+        return { init, reset, showSlots, selectedDate: () => selectedDate, selectedSlot: () => selectedSlot };
+    }
+
+    // --- NIEUWE AFSPRAAK ---
+    function selectedEmployeeIds() {
+        return Array.from(document.querySelectorAll('select[name="employees[]"]'))
+            .map(s => s.value)
+            .filter(val => val !== '');
+    }
+
+    const newAppointmentPicker = createDatePicker({
+        ids: { days: 'calendarDays', monthTitle: 'currentMonthYear', prev: 'prevMonth', next: 'nextMonth', slots: 'timeSlotsContainer', dateLabel: 'selectedDateHuman' },
+        employeeIds: selectedEmployeeIds,
+        onDate: dateStr => { document.getElementById('hidden_date').value = dateStr; },
+        onSlot: (dateStr, slot, humanDate) => {
+            document.getElementById('hidden_time_slot').value = slot;
+
+            const dateDisplay = document.getElementById('display_date_text');
+            dateDisplay.innerText = humanDate;
+            dateDisplay.classList.remove('text-gray-400');
+
+            const timeDisplay = document.getElementById('display_time_text');
+            timeDisplay.innerText = slot;
+            timeDisplay.classList.remove('text-gray-400');
+
+            setTimeout(closeDatePickerModal, 200);
+        },
+    });
+
+    function initCalendar() {
+        newAppointmentPicker.init();
+    }
+
     function resetDateTime(event) {
-        event.stopPropagation(); 
+        event.stopPropagation();
         document.getElementById('hidden_date').value = "";
         document.getElementById('hidden_time_slot').value = "";
         document.getElementById('display_date_text').innerText = "Selecteer een datum...";
         document.getElementById('display_date_text').classList.add('text-gray-400');
         document.getElementById('display_time_text').innerText = "Kies tijdslot...";
         document.getElementById('display_time_text').classList.add('text-gray-400');
-        selectedDateStr = "";
-        
-        const container = document.getElementById('timeSlotsContainer');
-        container.classList.add('justify-center');
-        container.innerHTML = `<p class="text-xs text-gray-400 italic py-4 text-center my-auto">Kies links een beschikbare dag.</p>`;
-        document.getElementById('selectedDateHuman').innerText = "Selecteer een datum";
-    }
-
-    // --- INTERNE AGENDA AGENDA LOGICA ---
-    let currentNavDate = new Date();
-    let selectedDateStr = "";
-
-    const monthsNl = ["januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december"];
-    const standardSlots = @json($standardSlots); // uit config/appointments.php (werktijden)
-
-    function initCalendar() {
-        renderCalendar();
-        document.getElementById('prevMonth').onclick = () => { currentNavDate.setMonth(currentNavDate.getMonth() - 1); renderCalendar(); };
-        document.getElementById('nextMonth').onclick = () => { currentNavDate.setMonth(currentNavDate.getMonth() + 1); renderCalendar(); };
-    }
-
-    function renderCalendar() {
-        const year = currentNavDate.getFullYear();
-        const month = currentNavDate.getMonth();
-        
-        document.getElementById('currentMonthYear').innerText = `${monthsNl[month]} ${year}`;
-        
-        const firstDayIndex = (new Date(year, month, 1).getDay() + 6) % 7; 
-        const lastDay = new Date(year, month + 1, 0).getDate();
-        
-        const daysContainer = document.getElementById('calendarDays');
-        daysContainer.innerHTML = "";
-
-        for (let i = 0; i < firstDayIndex; i++) {
-            daysContainer.innerHTML += `<div></div>`;
-        }
-
-        const today = new Date();
-        today.setHours(0,0,0,0);
-
-        for (let day = 1; day <= lastDay; day++) {
-            const checkDate = new Date(year, month, day);
-            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-            const isPast = checkDate < today;
-            const isWeekend = checkDate.getDay() === 0 || checkDate.getDay() === 6;
-            
-            const dayBtn = document.createElement('button');
-            dayBtn.type = "button";
-            dayBtn.innerText = day;
-            dayBtn.className = "calendar-day-btn py-1.5 w-full text-center hover:bg-gray-100 rounded-full transition relative flex items-center justify-center font-bold text-gray-700";
-            
-            if (isPast || isWeekend) {
-                dayBtn.disabled = true;
-            } else {
-                dayBtn.innerHTML = `${day}<span class="absolute bottom-0.5 w-1 h-1 bg-[#011936] rounded-full"></span>`;
-                
-                if (dateStr === selectedDateStr) {
-                    dayBtn.classList.add('active');
-                }
-                
-                dayBtn.onclick = () => {
-                    document.querySelectorAll('.calendar-day-btn').forEach(b => b.classList.remove('active'));
-                    dayBtn.classList.add('active');
-                    selectDate(dateStr, checkDate);
-                };
-            }
-            daysContainer.appendChild(dayBtn);
-        }
-    }
-
-    function selectDate(dateStr, dateObj) {
-        selectedDateStr = dateStr;
-        document.getElementById('hidden_date').value = dateStr;
-        
-        const options = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
-        const formattedHuman = dateObj.toLocaleDateString('nl-NL', options);
-        document.getElementById('selectedDateHuman').innerText = formattedHuman;
-        
-        fetchAvailableSlots(dateStr, formattedHuman);
+        newAppointmentPicker.reset();
     }
 
     function checkClientEmployeeAvailability() {
-        const selects = document.querySelectorAll('select[name="employees[]"]');
-        const selectedValues = Array.from(selects).map(s => s.value).filter(val => val !== "");
-
         const triggerBtn = document.getElementById('date_picker_trigger_button');
         const triggerIconText = triggerBtn.querySelector('.flex');
 
-        if (selectedValues.length > 0) {
+        if (selectedEmployeeIds().length > 0) {
             triggerBtn.classList.remove('bg-gray-100', 'opacity-60', 'cursor-not-allowed');
             triggerBtn.classList.add('bg-gray-50/30', 'cursor-pointer', 'hover:bg-gray-50');
             triggerIconText.classList.remove('text-gray-400');
             triggerIconText.classList.add('text-gray-700');
             triggerBtn.querySelector('.rounded-full').classList.remove('bg-gray-300');
             triggerBtn.querySelector('.rounded-full').classList.add('bg-[#011936]');
-            
+
             triggerBtn.onclick = openDatePickerModal;
-            
+
+            // Andere medewerker gekozen: de tijden van de al gekozen dag opnieuw controleren.
             const currentHiddenDate = document.getElementById('hidden_date').value;
-            if(currentHiddenDate) {
-                const dateObj = new Date(currentHiddenDate);
-                const formattedHuman = dateObj.toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-                fetchAvailableSlots(currentHiddenDate, formattedHuman);
+            if (currentHiddenDate) {
+                newAppointmentPicker.showSlots(currentHiddenDate);
             }
         } else {
             triggerBtn.classList.add('bg-gray-100', 'opacity-60', 'cursor-not-allowed');
@@ -785,86 +931,10 @@
             triggerIconText.classList.remove('text-gray-700');
             triggerBtn.querySelector('.rounded-full').classList.add('bg-gray-300');
             triggerBtn.querySelector('.rounded-full').classList.remove('bg-[#011936]');
-            
+
             triggerBtn.onclick = null;
             resetDateTime(new Event('click'));
         }
-    }
-
-    function fetchAvailableSlots(dateStr, formattedHuman) {
-        const container = document.getElementById('timeSlotsContainer');
-        container.classList.remove('justify-center');
-        container.innerHTML = "";
-
-        const selects = document.querySelectorAll('select[name="employees[]"]');
-        const selectedEmployeeIds = Array.from(selects).map(s => s.value).filter(val => val !== "");
-
-        standardSlots.forEach(slot => {
-            const slotBtn = document.createElement('button');
-            slotBtn.type = "button";
-            slotBtn.innerText = slot;
-            slotBtn.className = "time-slot-btn w-full text-left p-3 border border-gray-200 rounded-xl text-xs font-bold text-[#011936] hover:bg-gray-50 transition bg-white flex items-center justify-between shadow-sm";
-            
-            const statusSpan = document.createElement('span');
-            statusSpan.className = "text-[10px] uppercase font-bold text-gray-400 tracking-wider";
-            statusSpan.innerText = "Checken...";
-            slotBtn.appendChild(statusSpan);
-            container.appendChild(slotBtn);
-
-            let conflictFound = false;
-            let checksCompleted = 0;
-
-            selectedEmployeeIds.forEach(empId => {
-                fetch("{{ route('client.appointments.check') }}", {
-                    method: "POST",
-                    headers: { 
-                        "Content-Type": "application/json", 
-                        "Accept": "application/json",
-                        "X-CSRF-TOKEN": document.querySelector('input[name="_token"]').value
-                    },
-                    body: JSON.stringify({ employee_id: empId, date: dateStr, time_slot: slot })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    checksCompleted++;
-                    if (data.status === 'conflict') {
-                        conflictFound = true;
-                    }
-
-                    if (checksCompleted === selectedEmployeeIds.length) {
-                        if (conflictFound) {
-                            slotBtn.disabled = true;
-                            slotBtn.className = "w-full text-left p-3 border border-gray-100 bg-gray-50 text-gray-300 rounded-xl text-xs font-semibold flex items-center justify-between cursor-not-allowed opacity-60";
-                            statusSpan.className = "text-[10px] text-red-500 font-bold tracking-wider";
-                            statusSpan.innerText = "BEZET";
-                        } else {
-                            statusSpan.className = "text-[10px] text-emerald-600 font-bold tracking-wider";
-                            statusSpan.innerText = "VRIJ";
-                            
-                            slotBtn.onclick = () => {
-                                document.querySelectorAll('.time-slot-btn').forEach(b => b.classList.remove('active'));
-                                slotBtn.classList.add('active');
-                                document.getElementById('hidden_time_slot').value = slot;
-                                
-                                const dateDisplay = document.getElementById('display_date_text');
-                                dateDisplay.innerText = formattedHuman;
-                                dateDisplay.classList.remove('text-gray-400');
-                                
-                                const timeDisplay = document.getElementById('display_time_text');
-                                timeDisplay.innerText = slot;
-                                timeDisplay.classList.remove('text-gray-400');
-
-                                setTimeout(closeDatePickerModal, 200);
-                            };
-                        }
-                    }
-                })
-                .catch(err => {
-                    console.error("Fout tijdens check:", err);
-                    checksCompleted++;
-                });
-            });
-        });
     }
 
     @if ($errors->any())
@@ -875,37 +945,44 @@
 
 
 
-    // --- LOGICA VOOR HET INDIENEN VAN EEN ALTERNATIEF VOORSTEL ---
-let altCalendarNavDate = new Date();
-let altSelectedDateStr = "";
-let altSelectedSlotStr = "";
-
+    // --- ALTERNATIEF VOORSTEL ("Past geen van de tijden?") ---
 let altProposalConfig = {
     appointmentId: null,
     employeeIds: [],
     employeeNames: ""
 };
 
+function setAltSubmitEnabled(enabled) {
+    const submitBtn = document.getElementById('submitAltSlotBtn');
+    submitBtn.disabled = !enabled;
+    submitBtn.className = enabled
+        ? "w-full py-2.5 bg-[#011936] hover:bg-[#011936]/90 text-white text-xs font-bold rounded-xl transition shadow-sm cursor-pointer transform active:scale-95 text-center"
+        : "w-full py-2.5 bg-gray-300 text-gray-500 text-xs font-bold rounded-xl transition cursor-not-allowed text-center shadow-sm";
+}
+
+const altPicker = createDatePicker({
+    ids: { days: 'altCalendarDays', monthTitle: 'altCurrentMonthYear', prev: 'altPrevMonth', next: 'altNextMonth', slots: 'altTimeSlotsContainer', dateLabel: 'altSelectedDateHuman' },
+    employeeIds: () => altProposalConfig.employeeIds,
+    // Andere dag gekozen: eerst opnieuw een (gecontroleerd) tijdslot kiezen.
+    onDate: () => setAltSubmitEnabled(false),
+    onSlot: () => setAltSubmitEnabled(true),
+});
+
 function openAlternativeDatePicker(appointmentId, employeeIds, employeeNames) {
     altProposalConfig.appointmentId = appointmentId;
     altProposalConfig.employeeIds = employeeIds;
     altProposalConfig.employeeNames = employeeNames;
 
-    // Reset selecties
-    altSelectedDateStr = "";
-    altSelectedSlotStr = "";
-    
-    const submitBtn = document.getElementById('submitAltSlotBtn');
-    submitBtn.disabled = true;
-    submitBtn.className = "w-full py-2.5 bg-gray-300 text-gray-500 text-xs font-bold rounded-xl transition cursor-not-allowed text-center shadow-sm";
+    altPicker.reset();
+    setAltSubmitEnabled(false);
 
     // Update legenda tekst onder de kalender
     document.getElementById('altAttendeeLegendText').innerText = `Beschikbare dagen van ${employeeNames}`;
 
     document.getElementById('alternativeDatePickerModal').classList.remove('hidden');
     document.getElementById('alternativeDatePickerModal').classList.add('flex');
-    
-    initAltCalendar();
+
+    altPicker.init();
 }
 
 function closeAlternativeDatePickerModal() {
@@ -913,140 +990,8 @@ function closeAlternativeDatePickerModal() {
     document.getElementById('alternativeDatePickerModal').classList.remove('flex');
 }
 
-function initAltCalendar() {
-    renderAltCalendar();
-    document.getElementById('altPrevMonth').onclick = () => { altCalendarNavDate.setMonth(altCalendarNavDate.getMonth() - 1); renderAltCalendar(); };
-    document.getElementById('altNextMonth').onclick = () => { altCalendarNavDate.setMonth(altCalendarNavDate.getMonth() + 1); renderAltCalendar(); };
-}
-
-function renderAltCalendar() {
-    const year = altCalendarNavDate.getFullYear();
-    const month = altCalendarNavDate.getMonth();
-    
-    document.getElementById('altCurrentMonthYear').innerText = `${monthsNl[month]} ${year}`;
-    
-    const firstDayIndex = (new Date(year, month, 1).getDay() + 6) % 7; 
-    const lastDay = new Date(year, month + 1, 0).getDate();
-    
-    const daysContainer = document.getElementById('altCalendarDays');
-    daysContainer.innerHTML = "";
-
-    for (let i = 0; i < firstDayIndex; i++) {
-        daysContainer.innerHTML += `<div></div>`;
-    }
-
-    const today = new Date();
-    today.setHours(0,0,0,0);
-
-    for (let day = 1; day <= lastDay; day++) {
-        const checkDate = new Date(year, month, day);
-        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        const isPast = checkDate < today;
-        const isWeekend = checkDate.getDay() === 0 || checkDate.getDay() === 6;
-        
-        const dayBtn = document.createElement('button');
-        dayBtn.type = "button";
-        dayBtn.innerText = day;
-        dayBtn.className = "calendar-day-btn py-1.5 w-full text-center hover:bg-gray-100 rounded-full transition relative flex items-center justify-center font-bold text-gray-700";
-        
-        if (isPast || isWeekend) {
-            dayBtn.disabled = true;
-        } else {
-            dayBtn.innerHTML = `${day}<span class="absolute bottom-0.5 w-1 h-1 bg-[#011936] rounded-full"></span>`;
-            
-            if (dateStr === altSelectedDateStr) {
-                dayBtn.classList.add('active');
-            }
-            
-            dayBtn.onclick = () => {
-                document.querySelectorAll('#altCalendarDays .calendar-day-btn').forEach(b => b.classList.remove('active'));
-                dayBtn.classList.add('active');
-                
-                altSelectedDateStr = dateStr;
-                const options = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
-                const formattedHuman = checkDate.toLocaleDateString('nl-NL', options);
-                document.getElementById('altSelectedDateHuman').innerText = formattedHuman;
-                
-                fetchAltAvailableSlots(dateStr, formattedHuman);
-            };
-        }
-        daysContainer.appendChild(dayBtn);
-    }
-}
-
-function fetchAltAvailableSlots(dateStr, formattedHuman) {
-    const container = document.getElementById('altTimeSlotsContainer');
-    container.innerHTML = "";
-
-    standardSlots.forEach(slot => {
-        const slotBtn = document.createElement('button');
-        slotBtn.type = "button";
-        slotBtn.innerText = slot;
-        slotBtn.className = "time-slot-btn w-full text-left p-3 border border-gray-200 rounded-xl text-xs font-bold text-[#011936] hover:bg-gray-50 transition bg-white flex items-center justify-between shadow-sm";
-        
-        const statusSpan = document.createElement('span');
-        statusSpan.className = "text-[10px] uppercase font-bold text-gray-400 tracking-wider";
-        statusSpan.innerText = "Checken...";
-        slotBtn.appendChild(statusSpan);
-        container.appendChild(slotBtn);
-
-        let conflictFound = false;
-        let checksCompleted = 0;
-
-        altProposalConfig.employeeIds.forEach(empId => {
-            fetch("{{ route('client.appointments.check') }}", {
-                method: "POST",
-                headers: { 
-                    "Content-Type": "application/json", 
-                    "Accept": "application/json",
-                    "X-CSRF-TOKEN": document.querySelector('input[name="_token"]').value
-                },
-                body: JSON.stringify({ employee_id: empId, date: dateStr, time_slot: slot })
-            })
-            .then(res => res.json())
-            .then(data => {
-                checksCompleted++;
-                if (data.status === 'conflict') {
-                    conflictFound = true;
-                }
-
-                if (checksCompleted === altProposalConfig.employeeIds.length) {
-                    if (conflictFound) {
-                        slotBtn.disabled = true;
-                        slotBtn.className = "w-full text-left p-3 border border-gray-100 bg-gray-50 text-gray-300 rounded-xl text-xs font-semibold flex items-center justify-between cursor-not-allowed opacity-60";
-                        statusSpan.className = "text-[10px] text-red-500 font-bold tracking-wider";
-                        statusSpan.innerText = "BEZET";
-                    } else {
-                        statusSpan.className = "text-[10px] text-emerald-600 font-bold tracking-wider";
-                        statusSpan.innerText = "VRIJ";
-                        
-                        if (slot === altSelectedSlotStr) {
-                            slotBtn.classList.add('active');
-                        }
-
-                        slotBtn.onclick = () => {
-                            document.querySelectorAll('#altTimeSlotsContainer .time-slot-btn').forEach(b => b.classList.remove('active'));
-                            slotBtn.classList.add('active');
-                            altSelectedSlotStr = slot;
-                            
-                            // Activeer de hoofdknop onderin de modal
-                            const submitBtn = document.getElementById('submitAltSlotBtn');
-                            submitBtn.disabled = false;
-                            submitBtn.className = "w-full py-2.5 bg-[#011936] hover:bg-[#011936]/90 text-white text-xs font-bold rounded-xl transition shadow-sm cursor-pointer transform active:scale-95 text-center";
-                        };
-                    }
-                }
-            })
-            .catch(err => {
-                console.error(err);
-                checksCompleted++;
-            });
-        });
-    });
-}
-
 function executeAlternativeSlotSubmit() {
-    if (!altSelectedDateStr || !altSelectedSlotStr) return;
+    if (!altPicker.selectedDate() || !altPicker.selectedSlot()) return;
 
     const submitBtn = document.getElementById('submitAltSlotBtn');
     submitBtn.disabled = true;
@@ -1060,9 +1005,9 @@ function executeAlternativeSlotSubmit() {
             "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
             "Accept": "application/json"
         },
-        body: JSON.stringify({ 
-            date: altSelectedDateStr, 
-            time_slot: altSelectedSlotStr 
+        body: JSON.stringify({
+            date: altPicker.selectedDate(),
+            time_slot: altPicker.selectedSlot()
         })
     })
     .then(res => res.json())

@@ -4,8 +4,10 @@ namespace Tests\Feature;
 
 use App\Enums\AppointmentStatus;
 use App\Models\Appointment;
+use App\Models\ClosedDay;
 use App\Models\Project;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -85,5 +87,27 @@ class AppointmentPageScriptTest extends TestCase
         foreach (self::VIEWS as $view) {
             $this->assertStringNotContainsString('pureDateStr', file_get_contents(base_path($view)), "$view rekent nog zelf met datums.");
         }
+    }
+
+    public function test_datumkiezer_krijgt_werkdagen_en_gesloten_dagen_van_de_server(): void
+    {
+        $client = User::factory()->create(['is_admin' => false]);
+        $closed = now()->next(Carbon::WEDNESDAY)->format('Y-m-d');
+        ClosedDay::create(['date' => $closed, 'reason' => 'Teamdag']);
+        ClosedDay::create(['date' => now()->subWeek()->format('Y-m-d'), 'reason' => 'Voorbij']);
+        config(['appointments.working_days' => [1, 2, 3, 4]]);
+
+        $this->actingAs($client)->get(route('client.appointments.index'))
+            ->assertOk()
+            ->assertSee('const calendarDays = '.json_encode(['working_days' => [1, 2, 3, 4], 'closed' => [$closed]]), false);
+    }
+
+    public function test_klantpagina_heeft_een_datumkiezer_zonder_vast_weekend(): void
+    {
+        $source = file_get_contents(base_path('resources/views/client/appointments/index.blade.php'));
+
+        $this->assertSame(1, substr_count($source, 'function createDatePicker('), 'Eén datumkiezer voor nieuwe afspraak en alternatief.');
+        $this->assertStringNotContainsString('renderAltCalendar', $source);
+        $this->assertDoesNotMatchRegularExpression('/getDay\(\)\s*===\s*6/', $source, 'Werkdagen komen van de server, niet uit een vast weekend.');
     }
 }

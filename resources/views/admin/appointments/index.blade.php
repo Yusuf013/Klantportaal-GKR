@@ -542,6 +542,12 @@
         const dbAppointments = @json($appointments);
         const currentAdminId = {{ auth()->id() }}; 
 
+        // Statusgroepen uit AppointmentStatus: één bron voor server en pagina (ADR-011).
+        const STATUS_BLOCKING = @json(\App\Enums\AppointmentStatus::blockingValues());
+        const STATUS_TENTATIVE = @json(\App\Enums\AppointmentStatus::tentativeValues());
+        const STATUS_PROPOSAL = @json(\App\Enums\AppointmentStatus::Voorstel->value);
+        const STATUS_CANCELLED = @json(\App\Enums\AppointmentStatus::Geannuleerd->value);
+
         let currentAdminDate = new Date();
         let pickerNavDate = new Date();
         let adminSelectedDateStr = "";
@@ -591,52 +597,56 @@
                 const dayBox = document.createElement('div');
                 dayBox.className = "bg-white min-h-[110px] p-2 border-b border-r border-gray-100 flex flex-col justify-between";
                 
-                let dayHeader = `<span class="text-xs font-bold text-gray-700">${day}</span>`;
-                let appHtml = `<div class="space-y-1 mt-1 flex-1 overflow-y-auto max-h-[75px] pr-0.5">`;
+                const dayHeader = document.createElement('span');
+                dayHeader.className = "text-xs font-bold text-gray-700";
+                dayHeader.textContent = day;
+
+                const list = document.createElement('div');
+                list.className = "space-y-1 mt-1 flex-1 overflow-y-auto max-h-[75px] pr-0.5";
 
                 dbAppointments.forEach(app => {
-                    if (app.start_time && app.start_time.split(/[\sT]+/)[0] === currentDateStr) {
-                        
-                        // FIX: VERBERG GEANNULEERDE RECORDS DIRECT VAN DE INTERACTIEVE MAANDKALENDER
-                        if (app.status === 'Geannuleerd') {
-                            return; 
-                        }
+                    if (!app.start_time || app.start_time.split(/[\sT]+/)[0] !== currentDateStr) return;
 
-                        const isAttendee = (app.attendees && app.attendees.some(att => att.id === currentAdminId)) || 
-                                           (app.employees && app.employees.some(emp => emp.id === currentAdminId));
-                        
-                        if (filterOn && !isAttendee) return;
+                    // Geannuleerde afspraken staan niet in de maandkalender.
+                    if (app.status === STATUS_CANCELLED) return;
 
-                        // SLIMMERE TIJDSWEERGAVE DIRECT UIT DE RAUWE STRING
-                        let timeDisplayStr = "";
-                        if (app.start_time) {
-                            const timePart = app.start_time.includes('T') ? app.start_time.split('T')[1] : app.start_time.split(' ')[1];
-                            timeDisplayStr = ` (${timePart.substring(0, 5)})`;
-                        }
+                    const isAttendee = (app.attendees && app.attendees.some(att => att.id === currentAdminId)) || 
+                                       (app.employees && app.employees.some(emp => emp.id === currentAdminId));
 
-                        let color = "bg-gray-150 text-gray-700";
-                        if (app.status === 'Bevestigd' || app.status === 'Bevestigd door klant'){
-                            color = isAttendee ? "bg-[#011936] text-white border-[#011936]" : "bg-slate-200 text-slate-700 border-slate-300 opacity-60";
-                        }
-                        if (app.status === 'In afwachting' || app.status === 'Voorstel') {
-                            color = "bg-amber-50 text-amber-800 border-amber-200";
-                        }
+                    if (filterOn && !isAttendee) return;
 
-                        let attendeesBadges = "";
-                        const activeAttendees = app.attendees || app.employees || [];
-                        activeAttendees.forEach(att => {
-                            const initials = att.name.split(' ').map(n => n[0]).join('').toUpperCase();
-                            attendeesBadges += `<span class="inline-block bg-white/25 text-[8px] px-1 rounded ml-1 font-mono">${initials}</span>`;
-                        });
-
-                        appHtml += `
-    <div onclick="openAdminDetailModal(${app.id})" class="text-[9px] p-1 rounded font-bold border truncate flex items-center justify-between cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all ${color}" title="Klik voor details: ${app.title}">
-        <span class="truncate">${app.title}</span>
-        <div class="flex shrink-0 ml-1">${attendeesBadges}</div>
-    </div>`;
+                    let color = "bg-gray-150 text-gray-700";
+                    if (STATUS_BLOCKING.includes(app.status)) {
+                        color = isAttendee ? "bg-[#011936] text-white border-[#011936]" : "bg-slate-200 text-slate-700 border-slate-300 opacity-60";
                     }
+                    if (STATUS_TENTATIVE.includes(app.status)) {
+                        color = "bg-amber-50 text-amber-800 border-amber-200";
+                    }
+
+                    // De titel komt van de klant: alleen via textContent/title, nooit als HTML.
+                    const item = document.createElement('div');
+                    item.className = `text-[9px] p-1 rounded font-bold border truncate flex items-center justify-between cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all ${color}`;
+                    item.title = `Klik voor details: ${app.title}`;
+                    item.addEventListener('click', () => openAdminDetailModal(app.id));
+
+                    const titleSpan = document.createElement('span');
+                    titleSpan.className = "truncate";
+                    titleSpan.textContent = app.title;
+
+                    const badges = document.createElement('div');
+                    badges.className = "flex shrink-0 ml-1";
+                    (app.attendees || app.employees || []).forEach(att => {
+                        const badge = document.createElement('span');
+                        badge.className = "inline-block bg-white/25 text-[8px] px-1 rounded ml-1 font-mono";
+                        badge.textContent = att.name.split(' ').map(n => n[0]).join('').toUpperCase();
+                        badges.appendChild(badge);
+                    });
+
+                    item.append(titleSpan, badges);
+                    list.appendChild(item);
                 });
-                dayBox.innerHTML = dayHeader + appHtml + `</div>`;
+
+                dayBox.append(dayHeader, list);
                 grid.appendChild(dayBox);
             }
         }
@@ -934,7 +944,8 @@
             document.getElementById('modal_detail_title').innerText = app.title;
             
             // EXACT DEZELFDE TIJDZONE-PROOF LOGICA ALS DE CLIENTSIDE: RAUWE STRING INTERPRETATIE
-            if (app.status === 'Voorstel' && (!app.start_time || app.options_count > 1)) {
+            // Een voorstel heeft nog geen vast moment: de klant kiest uit de opties.
+            if (app.status === STATUS_PROPOSAL || !app.start_time) {
                 document.getElementById('modal_detail_datetime').innerText = "Datum nog te bepalen door de klant";
             } else {
                 let dateObj = new Date(app.start_time);
@@ -995,9 +1006,9 @@
             const statusLabel = document.getElementById('modal_detail_status');
             statusLabel.innerText = app.status;
             statusLabel.className = "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ";
-           if (app.status === 'Bevestigd' || app.status === 'Bevestigd door klant') {
+            if (STATUS_BLOCKING.includes(app.status)) {
                 statusLabel.classList.add('bg-emerald-50', 'text-emerald-700', 'border-emerald-100');
-            } else if (app.status === 'Voorstel') {
+            } else if (app.status === STATUS_PROPOSAL) {
                 statusLabel.classList.add('bg-orange-50', 'text-orange-700', 'border-orange-100');
             } else {
                 statusLabel.classList.add('bg-amber-50', 'text-amber-700', 'border-amber-100');
@@ -1016,12 +1027,15 @@
             const activeAttendees = app.attendees || app.employees || [];
 
             if (activeAttendees.length > 0) {
+                // textContent, niet innerHTML: een naam wordt nooit als HTML uitgevoerd.
                 activeAttendees.forEach(att => {
-                    attendeesContainer.innerHTML += `
-                        <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200">
-                            <span class="w-1.5 h-1.5 bg-[#011936] rounded-full mr-1.5"></span>
-                            ${att.name}
-                        </span>`;
+                    const pill = document.createElement('span');
+                    pill.className = 'inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200';
+                    const dot = document.createElement('span');
+                    dot.className = 'w-1.5 h-1.5 bg-[#011936] rounded-full mr-1.5';
+                    pill.appendChild(dot);
+                    pill.appendChild(document.createTextNode(att.name));
+                    attendeesContainer.appendChild(pill);
                 });
             } else {
                 attendeesContainer.innerHTML = `<span class="text-xs text-gray-400 italic">Geen admins gekoppeld</span>`;

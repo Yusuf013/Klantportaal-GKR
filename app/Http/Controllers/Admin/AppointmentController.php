@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\AppointmentStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\AppointmentRules;
 use App\Models\Appointment;
 use App\Models\Project;
 use App\Models\User;
@@ -12,7 +13,6 @@ use App\Services\Appointments\AvailabilityService;
 use App\Services\Appointments\WorkingHours;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 /**
  * Website: admin-agenda. De domeinlogica zit in AppointmentService (gedeeld met de API,
@@ -47,18 +47,20 @@ class AppointmentController extends Controller
     {
         $request->merge(['employees' => array_values(array_filter((array) $request->input('employees', [])))]);
 
+        // Zelfde regels en meldingen als de app (AppointmentRules); alleen de voorstelmomenten
+        // zijn websitespecifiek.
         $validated = $request->validate([
-            'project_id' => 'required|integer|exists:projects,id',
-            'client_id' => 'required|integer|exists:users,id',
-            'title' => 'required|string|max:255',
-            'type' => ['required', Rule::in([Appointment::TYPE_TELEFOON, Appointment::TYPE_ONLINE, Appointment::TYPE_FYSIEK])],
-            'description' => 'nullable|string|max:500',
-            'employees' => 'array',
-            'employees.*' => 'integer|exists:users,id',
+            'client_id' => AppointmentRules::client(),
+            'project_id' => AppointmentRules::projectOf((int) $request->input('client_id')),
+            'title' => AppointmentRules::title(),
+            'type' => AppointmentRules::type(),
+            'description' => AppointmentRules::description(),
+            'employees' => AppointmentRules::employees(0, 5),
+            'employees.*' => AppointmentRules::employee(),
             'proposal_dates' => 'required|array|min:1|max:3',
             'proposal_dates.*.date' => 'nullable|date_format:Y-m-d',
             'proposal_dates.*.time_slot' => 'nullable|string',
-        ]);
+        ], AppointmentRules::messages('employees', forAdmin: true));
 
         // Alleen de rijen die de admin daadwerkelijk heeft ingevuld
         $filled = collect($validated['proposal_dates'])

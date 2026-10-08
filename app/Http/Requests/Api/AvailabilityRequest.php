@@ -3,8 +3,8 @@
 namespace App\Http\Requests\Api;
 
 use Carbon\CarbonImmutable;
+use App\Http\Requests\AppointmentRules;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 /**
@@ -17,14 +17,19 @@ class AvailabilityRequest extends FormRequest
         $isAdmin = $this->user()->isAdmin();
 
         return [
-            'employee_ids' => ['required', 'array', 'min:1', 'max:'.($isAdmin ? 5 : 2)],
-            'employee_ids.*' => ['integer', 'distinct', Rule::exists('users', 'id')->where(fn ($q) => $q->where('is_admin', true))],
+            'employee_ids' => AppointmentRules::employees(1, $isAdmin ? 5 : 2),
+            'employee_ids.*' => AppointmentRules::employee(),
             'from' => ['required', 'date_format:Y-m-d'],
             'to' => ['required', 'date_format:Y-m-d', 'after_or_equal:from'],
             // Duur en reistijd kiest alleen een admin; een klant krijgt altijd de standaardduur.
-            'duration_minutes' => ['nullable', 'integer', Rule::in(config('appointments.allowed_durations'))],
-            'travel_minutes' => ['nullable', 'integer', Rule::in(config('appointments.allowed_travel_minutes'))],
+            'duration_minutes' => AppointmentRules::durationMinutes(),
+            'travel_minutes' => AppointmentRules::travelMinutes(),
         ];
+    }
+
+    public function messages(): array
+    {
+        return AppointmentRules::messages('employee_ids');
     }
 
     public function after(): array

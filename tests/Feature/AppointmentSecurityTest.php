@@ -15,9 +15,11 @@ use Tests\TestCase;
 /**
  * Oorspronkelijk geschreven voor Yusufs afsprakenimplementatie (7 oktober 2026). Bij het samenvoegen
  * met de Outlook-koppeling (ADR-011) is de afsprakenlogica van `feature/outlook-koppeling` de basis
- * geworden; deze tests zijn behouden en aangepast aan het antwoordformaat daarvan (melding `error`
- * i.p.v. een validatiefout, 409 bij een bezet moment, .ics achter login i.p.v. ondertekende link,
- * mailinstelling `appointments.confirmation_mail`). Wat ze controleren is ongewijzigd.
+ * geworden; deze tests zijn behouden en aangepast aan het antwoordformaat daarvan (een weigering
+ * uit de afsprakenlogica komt terug als melding `error`, 409 bij een bezet moment, .ics achter login
+ * i.p.v. ondertekende link, mailinstelling `appointments.confirmation_mail`). Invoerfouten (zoals
+ * een klant als medewerker) zijn weer validatiefouten, met dezelfde meldingen als de app
+ * (AppointmentRules). Wat de tests controleren is ongewijzigd.
  */
 class AppointmentSecurityTest extends TestCase
 {
@@ -159,7 +161,7 @@ class AppointmentSecurityTest extends TestCase
             'date'       => $this->weekday(),
             'time_slot'  => '09:00 - 10:00',
             'employees'  => [$this->client()->id],
-        ])->assertSessionHas('error');
+        ])->assertSessionHasErrors(['employees.0' => 'Kies GKR-medewerkers uit de lijst.']);
 
         $this->assertDatabaseCount('appointments', 0);
     }

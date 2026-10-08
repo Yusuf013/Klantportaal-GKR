@@ -27,13 +27,7 @@
                 </div>
             @endif
 
-            {{-- Weigeringen uit de afsprakenlogica (bezet moment, verkeerde status) komen terug als session('error'). --}}
-            @if(session('error'))
-                <div role="alert" class="p-4 bg-red-50 border border-red-150 text-red-700 rounded-xl text-sm font-medium shadow-sm">
-                    <p class="font-bold">Dat lukte niet</p>
-                    <p class="mt-0.5">{{ session('error') }}</p>
-                </div>
-            @endif
+            <x-appointment-errors />
 
             @php
     // 1. Filteren op afspraken waar de klant zelf een datum koos (Blauw)

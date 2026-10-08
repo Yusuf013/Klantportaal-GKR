@@ -26,6 +26,8 @@
                 </div>
             @endif
 
+            <x-appointment-errors class="mb-6" />
+
             @if(isset($appointmentProposal) && $appointmentProposal->options->count() > 0)
             <div id="proposal-banner-container" class="mb-8 bg-white border border-gray-150 rounded-2xl p-6 shadow-sm transition-all duration-500 ease-in-out relative">
                 
@@ -208,6 +210,8 @@
 
                 <form action="{{ route('client.appointments.store') }}" method="POST" class="p-8">
                     @csrf
+                    {{-- Bij invoerfouten gaat dit formulier opnieuw open; toon ze daarom hier. --}}
+                    <x-appointment-errors :session-error="false" class="mb-6" />
                     
                     <div class="grid grid-cols-1 md:grid-cols-12 gap-8">
                         

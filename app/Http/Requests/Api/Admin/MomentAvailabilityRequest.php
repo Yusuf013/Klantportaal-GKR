@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests\Api\Admin;
 
+use App\Http\Requests\AppointmentRules;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 /**
  * Beschikbaarheid van medewerkers op de voorgestelde momenten (admin-formulier).
@@ -19,14 +19,19 @@ class MomentAvailabilityRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'employee_ids' => ['required', 'array', 'min:1', 'max:10'],
-            'employee_ids.*' => ['integer', 'distinct', Rule::exists('users', 'id')->where(fn ($q) => $q->where('is_admin', true))],
+            'employee_ids' => AppointmentRules::employees(1, 10),
+            'employee_ids.*' => AppointmentRules::employee(),
             'moments' => ['required', 'array', 'min:1', 'max:3'],
             'moments.*.start' => ['required', 'date'],
             'moments.*.end' => ['nullable', 'date', 'after:moments.*.start'],
-            'duration_minutes' => ['nullable', 'integer', Rule::in(config('appointments.allowed_durations'))],
-            'travel_minutes' => ['nullable', 'integer', Rule::in(config('appointments.allowed_travel_minutes'))],
+            'duration_minutes' => AppointmentRules::durationMinutes(),
+            'travel_minutes' => AppointmentRules::travelMinutes(),
             'ignore_appointment_id' => ['nullable', 'integer'],
         ];
+    }
+
+    public function messages(): array
+    {
+        return AppointmentRules::messages('employee_ids', forAdmin: true);
     }
 }

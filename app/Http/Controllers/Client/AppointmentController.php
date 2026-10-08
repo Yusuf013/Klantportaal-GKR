@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Client;
 
 use App\Enums\AppointmentStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\AppointmentRules;
 use App\Models\Appointment;
 use App\Models\User;
 use App\Services\Appointments\AppointmentService;
@@ -11,7 +12,6 @@ use App\Services\Appointments\WorkingHours;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Validation\Rule;
 
 /**
  * Website: afspraken van de klant. De domeinlogica zit in AppointmentService (gedeeld met de
@@ -58,17 +58,18 @@ class AppointmentController extends Controller
         // Lege keuzes ("-- Kies naam --") wegfilteren
         $request->merge(['employees' => array_values(array_filter((array) $request->input('employees', [])))]);
 
+        // Zelfde regels en meldingen als de app (AppointmentRules); alleen datum en tijdslot zijn
+        // websitespecifiek.
         $validated = $request->validate([
-            // Alleen een eigen project; een vreemd project-id faalt als "ongeldig".
-            'project_id' => ['required', 'integer', Rule::exists('projects', 'id')->where('user_id', $request->user()->id)],
-            'type' => ['required', Rule::in([Appointment::TYPE_TELEFOON, Appointment::TYPE_ONLINE, Appointment::TYPE_FYSIEK])],
-            'title' => 'required|string|max:255',
+            'project_id' => AppointmentRules::projectOf($request->user()->id),
+            'type' => AppointmentRules::type(),
+            'title' => AppointmentRules::title(),
+            'description' => AppointmentRules::description(),
+            'employees' => AppointmentRules::employees(1, 2),
+            'employees.*' => AppointmentRules::employee(),
             'date' => 'required|date_format:Y-m-d|after_or_equal:today',
             'time_slot' => ['required', 'string', 'regex:/^\d{2}:\d{2} - \d{2}:\d{2}$/'],
-            'employees' => 'required|array|min:1|max:2',
-            'employees.*' => 'integer|exists:users,id',
-            'description' => 'nullable|string|max:500',
-        ]);
+        ], AppointmentRules::messages('employees'));
 
         [$startHour] = explode(' - ', $validated['time_slot']);
 

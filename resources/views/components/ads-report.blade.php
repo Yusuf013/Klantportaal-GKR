@@ -5,7 +5,8 @@
     Props:
     - platform:  'meta' of 'google_ads' (bepaalt de teksten)
     - explain:   uitleg in gewone taal bij het gekozen cijfer (standaard aan)
-    - campaigns: tabel per campagne tonen (voorlopig alleen op de admin-detailpagina)
+    - campaigns: tabel per campagne tonen. Standaard aan, voor klant én GKR
+                 (gevraagd door Stijn op 7 oktober 2026, na het zien van de demo)
 
     Opbouw (versie 2, na feedback Stijn): klikbare cijferkaarten, standaard
     "Vertoningen", grafiek en tabel per dag/maand die meewisselen.
@@ -16,7 +17,7 @@
     'days'      => 28,
     'explain'   => true,
     'platform'  => 'meta',
-    'campaigns' => false,
+    'campaigns' => true,
 ])
 
 @php
@@ -223,12 +224,13 @@
             </div>
         </div>
 
-        {{-- Cijfers per campagne (alleen als de pagina erom vraagt, voorlopig alleen voor GKR) --}}
+        {{-- Cijfers per campagne. Een klant ziet alleen de campagnes van het eigen account:
+             het rapport wordt altijd opgehaald voor het account van de ingelogde klant. --}}
         @if($campaigns && ! empty($report['campaigns']))
             <div class="bg-white rounded-2xl shadow-sm border border-gray-150 overflow-hidden">
                 <div class="px-6 py-4 bg-gray-50/50 border-b border-gray-100 flex items-center justify-between">
                     <h3 class="text-xs font-bold text-[#011936] uppercase tracking-wider">Per campagne</h3>
-                    <span class="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">Alleen zichtbaar voor GKR</span>
+                    <span class="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">Hoogste {{ $isGoogle ? 'kosten' : 'besteding' }} bovenaan</span>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse text-sm">

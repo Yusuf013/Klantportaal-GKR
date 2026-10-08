@@ -144,7 +144,67 @@ public function test_cijferkaarten_zijn_klikbaar(): void
         ->assertSee('data-metric="conversions"', false);
 }
 
+    // ---------- Campagnes (nieuw na het gesprek met Stijn, 7 okt 2026) ----------
 
+    private function reportFor(User $client): array
+    {
+        return app(MetaAdsService::class)->getInsights($client->fresh()->metaAdAccount, 28);
+    }
 
+    public function test_klant_ziet_campagnes_van_het_eigen_account(): void
+    {
+        $client = $this->client('111111111');
+        $campaignName = $this->reportFor($client)['campaigns'][0]['name'];
 
+        $this->actingAs($client)->get(route('meta-ads.index'))
+            ->assertOk()
+            ->assertSee('Per campagne')
+            ->assertSee($campaignName)
+            ->assertDontSee('Alleen zichtbaar voor GKR');
+    }
+
+    public function test_admin_ziet_campagnes_op_detailpagina(): void
+    {
+        $client = $this->client('111111111');
+        $campaignName = $this->reportFor($client)['campaigns'][0]['name'];
+
+        $this->actingAs($this->admin())->get(route('admin.meta-ads.show', $client))
+            ->assertOk()
+            ->assertSee('Per campagne')
+            ->assertSee($campaignName);
+    }
+
+    public function test_campagnenaam_wordt_nooit_als_code_uitgevoerd(): void
+    {
+        // Een campagnenaam komt van buiten (Meta). Staat er HTML in, dan moet die als gewone tekst verschijnen.
+        $client = $this->client('111111111');
+        $report = $this->reportFor($client);
+        $report['campaigns'][0]['name'] = '<script>alert("campagne")</script>';
+
+        $this->mock(MetaAdsService::class, function ($mock) use ($report) {
+            $mock->shouldReceive('getInsights')->andReturn($report);
+        });
+
+        $this->actingAs($client)->get(route('meta-ads.index'))
+            ->assertOk()
+            ->assertDontSee('<script>alert("campagne")</script>', false)
+            ->assertSee('&lt;script&gt;alert(', false);
+    }
+
+    public function test_rapport_zonder_campagnes_toont_geen_lege_tabel(): void
+    {
+        // Bijvoorbeeld een account zonder lopende campagnes in deze periode
+        $client = $this->client('111111111');
+        $report = $this->reportFor($client);
+        $report['campaigns'] = [];
+
+        $this->mock(MetaAdsService::class, function ($mock) use ($report) {
+            $mock->shouldReceive('getInsights')->andReturn($report);
+        });
+
+        $this->actingAs($client)->get(route('meta-ads.index'))
+            ->assertOk()
+            ->assertSee('Besteed budget')
+            ->assertDontSee('Per campagne');
+    }
 }

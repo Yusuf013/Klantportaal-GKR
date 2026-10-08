@@ -82,15 +82,18 @@ class GoogleAdsPagesTest extends TestCase
         $this->assertNotEquals(200, $this->actingAs($client)->get(route('admin.google-ads.show', $other))->status());
     }
 
-    public function test_klant_ziet_geen_campagnes(): void
+    // Was: test_klant_ziet_geen_campagnes. Sinds het gesprek met Stijn (7 okt 2026)
+    // mogen klanten de campagnes van hun eigen account zien.
+    public function test_klant_ziet_campagnes_van_het_eigen_account(): void
     {
         $client = $this->client('1111111111');
         $campaignName = $this->report($client)['campaigns'][0]['name'];
 
         $this->actingAs($client)->get(route('google-ads.index'))
             ->assertOk()
-            ->assertDontSee('Per campagne')
-            ->assertDontSee($campaignName);
+            ->assertSee('Per campagne')
+            ->assertSee($campaignName)
+            ->assertDontSee('Alleen zichtbaar voor GKR');
     }
 
     public function test_admin_ziet_overzicht_van_gekoppelde_klanten(): void

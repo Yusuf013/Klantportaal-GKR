@@ -24,7 +24,8 @@
             'id'          => $appointment->id,
             'title'       => $appointment->title,
             'status'      => $appointment->status,
-            'type'        => $appointment->type,
+            // Leesbare naam, bijv. "Op kantoor bij GKR" in plaats van "fysiek"
+            'type'        => \App\Services\AppointmentAvailability::typeLabel($appointment->type),
             'client'      => $appointment->client?->name,
             'project'     => $appointment->project?->name,
             'description' => $appointment->description,
@@ -301,7 +302,7 @@
             <input type="radio" name="type" value="fysiek" class="sr-only peer" {{ $oldType === 'fysiek' ? 'checked' : '' }}>
             <div class="absolute inset-0 rounded-xl border-2 border-transparent peer-checked:border-[#011936] peer-checked:bg-slate-50/20 pointer-events-none transition-all duration-150"></div>
             <svg class="w-5 h-5 text-gray-500 mb-1 group-hover:text-[#011936] peer-checked:text-[#011936] relative z-10 transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
-            <span class="text-[11px] font-bold text-gray-700 peer-checked:text-[#011936] relative z-10 transition-colors">Fysiek</span>
+            <span class="text-[11px] font-bold text-gray-700 peer-checked:text-[#011936] relative z-10 transition-colors">Op kantoor</span>
         </label>
 
     </div>
@@ -908,7 +909,8 @@
                             "Accept": "application/json",
                             "X-CSRF-TOKEN": "{{ csrf_token() }}"
                         },
-                        body: JSON.stringify({ employee_id: empId, date: dateStr, time_slot: slot })
+                        // Het gekozen soort afspraak gaat mee: op kantoor gelden andere regels (niet om 09:00)
+                        body: JSON.stringify({ employee_id: empId, date: dateStr, time_slot: slot, type: document.querySelector('input[name="type"]:checked')?.value })
                     })
                     .then(res => res.json())
                     .then(data => {

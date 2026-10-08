@@ -85,7 +85,15 @@ class AppointmentController extends Controller
                 return back()->withErrors(['proposal_dates' => "Het moment {$slot['date']} {$slot['time_slot']} is al voorbij."])->withInput();
             }
 
-            $busy = $availability->busyEmployeeNames($validated['employees'], $start, $end);
+            // Op kantoor kan niet om 09:00 (afspraak met GKR)
+            if (AppointmentAvailability::startsTooEarly($validated['type'], $start)) {
+                return back()->withErrors([
+                    'proposal_dates' => "{$slot['date']} {$slot['time_slot']}: " . AppointmentAvailability::OFFICE_TOO_EARLY_MESSAGE,
+                ])->withInput();
+            }
+
+            // Met het type erbij gelden ook de buffers (tijd vrij voor en na elke afspraak)
+            $busy = $availability->busyEmployeeNames($validated['employees'], $start, $end, type: $validated['type']);
             if ($busy) {
                 return back()->withErrors([
                     'proposal_dates' => "Op {$slot['date']} {$slot['time_slot']} is " . implode(' en ', $busy) . ' al bezet.',
@@ -133,13 +141,18 @@ class AppointmentController extends Controller
             return redirect()->back()->with('error', "Een afspraak met status '{$appointment->status}' kan niet worden goedgekeurd.");
         }
 
-        $result = $availability->withBookingLock(function () use ($appointment, $availability) {
+        $employeeIds = $appointment->attendees()->pluck('users.id')->all();
+
+        $result = $availability->withBookingLock(function () use ($appointment, $availability, $employeeIds) {
             // Laatste controle: is er intussen iets anders op dit moment gepland?
+            // Outlook blokkeert hier NIET: de medewerker kan deze afspraak zelf al in
+            // Outlook hebben gezet. Hieronder volgt wel een waarschuwing.
             $busy = $availability->busyEmployeeNames(
-                $appointment->attendees()->pluck('users.id')->all(),
+                $employeeIds,
                 $appointment->start_time,
                 $appointment->end_time,
-                $appointment->id
+                $appointment->id,
+                withOutlook: false
             );
 
             if ($busy) {
@@ -157,7 +170,17 @@ class AppointmentController extends Controller
 
         $this->sendConfirmationMails($appointment->fresh(['client', 'attendees']));
 
-        return redirect()->back()->with('success', 'Afspraak is succesvol bevestigd en de e-mailnotificaties zijn verwerkt!');
+        $message = 'Afspraak is succesvol bevestigd en de e-mailnotificaties zijn verwerkt!';
+
+        // Staat er in Outlook al iets op dit moment? Dan melden we dat, zonder te blokkeren.
+        $inOutlook = $availability->outlookBusyNames($employeeIds, $appointment->start_time, $appointment->end_time);
+
+        if ($inOutlook) {
+            $message .= ' Let op: in de Outlook-agenda van ' . implode(' en ', $inOutlook)
+                . ' staat op dit moment al iets. Dat kan deze afspraak zelf zijn. Controleer het even.';
+        }
+
+        return redirect()->back()->with('success', $message);
     }
 
     /**
@@ -181,12 +204,22 @@ class AppointmentController extends Controller
             'employee_id' => ['required', Rule::exists('users', 'id')->where('is_admin', true)],
             'date'        => ['required', 'date_format:Y-m-d'],
             'time_slot'   => ['required', Rule::in(AppointmentAvailability::SLOTS)],
+            // Het soort afspraak dat in het formulier is gekozen (mag ontbreken)
+            'type'        => ['nullable', 'in:telefoon,online,fysiek'],
         ]);
 
         [$start, $end] = AppointmentAvailability::slotTimes($validated['date'], $validated['time_slot']);
 
-        // Telt nu ALLE afspraken mee die een slot bezet houden, niet alleen 'Bevestigd'
-        $busy = $availability->busyEmployeeNames([$validated['employee_id']], $start, $end);
+        // Zonder type rekenen we met een online afspraak (de kleinste buffer)
+        $type = $validated['type'] ?? 'online';
+
+        // Op kantoor kan niet om 09:00: dat tijdslot tonen we dan als bezet
+        if (AppointmentAvailability::startsTooEarly($type, $start)) {
+            return response()->json(['status' => 'conflict', 'message' => 'Bezet']);
+        }
+
+        // Telt ALLE afspraken mee die een slot bezet houden, Outlook en de buffers
+        $busy = $availability->busyEmployeeNames([$validated['employee_id']], $start, $end, type: $type);
 
         // Bewust zonder namen of details: de klant ziet alleen Bezet of Beschikbaar
         return $busy

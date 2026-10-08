@@ -72,10 +72,16 @@ class AppointmentController extends Controller
             return back()->withErrors(['time_slot' => 'Dit tijdstip is al voorbij. Kies een later moment.'])->withInput();
         }
 
+        // Op kantoor kan niet om 09:00 (afspraak met GKR)
+        if (AppointmentAvailability::startsTooEarly($validated['type'], $startTime)) {
+            return back()->withErrors(['time_slot' => AppointmentAvailability::OFFICE_TOO_EARLY_MESSAGE])->withInput();
+        }
+
         // Controle + opslaan gebeuren samen, terwijl niemand anders tegelijk boekt
         return $availability->withBookingLock(function () use ($request, $validated, $startTime, $endTime, $availability) {
             // De server controleert opnieuw: de check in de browser is te omzeilen
-            $busy = $availability->busyEmployeeNames($validated['employees'], $startTime, $endTime);
+            // Met het type erbij gelden ook de buffers (tijd vrij voor en na elke afspraak)
+            $busy = $availability->busyEmployeeNames($validated['employees'], $startTime, $endTime, type: $validated['type']);
 
             if ($busy) {
                 return back()->withErrors([
@@ -127,11 +133,15 @@ class AppointmentController extends Controller
 
         return $availability->withBookingLock(function () use ($appointment, $option, $availability) {
             // Een voorstel kan dagen oud zijn: is het moment intussen bezet geraakt?
+            // Outlook tellen we hier NIET mee: GKR heeft dit moment zelf voorgesteld en
+            // kan het al in de eigen agenda hebben gezet. De admin keurt hierna nog goed.
             $busy = $availability->busyEmployeeNames(
                 $appointment->attendees()->pluck('users.id')->all(),
                 $option->start_time,
                 $option->end_time,
-                $appointment->id
+                $appointment->id,
+                withOutlook: false,
+                type: $appointment->type
             );
 
             if ($busy) {
@@ -177,12 +187,17 @@ class AppointmentController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Dit tijdstip is al voorbij. Kies een later moment.'], 422);
         }
 
+        if (AppointmentAvailability::startsTooEarly($appointment->type, $startTime)) {
+            return response()->json(['status' => 'error', 'message' => AppointmentAvailability::OFFICE_TOO_EARLY_MESSAGE], 422);
+        }
+
         return $availability->withBookingLock(function () use ($appointment, $startTime, $endTime, $availability) {
             $busy = $availability->busyEmployeeNames(
                 $appointment->attendees()->pluck('users.id')->all(),
                 $startTime,
                 $endTime,
-                $appointment->id
+                $appointment->id,
+                type: $appointment->type
             );
 
             if ($busy) {
@@ -233,7 +248,7 @@ class AppointmentController extends Controller
             'DTEND:' . $end,
             'SUMMARY:' . $this->sanitizeIcsText($appointment->title),
             'DESCRIPTION:' . $this->sanitizeIcsText($appointment->description ?? 'Gesprek via GKR Klantportaal'),
-            'LOCATION:' . $this->sanitizeIcsText(ucfirst($appointment->type ?? 'Online')),
+            'LOCATION:' . $this->sanitizeIcsText(AppointmentAvailability::typeLabel($appointment->type)),
             'END:VEVENT',
             'END:VCALENDAR',
         ];

@@ -3,17 +3,23 @@
 namespace App\Services;
 
 use App\Models\Appointment;
+use App\Models\User;
 use Carbon\Carbon;
 use DateTimeInterface;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
+use InvalidArgumentException;
+use RuntimeException;
 
 /**
  * Eén centrale plek voor alle regels rond beschikbaarheid van afspraken.
  *
  * Voorheen stonden deze regels verspreid (deels alleen in JavaScript).
  * Nu gebruiken de klant- en admincontroller allebei deze class, zodat
- * de regels overal hetzelfde zijn. Later kan hier ook de Outlook-agenda
- * worden geraadpleegd, zonder dat de controllers hoeven te veranderen.
+ * de regels overal hetzelfde zijn.
+ *
+ * Een medewerker is bezet als er in het portaal al een afspraak staat, of als
+ * er in de gekoppelde Outlook-agenda iets staat (zie OutlookCalendar).
  */
 class AppointmentAvailability
 {
@@ -39,6 +45,34 @@ class AppointmentAvailability
         'Bevestigd',
     ];
 
+    // Zoveel minuten moet er voor en na een afspraak vrij blijven, per soort afspraak
+    // (afgesproken met Stijn op 8 oktober 2026). 'fysiek' betekent: op kantoor bij GKR.
+    public const BUFFER_MINUTES = [
+        'telefoon' => 30,
+        'online'   => 30,
+        'fysiek'   => 60,
+    ];
+
+    // Een afspraak op kantoor begint niet voor dit tijdstip. Het portaal werkt
+    // met hele uren, dus in de praktijk is 10:00 het eerste tijdslot.
+    public const OFFICE_EARLIEST_START = '09:30';
+
+    public const OFFICE_TOO_EARLY_MESSAGE = 'Een afspraak op kantoor kan op zijn vroegst om 10:00 uur. Kies een later tijdslot.';
+
+    // Zo heet elk soort afspraak in het portaal en in de mail
+    public const TYPE_LABELS = [
+        'telefoon' => 'Telefonisch',
+        'online'   => 'Online',
+        'fysiek'   => 'Op kantoor bij GKR',
+    ];
+
+    // Zo lang slaan we Outlook over nadat het ophalen bij een medewerker is mislukt
+    private const OUTLOOK_RETRY_SECONDS = 60;
+
+    public function __construct(private OutlookCalendar $outlook)
+    {
+    }
+
     /**
      * Zet een datum + tijdslot ("09:00 - 10:00") om naar een start- en eindtijd.
      * Roep dit pas aan nadat het tijdslot is gevalideerd met Rule::in(SLOTS).
@@ -50,6 +84,24 @@ class AppointmentAvailability
         [$from, $to] = explode(' - ', $slot);
 
         return [Carbon::parse("{$date} {$from}:00"), Carbon::parse("{$date} {$to}:00")];
+    }
+
+    public static function bufferMinutes(?string $type): int
+    {
+        return self::BUFFER_MINUTES[$type] ?? 0;
+    }
+
+    public static function typeLabel(?string $type): string
+    {
+        return self::TYPE_LABELS[$type] ?? 'Online';
+    }
+
+    /**
+     * Begint dit soort afspraak te vroeg? Geldt alleen voor afspraken op kantoor.
+     */
+    public static function startsTooEarly(?string $type, DateTimeInterface $start): bool
+    {
+        return $type === 'fysiek' && self::toLocal($start)->format('H:i') < self::OFFICE_EARLIEST_START;
     }
 
     public static function isWeekend(string $date): bool
@@ -75,30 +127,117 @@ class AppointmentAvailability
      *
      * $exceptAppointmentId: deze afspraak zelf niet meetellen
      * (anders botst een afspraak bij het goedkeuren met zichzelf).
+     *
+     * $withOutlook: ook de Outlook-agenda meetellen. Standaard aan. Zet dit uit
+     * bij het bevestigen van een moment dat al was afgesproken: de medewerker
+     * kan dat moment zelf al in Outlook hebben gezet, en dan zou de afspraak
+     * met zichzelf botsen.
+     *
+     * $type: het soort afspraak dat we willen plannen (telefoon, online of fysiek).
+     * Met een type gelden de buffers: er moet tijd vrij blijven voor en na elke
+     * afspraak. Zonder type kijken we alleen naar echte overlap. Dat gebruiken we
+     * bij goedkeuren, zodat een eerder gemaakte afspraak altijd afgerond kan worden.
      */
-    public function busyEmployeeNames(array $employeeIds, DateTimeInterface $start, DateTimeInterface $end, ?int $exceptAppointmentId = null): array
+    public function busyEmployeeNames(array $employeeIds, DateTimeInterface $start, DateTimeInterface $end, ?int $exceptAppointmentId = null, bool $withOutlook = true, ?string $type = null): array
     {
         if (empty($employeeIds)) {
             return [];
         }
 
+        $start = self::toLocal($start);
+        $end = self::toLocal($end);
+
+        $useBuffers = $type !== null;
+        $ownBuffer = self::bufferMinutes($type);
+        $widestBuffer = $useBuffers ? max(self::BUFFER_MINUTES) : 0;
+
         $conflicts = Appointment::query()
             ->whereIn('status', self::BLOCKING_STATUSES)
             ->when($exceptAppointmentId, fn ($query) => $query->whereKeyNot($exceptAppointmentId))
-            // Overlap: de bestaande afspraak begint vóór ons einde én eindigt na ons begin
-            ->where('start_time', '<', $end)
-            ->where('end_time', '>', $start)
+            // Overlap: de bestaande afspraak begint vóór ons einde én eindigt na ons begin.
+            // We zoeken eerst ruim (met de grootste buffer) en kijken hieronder per afspraak precies.
+            ->where('start_time', '<', $end->copy()->addMinutes($widestBuffer))
+            ->where('end_time', '>', $start->copy()->subMinutes($widestBuffer))
             ->whereHas('attendees', fn ($query) => $query->whereIn('users.id', $employeeIds))
             ->with(['attendees' => fn ($query) => $query->select('users.id', 'users.name')])
-            ->get();
+            ->get()
+            ->filter(function ($appointment) use ($start, $end, $useBuffers, $ownBuffer) {
+                // Tussen twee afspraken moet de grootste van de twee buffers vrij blijven.
+                // Voorbeeld: na een afspraak op kantoor (60 min) kan pas een uur later iets anders.
+                $gap = $useBuffers ? max($ownBuffer, self::bufferMinutes($appointment->type)) : 0;
 
-        return $conflicts
+                return self::toLocal($appointment->start_time)->lt($end->copy()->addMinutes($gap))
+                    && self::toLocal($appointment->end_time)->gt($start->copy()->subMinutes($gap));
+            });
+
+        $names = $conflicts
             ->flatMap(fn ($appointment) => $appointment->attendees)
             ->whereIn('id', $employeeIds)
-            ->pluck('name')
-            ->unique()
-            ->values()
-            ->all();
+            ->pluck('name');
+
+        if ($withOutlook) {
+            // Ook rond een afspraak in Outlook moet de eigen buffer vrij blijven
+            $names = $names->merge($this->outlookBusyNames(
+                $employeeIds,
+                $start->copy()->subMinutes($ownBuffer),
+                $end->copy()->addMinutes($ownBuffer)
+            ));
+        }
+
+        return $names->unique()->values()->all();
+    }
+
+    /**
+     * Welke van deze medewerkers hebben op dit moment iets in hun Outlook-agenda?
+     * Medewerkers zonder gekoppelde agenda worden overgeslagen.
+     *
+     * Lukt het ophalen niet (Outlook onbereikbaar, link ingetrokken), dan telt de
+     * medewerker als vrij en komt er een regel in de log. Bewuste keuze: klanten
+     * moeten kunnen blijven boeken als Microsoft een storing heeft. Dubbele
+     * afspraken binnen het portaal zelf blijven altijd geblokkeerd.
+     */
+    public function outlookBusyNames(array $employeeIds, DateTimeInterface $start, DateTimeInterface $end): array
+    {
+        if (empty($employeeIds)) {
+            return [];
+        }
+
+        $employees = User::query()
+            ->whereIn('id', $employeeIds)
+            ->where('is_admin', true)
+            ->whereNotNull('outlook_ics_url')
+            ->get();
+
+        $from = self::toLocal($start);
+        $to = self::toLocal($end);
+        $busy = [];
+
+        foreach ($employees as $employee) {
+            // Net mislukt? Dan niet bij elk tijdslot opnieuw proberen (dat maakt de kalender traag)
+            $failedKey = "outlook_calendar:failed:{$employee->id}";
+
+            if (Cache::has($failedKey)) {
+                continue;
+            }
+
+            try {
+                if ($this->outlook->busyIntervals($employee->outlook_ics_url, $from, $to)) {
+                    $busy[] = $employee->name;
+                }
+            } catch (\Throwable $e) {
+                Cache::put($failedKey, true, now()->addSeconds(self::OUTLOOK_RETRY_SECONDS));
+
+                // Alleen onze eigen meldingen loggen: daar staat de link gegarandeerd niet in
+                Log::warning('Outlook-agenda kon niet worden gelezen, medewerker telt als vrij', [
+                    'user_id' => $employee->id,
+                    'reason'  => ($e instanceof RuntimeException || $e instanceof InvalidArgumentException)
+                        ? $e->getMessage()
+                        : get_class($e),
+                ]);
+            }
+        }
+
+        return $busy;
     }
 
     /**

@@ -32,7 +32,8 @@
             'title'        => $appointment->title,
             'status'       => $appointment->status,
             'status_label' => $statusLabels[$appointment->status] ?? $appointment->status,
-            'type'         => $appointment->type,
+            // Leesbare naam, bijv. "Op kantoor bij GKR" in plaats van "fysiek"
+            'type'         => \App\Services\AppointmentAvailability::typeLabel($appointment->type),
             'project'      => $appointment->project?->name,
             'description'  => $appointment->description,
             'attendees'    => $appointment->attendees->pluck('name')->values(),
@@ -282,9 +283,10 @@
                                     <label class="flex flex-col items-center justify-center p-5 border border-gray-200 rounded-2xl cursor-pointer hover:bg-gray-50/50 transition bg-white text-center shadow-sm group">
                                         <input type="radio" name="type" value="fysiek" class="sr-only" {{ $oldType === 'fysiek' ? 'checked' : '' }}>
                                         <svg class="w-6 h-6 text-gray-600 mb-2 group-hover:text-[#011936]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
-                                        <span class="text-xs font-bold text-gray-700">Fysiek</span>
+                                        <span class="text-xs font-bold text-gray-700">Op kantoor</span>
                                     </label>
                                 </div>
+                                <p class="text-[11px] text-gray-400 mt-2">Op kantoor is bij GKR, op zijn vroegst om 10:00 uur. Wilt u een afspraak bij u op locatie? Neem daarvoor contact op met GKR.</p>
                             </div>
 
                             <div>
@@ -858,7 +860,8 @@
                         "Accept": "application/json",
                         "X-CSRF-TOKEN": document.querySelector('input[name="_token"]').value
                     },
-                    body: JSON.stringify({ employee_id: empId, date: dateStr, time_slot: slot })
+                    // Het gekozen soort afspraak gaat mee: op kantoor gelden andere regels (niet om 09:00)
+                    body: JSON.stringify({ employee_id: empId, date: dateStr, time_slot: slot, type: document.querySelector('input[name="type"]:checked')?.value })
                 })
                 .then(res => res.json())
                 .then(data => {

@@ -19,7 +19,7 @@
         <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
             <tr>
                 <td style="padding: 8px 0; color: #6b7280; width: 140px; font-weight: 600; vertical-align: top;">Type gesprek:</td>
-                <td style="padding: 8px 0; color: #011936; font-weight: 700; text-transform: capitalize;">{{ $appointment->type }}</td>
+                <td style="padding: 8px 0; color: #011936; font-weight: 700;">{{ \App\Services\AppointmentAvailability::typeLabel($appointment->type) }}</td>
             </tr>
             <tr>
                 <td style="padding: 8px 0; color: #6b7280; font-weight: 600; vertical-align: top;">Datum:</td>

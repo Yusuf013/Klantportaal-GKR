@@ -46,6 +46,20 @@ return [
     'mail_test_recipient' => env('APPOINTMENT_MAIL_TEST_RECIPIENT'),
 ],
 
+    'outlook' => [
+        // Zo lang onthoudt het portaal een opgehaalde agenda (in minuten)
+        'cache_minutes' => env('OUTLOOK_CACHE_MINUTES', 5),
+        // Hoe ver vooruit bezette tijden worden uitgerekend (in dagen)
+        'days_ahead' => 365,
+        // Alleen van deze adressen mag een agenda worden opgehaald
+        'allowed_hosts' => ['outlook.office365.com', 'outlook.office.com'],
+        // Welke Outlook-statussen een tijdslot bezet houden: BUSY = Bezet, OOF = Afwezig,
+        // TENTATIVE = Voorlopig (nog afstemmen met Stijn; weghalen = klanten mogen daar boeken)
+        'busy_statuses' => ['BUSY', 'OOF', 'TENTATIVE'],
+        // Alleen voor het commando outlook:test. De link is geheim en staat in .env.
+        'test_ics_url' => env('OUTLOOK_TEST_ICS_URL'),
+    ],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],

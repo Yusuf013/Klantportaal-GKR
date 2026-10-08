@@ -532,6 +532,8 @@
     </div>
 </div>
 
+    <x-appointment-scripts :standard-slots="$standardSlots" :calendar-days="$calendarDays" />
+
     <script>
         @php
             $appointmentsForScript = $appointments->map(fn ($a) => [
@@ -549,12 +551,7 @@
         const STATUS_CANCELLED = @json(\App\Enums\AppointmentStatus::Geannuleerd->value);
 
         let currentAdminDate = new Date();
-        let pickerNavDate = new Date();
-        let adminSelectedDateStr = "";
-        let activeSlotIndex = 1; 
-
-        const monthsNl = ["januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december"];
-        const standardSlots = @json($standardSlots); // uit config/appointments.php (werktijden)
+        let activeSlotIndex = 1; // welke van de (max. 3) voorstelrijen de datumkiezer invult
 
         // Onthoud "Toon alleen mijn afspraken" per account, ook voor de app (ADR-011, stap 4c)
         function saveAgendaScope(onlyMine) {
@@ -700,19 +697,9 @@
                     addBtn.classList.remove('hidden');
                 }
                 
-                for (let i = 1; i <= 3; i++) {
-                    const savedDate = document.getElementById(`hidden_date_${i}`).value;
-                    const savedSlot = document.getElementById(`hidden_time_slot_${i}`).value;
-                    
-                    if (savedDate && savedSlot) {
-                        const parts = savedDate.split('-');
-                        const checkDate = new Date(parts[0], parts[1] - 1, parts[2]);
-                        const humanFormat = checkDate.toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-                        
-                        if (i === activeSlotIndex) {
-                            renderAdminSlots(savedDate, humanFormat);
-                        }
-                    }
+                // Andere medewerker gekozen: de tijden van de gekozen dag opnieuw controleren.
+                if (adminPicker.selectedDate()) {
+                    adminPicker.showSlots(adminPicker.selectedDate());
                 }
             } else {
                 addBtn.classList.add('hidden');
@@ -731,33 +718,16 @@
         }
 
         function openAdminDatePickerModal(slotIndex) {
-            activeSlotIndex = slotIndex; 
-            
+            activeSlotIndex = slotIndex;
+
             document.getElementById('adminDatePickerModal').classList.remove('hidden');
             document.getElementById('adminDatePickerModal').classList.add('flex');
-            
-            renderPickerCalendar();
-            
-            const existingDate = document.getElementById(`hidden_date_${slotIndex}`).value;
-            
-            if (existingDate) {
-                adminSelectedDateStr = existingDate;
-                const parts = existingDate.split('-');
-                const checkDate = new Date(parts[0], parts[1] - 1, parts[2]);
-                const humanFormat = checkDate.toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-                
-                document.getElementById('pickerSelectedDateHuman').innerText = humanFormat;
-                renderAdminSlots(existingDate, humanFormat);
-                renderPickerCalendar(); 
-            } else {
-                adminSelectedDateStr = "";
-                document.getElementById('pickerSelectedDateHuman').innerText = "Selecteer een datum";
-                document.getElementById('adminTimeSlotsContainer').innerHTML = `<p class="text-xs text-gray-400 italic py-4 text-center my-auto">Kies links een datum.</p>`;
-                document.getElementById('adminTimeSlotsContainer').classList.add('justify-center');
-            }
-            
-            document.getElementById('pickerPrevMonth').onclick = () => { pickerNavDate.setMonth(pickerNavDate.getMonth() - 1); renderPickerCalendar(); };
-            document.getElementById('pickerNextMonth').onclick = () => { pickerNavDate.setMonth(pickerNavDate.getMonth() + 1); renderPickerCalendar(); };
+
+            // Eerder gekozen moment van deze rij tonen, anders een lege kiezer.
+            adminPicker.show(
+                document.getElementById(`hidden_date_${slotIndex}`).value,
+                document.getElementById(`hidden_time_slot_${slotIndex}`).value,
+            );
         }
         
         function closeAdminDatePickerModal() {
@@ -772,137 +742,45 @@
             document.getElementById('char-counter').innerText = textarea.value.length;
         }
 
-        // 3. DATUM PICKER ENGINE EN BESCHIKBAARHEIDSCHECK
-        function renderPickerCalendar() {
-            const year = pickerNavDate.getFullYear(); const month = pickerNavDate.getMonth();
-            document.getElementById('pickerMonthYear').innerText = `${monthsNl[month]} ${year}`;
-            
-            const firstDayIndex = (new Date(year, month, 1).getDay() + 6) % 7;
-            const lastDay = new Date(year, month + 1, 0).getDate();
-            const daysGrid = document.getElementById('pickerDaysGrid');
-            daysGrid.innerHTML = "";
+        // 3. DATUMKIEZER (gedeeld met de klantpagina, components/appointment-scripts)
+        function selectedAdminEmployeeIds() {
+            return [document.getElementById('emp_primary').value, document.getElementById('emp_secondary').value]
+                .filter(id => id !== "");
+        }
 
-            for (let i = 0; i < firstDayIndex; i++) daysGrid.innerHTML += `<div></div>`;
-
-            const today = new Date(); today.setHours(0,0,0,0);
-
-            for (let day = 1; day <= lastDay; day++) {
-                const checkDate = new Date(year, month, day);
-                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                
-                const dayBtn = document.createElement('button');
-                dayBtn.type = "button"; dayBtn.innerText = day;
-                dayBtn.className = "calendar-day-btn py-1.5 w-full text-center hover:bg-gray-100 rounded-full font-bold text-gray-700 relative flex items-center justify-center";
-                
-                if (checkDate < today || checkDate.getDay() === 0 || checkDate.getDay() === 6) {
-                    dayBtn.disabled = true;
-                } else {
-                    dayBtn.innerHTML = `${day}<span class="absolute bottom-0.5 w-1 h-1 bg-[#011936] rounded-full"></span>`;
-                    if (dateStr === adminSelectedDateStr) dayBtn.classList.add('active');
-                    
-                    dayBtn.onclick = () => {
-                        document.querySelectorAll('#pickerDaysGrid .calendar-day-btn').forEach(b => b.classList.remove('active'));
-                        dayBtn.classList.add('active');
-                        adminSelectedDateStr = dateStr;
-                        
-                        const humanFormat = checkDate.toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-                        document.getElementById('pickerSelectedDateHuman').innerText = humanFormat;
-                        renderAdminSlots(dateStr, humanFormat);
-                    };
+        // Een moment dat al in een andere voorstelrij staat, kan niet nog eens.
+        function isProposedInOtherRow(dateStr, slot) {
+            for (let i = 1; i <= 3; i++) {
+                if (i === activeSlotIndex) continue;
+                if (document.getElementById(`hidden_date_${i}`).value === dateStr
+                    && document.getElementById(`hidden_time_slot_${i}`).value === slot) {
+                    return true;
                 }
-                daysGrid.appendChild(dayBtn);
             }
+            return false;
         }
 
-        function renderAdminSlots(dateStr, humanFormat) {
-            const container = document.getElementById('adminTimeSlotsContainer');
-            container.classList.remove('justify-center'); 
-            container.innerHTML = "";
+        const adminPicker = createDatePicker({
+            ids: { days: 'pickerDaysGrid', monthTitle: 'pickerMonthYear', prev: 'pickerPrevMonth', next: 'pickerNextMonth', slots: 'adminTimeSlotsContainer', dateLabel: 'pickerSelectedDateHuman' },
+            checkUrl: "{{ route('admin.appointments.check') }}",
+            employeeIds: selectedAdminEmployeeIds,
+            isTaken: isProposedInOtherRow,
+            onSlot: (dateStr, slot, humanDate) => {
+                document.getElementById(`hidden_date_${activeSlotIndex}`).value = dateStr;
+                document.getElementById(`hidden_time_slot_${activeSlotIndex}`).value = slot;
 
-            const empPrimary = document.getElementById('emp_primary').value;
-            const empSecondary = document.getElementById('emp_secondary').value;
-            const activeEmpIds = [empPrimary, empSecondary].filter(id => id !== "");
+                const dateDisplay = document.getElementById(`admin_display_date_${activeSlotIndex}`);
+                dateDisplay.innerText = humanDate;
+                dateDisplay.classList.remove('text-gray-400');
 
-            standardSlots.forEach(slot => {
-                const slotBtn = document.createElement('button');
-                slotBtn.type = "button"; slotBtn.innerText = slot;
-                slotBtn.className = "time-slot-btn w-full text-left p-3 border border-gray-200 rounded-xl text-xs font-bold text-[#011936] hover:bg-gray-50 bg-white transition shadow-sm flex items-center justify-between";
-                
-                const statusSpan = document.createElement('span');
-                statusSpan.className = "text-[10px] uppercase font-bold text-gray-400 tracking-wider";
-                statusSpan.innerText = "Checken...";
-                slotBtn.appendChild(statusSpan);
-                container.appendChild(slotBtn);
+                const timeDisplay = document.getElementById(`admin_display_time_${activeSlotIndex}`);
+                timeDisplay.innerText = slot;
+                timeDisplay.classList.remove('text-gray-400');
 
-                let isDuplicate = false;
-                for (let i = 1; i <= 3; i++) {
-                    if (i === activeSlotIndex) continue;
-                    
-                    const savedDate = document.getElementById(`hidden_date_${i}`).value;
-                    const savedSlot = document.getElementById(`hidden_time_slot_${i}`).value;
-                    
-                    if (savedDate === dateStr && savedSlot === slot) {
-                        isDuplicate = true;
-                        break;
-                    }
-                }
-
-                let conflictFound = false;
-                let checksCompleted = 0;
-
-                activeEmpIds.forEach(empId => {
-                    fetch("{{ route('admin.appointments.check') }}", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            "X-CSRF-TOKEN": "{{ csrf_token() }}"
-                        },
-                        body: JSON.stringify({ employee_id: empId, date: dateStr, time_slot: slot })
-                    })
-                    .then(res => res.json())
-                    .then(data => {
-                        checksCompleted++;
-                        if (data.status === 'conflict') conflictFound = true;
-
-                        if (checksCompleted === activeEmpIds.length) {
-                            if (conflictFound) {
-                                slotBtn.disabled = true;
-                                slotBtn.className = "w-full text-left p-3 border border-gray-100 bg-gray-50 text-gray-300 rounded-xl text-xs font-semibold flex items-center justify-between cursor-not-allowed opacity-60";
-                                statusSpan.className = "text-[10px] text-red-500 font-bold tracking-wider";
-                                statusSpan.innerText = "BEZET";
-                            } else if (isDuplicate) {
-                                slotBtn.disabled = true;
-                                slotBtn.className = "w-full text-left p-3 border border-red-200 bg-red-50/50 text-red-400 rounded-xl text-xs font-semibold flex items-center justify-between cursor-not-allowed transition duration-150";
-                                statusSpan.className = "text-[10px] text-red-600 font-bold tracking-wider bg-red-100 px-2 py-0.5 rounded border border-red-200";
-                                statusSpan.innerText = "AL GEKOZEN";
-                            } else {
-                                statusSpan.className = "text-[10px] text-emerald-600 font-bold tracking-wider";
-                                statusSpan.innerText = "VRIJ";
-                                
-                                slotBtn.onclick = () => {
-                                    document.getElementById(`hidden_date_${activeSlotIndex}`).value = dateStr;
-                                    document.getElementById(`hidden_time_slot_${activeSlotIndex}`).value = slot;
-                                    
-                                    const dateDisplay = document.getElementById(`admin_display_date_${activeSlotIndex}`);
-                                    dateDisplay.innerText = humanFormat;
-                                    dateDisplay.classList.remove('text-gray-400');
-                                    
-                                    const timeDisplay = document.getElementById(`admin_display_time_${activeSlotIndex}`);
-                                    timeDisplay.innerText = slot;
-                                    timeDisplay.classList.remove('text-gray-400');
-                                    
-                                    closeAdminDatePickerModal();
-                                };
-                            }
-                        }
-                    })
-                    .catch(err => {
-                        console.error(err);
-                        checksCompleted++;
-                    });
-                });
-            });
-        }
+                closeAdminDatePickerModal();
+            },
+        });
+        adminPicker.init();
 
         // 4. ADD & REMOVE COMPACT SLOTS ENGINE
         function addProposalSlot() {
@@ -972,24 +850,7 @@
                 descWrapper.classList.add('hidden');
             }
 
-            const attendeesContainer = document.getElementById('modal_detail_attendees');
-            attendeesContainer.innerHTML = "";
-            const activeAttendees = app.attendees || app.employees || [];
-
-            if (activeAttendees.length > 0) {
-                // textContent, niet innerHTML: een naam wordt nooit als HTML uitgevoerd.
-                activeAttendees.forEach(att => {
-                    const pill = document.createElement('span');
-                    pill.className = 'inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200';
-                    const dot = document.createElement('span');
-                    dot.className = 'w-1.5 h-1.5 bg-[#011936] rounded-full mr-1.5';
-                    pill.appendChild(dot);
-                    pill.appendChild(document.createTextNode(att.name));
-                    attendeesContainer.appendChild(pill);
-                });
-            } else {
-                attendeesContainer.innerHTML = `<span class="text-xs text-gray-400 italic">Geen admins gekoppeld</span>`;
-            }
+            renderAttendeePills(document.getElementById('modal_detail_attendees'), app.attendees || app.employees || [], 'Geen admins gekoppeld');
 
             const modal = document.getElementById('adminDetailModal');
             modal.classList.remove('hidden');

@@ -35,9 +35,10 @@ class AppointmentController extends Controller
         $projects = Project::with('user')->get();
         $gkrEmployees = User::where('is_admin', true)->orderBy('name')->get();
         $standardSlots = $hours->slotLabels();
+        $calendarDays = $hours->calendarDays();
         $showOnlyMine = auth()->user()->prefersOwnAppointmentsOnly();
 
-        return view('admin.appointments.index', compact('appointments', 'clients', 'projects', 'gkrEmployees', 'standardSlots', 'showOnlyMine'));
+        return view('admin.appointments.index', compact('appointments', 'clients', 'projects', 'gkrEmployees', 'standardSlots', 'calendarDays', 'showOnlyMine'));
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace App\Services\Appointments;
 
+use App\Models\ClosedDay;
 use Carbon\CarbonImmutable;
 
 /**
@@ -13,6 +14,21 @@ class WorkingHours
     public function isWorkingDay(CarbonImmutable $date): bool
     {
         return in_array($date->dayOfWeekIso, config('appointments.working_days'), true);
+    }
+
+    /**
+     * Welke dagen de datumkiezers op de website aanbieden: dezelfde bron als de controle bij het
+     * opslaan (werkdagen uit de config en gesloten dagen), niet een vast weekend in JavaScript.
+     *
+     * @return array{working_days: list<int>, closed: list<string>}
+     */
+    public function calendarDays(): array
+    {
+        return [
+            'working_days' => config('appointments.working_days'),
+            'closed' => ClosedDay::query()->whereDate('date', '>=', today())->orderBy('date')->pluck('date')
+                ->map(fn ($date) => $date->format('Y-m-d'))->values()->all(),
+        ];
     }
 
     /**

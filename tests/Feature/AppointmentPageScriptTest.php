@@ -24,13 +24,15 @@ class AppointmentPageScriptTest extends TestCase
         'resources/views/client/appointments/index.blade.php',
     ];
 
+    private const SHARED_SCRIPTS = 'resources/views/components/appointment-scripts.blade.php';
+
     public function test_afspraakgegevens_komen_nooit_via_innerhtml_in_de_pagina(): void
     {
         // Titels komen van de klant en namen uit de database: alleen via textContent of
         // createTextNode tonen. Een HTML-template-string met ${app.…} of ${att.…} wordt vroeg of laat
         // aan innerHTML gegeven (direct, of eerst verzameld in een variabele) en voert die tekst dan
         // als HTML uit (stored XSS). Daarom: geen enkele template met HTML-tags én afspraakgegevens.
-        foreach (self::VIEWS as $view) {
+        foreach ([...self::VIEWS, self::SHARED_SCRIPTS] as $view) {
             $source = file_get_contents(base_path($view));
 
             preg_match_all('/`([^`]*)`/s', $source, $templates);
@@ -89,25 +91,38 @@ class AppointmentPageScriptTest extends TestCase
         }
     }
 
-    public function test_datumkiezer_krijgt_werkdagen_en_gesloten_dagen_van_de_server(): void
+    public function test_beide_datumkiezers_krijgen_werkdagen_en_gesloten_dagen_van_de_server(): void
     {
         $client = User::factory()->create(['is_admin' => false]);
+        $admin = User::factory()->create(['is_admin' => true]);
         $closed = now()->next(Carbon::WEDNESDAY)->format('Y-m-d');
         ClosedDay::create(['date' => $closed, 'reason' => 'Teamdag']);
         ClosedDay::create(['date' => now()->subWeek()->format('Y-m-d'), 'reason' => 'Voorbij']);
         config(['appointments.working_days' => [1, 2, 3, 4]]);
+        $expected = 'const calendarDays = '.json_encode(['working_days' => [1, 2, 3, 4], 'closed' => [$closed]]);
 
-        $this->actingAs($client)->get(route('client.appointments.index'))
-            ->assertOk()
-            ->assertSee('const calendarDays = '.json_encode(['working_days' => [1, 2, 3, 4], 'closed' => [$closed]]), false);
+        $this->actingAs($client)->get(route('client.appointments.index'))->assertOk()->assertSee($expected, false);
+        $this->actingAs($admin)->get(route('admin.appointments.index'))->assertOk()->assertSee($expected, false);
     }
 
-    public function test_klantpagina_heeft_een_datumkiezer_zonder_vast_weekend(): void
+    public function test_klant_en_admin_delen_een_datumkiezer_zonder_vast_weekend(): void
     {
-        $source = file_get_contents(base_path('resources/views/client/appointments/index.blade.php'));
+        // Voorheen had de admin ("Plan een meeting") een eigen kopie met een vast weekend.
+        $shared = file_get_contents(base_path(self::SHARED_SCRIPTS));
+        $this->assertSame(1, substr_count($shared, 'function createDatePicker('));
+        $this->assertSame(1, substr_count($shared, 'function renderAttendeePills('));
 
-        $this->assertSame(1, substr_count($source, 'function createDatePicker('), 'Eén datumkiezer voor nieuwe afspraak en alternatief.');
-        $this->assertStringNotContainsString('renderAltCalendar', $source);
-        $this->assertDoesNotMatchRegularExpression('/getDay\(\)\s*===\s*6/', $source, 'Werkdagen komen van de server, niet uit een vast weekend.');
+        foreach (self::VIEWS as $view) {
+            $source = file_get_contents(base_path($view));
+
+            $this->assertStringContainsString('<x-appointment-scripts ', $source, "$view laadt de gedeelde datumkiezer niet.");
+            $this->assertStringContainsString('createDatePicker({', $source, "$view gebruikt de gedeelde datumkiezer niet.");
+            $this->assertStringContainsString('renderAttendeePills(', $source, "$view toont deelnemers niet via de gedeelde functie.");
+            $this->assertStringNotContainsString('function createDatePicker(', $source, "$view heeft een eigen datumkiezer.");
+            $this->assertStringNotContainsString('const monthsNl', $source, "$view definieert de maanden opnieuw.");
+            $this->assertStringNotContainsString('renderPickerCalendar', $source);
+            $this->assertStringNotContainsString('renderAltCalendar', $source);
+            $this->assertDoesNotMatchRegularExpression('/getDay\(\)\s*===\s*6/', $source, "$view: werkdagen komen van de server, niet uit een vast weekend.");
+        }
     }
 }

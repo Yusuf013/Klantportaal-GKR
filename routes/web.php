@@ -13,10 +13,6 @@ use App\Http\Controllers\Client\AppointmentController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\Admin\AnalyticsController;
 
-// Publieke route voor het agenda-bestand. Alleen met een geldige handtekening (link uit de mail).
-Route::get('/appointments/{appointment}/ics', [AppointmentController::class, 'downloadIcs'])
-    ->middleware('signed:relative')
-    ->name('appointments.ics');
 /*
 |--------------------------------------------------------------------------
 | Site Password Routes
@@ -98,8 +94,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/google-ads', [\App\Http\Controllers\GoogleAdsController::class, 'index'])
         ->name('google-ads.index');
 
-
-
+    // Agenda-bestand: alleen voor de klant van de afspraak en admins (AppointmentPolicy).
+    // Stond eerder buiten de auth-groep, waardoor elke afspraak op id op te vragen was.
+    Route::get('/appointments/{appointment}/ics', [AppointmentController::class, 'downloadIcs'])->name('appointments.ics');
 });
 
 
@@ -149,7 +146,7 @@ Route::middleware(['auth', 'verified', 'admin'])
         // Actieknop om rol aan te passen
         Route::patch('/gebruikers/{user}/toggle-admin', [AdminDashboardController::class, 'toggleAdmin'])->name('users.toggle-admin');
 
-        // Route voor de live beschikbaarheids-check van medewerkers (Mock data)
+        // Live beschikbaarheid van medewerkers: platform én Outlook (ADR-011)
         Route::post('/appointments/check-availability', [AdminAppointmentController::class, 'checkAvailability'])->name('appointments.check');
 
         // Websitecijfers van GKR (Google Analytics)
@@ -177,6 +174,9 @@ Route::middleware(['auth', 'verified', 'admin'])
             ->name('google-ads.index');
         Route::get('/google-ads/{user}', [\App\Http\Controllers\Admin\GoogleAdsController::class, 'show'])
             ->name('google-ads.show');
+
+        // "Toon alleen mijn afspraken" onthouden per account
+        Route::patch('/agenda/voorkeur', [AdminAppointmentController::class, 'updateAgendaScope'])->name('appointments.scope');
 
 });
 

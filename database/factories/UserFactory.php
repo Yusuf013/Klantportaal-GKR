@@ -34,6 +34,17 @@ class UserFactory extends Factory
     }
 
     /**
+     * Beheerder (`is_admin`). Staat bewust niet in `$fillable` van User; factories vullen
+     * unguarded, dus dit kan alleen via een factory of een expliciete toewijzing.
+     */
+    public function admin(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'is_admin' => true,
+        ]);
+    }
+
+    /**
      * Indicate that the model's email address should be unverified.
      */
     public function unverified(): static

@@ -7,7 +7,7 @@
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #374151; max-width: 600px; margin: 0 auto; padding: 40px 20px; background-color: #ffffff;">
     
     <h2 style="color: #011936; font-size: 20px; font-weight: 700; margin-top: 0; margin-bottom: 16px;">
-        Beste {{ $appointment->client->name ?? 'klant' }},
+        Beste {{ $appointment->client->name ?? $appointment->user->name ?? 'klant' }},
     </h2>
     <p style="font-size: 15px; color: #4b5563; margin-bottom: 24px;">Het geplande gesprek binnen het GKR Klantportaal is definitief goedgekeurd en toegevoegd aan de agenda.</p>
     
@@ -46,22 +46,24 @@
             </tr>
         </table>
 
-        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px dashed #e2e8f0;">
+      {{-- Met de Outlook-koppeling staat de afspraak al in de agenda (uitnodiging); dan geen extra knoppen (ADR-011). --}}
+      @unless(config('calendar.driver') === 'graph')
+      <div style="margin-top: 24px; padding-top: 16px; border-top: 1px dashed #e2e8f0;">
             <p style="margin: 0 0 12px 0; font-size: 13px; color: #6b7280; font-weight: 600;">Afspraak toevoegen aan je agenda:</p>
             
-            {{-- Beide knoppen gebruiken hetzelfde ondertekende agendabestand (.ics) --}}
-            <a href="{{ $icsUrl }}" style="background-color: #ffffff; color: #011936; text-decoration: none; padding: 8px 14px; font-size: 13px; font-weight: 700; border-radius: 10px; display: inline-block; margin-right: 6px; border: 1px solid #cbd5e1; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);">
-                 Apple Agenda
+            <a href="{{ route('appointments.ics', $appointment->id) }}" style="background-color: #ffffff; color: #011936; text-decoration: none; padding: 8px 14px; font-size: 13px; font-weight: 700; border-radius: 10px; display: inline-block; margin-right: 6px; border: 1px solid #cbd5e1; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);">
+                 Apple Agenda
             </a>
             
-            <a href="{{ $icsUrl }}" style="background-color: #ffffff; color: #011936; text-decoration: none; padding: 8px 14px; font-size: 13px; font-weight: 700; border-radius: 10px; display: inline-block; margin-right: 6px; border: 1px solid #cbd5e1; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);">
+            <a href="{{ route('appointments.ics', $appointment->id) }}" style="background-color: #ffffff; color: #011936; text-decoration: none; padding: 8px 14px; font-size: 13px; font-weight: 700; border-radius: 10px; display: inline-block; margin-right: 6px; border: 1px solid #cbd5e1; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);">
                 ✉ Microsoft Outlook (App)
             </a>
             
-            <a href="{{ $outlookUrl }}" target="_blank" style="background-color: #ffffff; color: #011936; text-decoration: none; padding: 8px 14px; font-size: 13px; font-weight: 700; border-radius: 10px; display: inline-block; border: 1px solid #cbd5e1; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);">
+            <a href="https://outlook.live.com/calendar/0/deeplink/compose?path=/calendar/action/compose&subject={{ urlencode($appointment->title) }}&startdt={{ urlencode($appointment->start_time) }}&enddt={{ urlencode($appointment->end_time) }}&body={{ urlencode($appointment->description ?? 'Gesprek via GKR Klantportaal') }}" target="_blank" style="background-color: #ffffff; color: #011936; text-decoration: none; padding: 8px 14px; font-size: 13px; font-weight: 700; border-radius: 10px; display: inline-block; border: 1px solid #cbd5e1; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);">
                 ☁ Outlook Web
             </a>
         </div>
+      @endunless
     </div>
 
     <p style="font-size: 15px; color: #4b5563; margin-bottom: 32px;">Je kunt inloggen op het dashboard om eventuele documenten, voorbereidingen of details te bekijken.</p>

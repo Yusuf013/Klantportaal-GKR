@@ -17,26 +17,6 @@
         </div>
     </x-slot>
 
-    @php
-        // NIEUW: alleen de gegevens die de kalender en de detailpopup nodig hebben.
-        // Datum en tijd worden hier opgemaakt, zodat de browser niets met tijdzones hoeft te doen.
-        $calendarItems = $appointments->map(fn ($appointment) => [
-            'id'          => $appointment->id,
-            'title'       => $appointment->title,
-            'status'      => $appointment->status,
-            'type'        => $appointment->type,
-            'client'      => $appointment->client?->name,
-            'project'     => $appointment->project?->name,
-            'description' => $appointment->description,
-            'attendees'   => $appointment->attendees->map(fn ($user) => ['id' => $user->id, 'name' => $user->name])->values(),
-            'date'        => $appointment->start_time->format('Y-m-d'),
-            'time'        => $appointment->start_time->format('H:i'),
-            'when'        => $appointment->status === 'Voorstel'
-                ? null
-                : $appointment->start_time->translatedFormat('l j F Y') . ' om ' . $appointment->start_time->format('H:i') . ' - ' . $appointment->end_time->format('H:i') . ' uur',
-        ])->values();
-    @endphp
-
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-8">
             
@@ -47,19 +27,11 @@
                 </div>
             @endif
 
-            {{-- NIEUW: foutmelding, bijv. "Goedkeuren lukt niet: ... heeft al een andere afspraak" --}}
-            @if(session('error'))
-                <div class="p-4 bg-red-50 border border-red-150 text-red-700 rounded-xl text-sm font-medium flex items-center shadow-sm">
-                    <svg class="w-5 h-5 mr-2 shrink-0 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                    {{ session('error') }}
-                </div>
-            @endif
-
             @php
     // 1. Filteren op afspraken waar de klant zelf een datum koos (Blauw)
     $alternativeAppointments = $appointments->where('status', 'Alternatief gekozen');
 
-    // 2. Filteren op afspraken waar de klant koos uit jouw voorstellen (Groen)
+    // 2. Filteren op afspraken waar de klant koos uit jouw 3 voorstellen (Nieuw -> Groen)
     $confirmedByClientAppointments = $appointments->where('status', 'Bevestigd door klant');
 @endphp
 
@@ -79,7 +51,7 @@
                                         <span class="font-bold">{{ $altApp->client->name ?? 'Onbekend' }}</span> kon niet op de voorgestelde momenten voor <span class="italic">"{{ $altApp->title }}"</span>.
                                     </p>
                                     <p class="text-[11px] text-blue-600 mt-1 font-semibold">
-                                        Nieuw gekozen moment: {{ $altApp->start_time->translatedFormat('l d F Y \o\m H:i') }} uur.
+                                        Nieuw gekozen moment: {{ \Carbon\Carbon::parse($altApp->start_time)->translatedFormat('l d F Y \o\m H:i') }} uur.
                                     </p>
                                 </div>
                             </div>
@@ -117,10 +89,10 @@
                     <div>
                         <h4 class="text-sm font-bold text-emerald-900">Afspraak akkoord door klant</h4>
                         <p class="text-xs text-emerald-700 font-medium mt-0.5">
-                            <span class="font-bold">{{ $confApp->client->name ?? 'Een klant' }}</span> heeft een van de voorgestelde momenten gekozen voor <span class="italic">"{{ $confApp->title }}"</span>!
+                            <span class="font-bold">{{ $confApp->client->name ?? $confApp->user->name ?? 'Een klant' }}</span> heeft een van de 3 voorgestelde momenten gekozen voor <span class="italic">"{{ $confApp->title }}"</span>!
                         </p>
                         <p class="text-[11px] text-emerald-600 mt-1 font-semibold">
-                            Gekozen tijdstip: {{ $confApp->start_time->translatedFormat('l d F Y \o\m H:i') }} uur.
+                            Gekozen tijdstip: {{ \Carbon\Carbon::parse($confApp->start_time)->translatedFormat('l d F Y \o\m H:i') }} uur.
                         </p>
                     </div>
                 </div>
@@ -156,12 +128,12 @@
                                 <div>
                                     <div class="flex items-center justify-between">
                                         <span class="text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md border border-amber-100">In afwachting</span>
-                                        <span class="text-xs text-gray-400 font-medium">{{ $req->start_time->translatedFormat('d M Y') }}</span>
+                                        <span class="text-xs text-gray-400 font-medium">{{ $req->start_time ? \Carbon\Carbon::parse($req->start_time)->translatedFormat('d M Y') : '' }}</span>
                                     </div>
                                     <h4 class="font-bold text-[#011936] text-sm mt-2">{{ $req->title }}</h4>
                                     <p class="text-xs text-gray-500 mt-1 font-medium">Klant: <span class="text-gray-700 font-semibold">{{ $req->client->name ?? 'Onbekend' }}</span></p>
                                     <p class="text-xs text-gray-500 font-medium">Project: <span class="text-[#011936] font-semibold">{{ $req->project->name ?? 'Geen project' }}</span></p>
-                                    <p class="text-xs text-gray-400 mt-2 italic">Tijdslot: {{ $req->start_time->format('H:i') }} - {{ $req->end_time->format('H:i') }} ({{ ucfirst($req->type) }})</p>
+                                    <p class="text-xs text-gray-400 mt-2 italic">Tijdslot: {{ $req->start_time ? \Carbon\Carbon::parse($req->start_time)->format('H:i') : '' }} - {{ $req->end_time ? \Carbon\Carbon::parse($req->end_time)->format('H:i') : '' }} ({{ ucfirst($req->type) }})</p>
                                 </div>
                                 
                                 <div class="flex items-center space-x-2 pt-2 border-t border-gray-100">
@@ -190,7 +162,7 @@
                         <h3 id="adminCalendarTitle" class="text-lg font-bold text-[#011936] capitalize"></h3>
                         
                         <div class="flex items-center space-x-2 bg-gray-50 p-1.5 rounded-xl border border-gray-200">
-                            <input type="checkbox" id="filterMyAppointments" onchange="renderAdminDashboardCalendar()" class="rounded text-[#011936] focus:ring-[#011936] h-4 w-4 cursor-pointer">
+                            <input type="checkbox" id="filterMyAppointments" @checked($showOnlyMine) onchange="saveAgendaScope(this.checked); renderAdminDashboardCalendar()" class="rounded text-[#011936] focus:ring-[#011936] h-4 w-4 cursor-pointer">
                             <label for="filterMyAppointments" class="text-xs font-bold text-gray-650 cursor-pointer select-none">Toon alleen mijn afspraken</label>
                         </div>
 
@@ -212,7 +184,7 @@
                 </div>
 
                 <div class="grid grid-cols-7 gap-px bg-gray-100 text-center text-[11px] font-bold text-gray-400 uppercase tracking-wider py-3 rounded-t-xl">
-                    <div>Ma</div><div>Di</div><div>Wo</div><div>Do</div><div>Vr</div><div>Za</div><div>Zo</div>
+                    <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
                 </div>
 
                 <div id="adminCalendarGrid" class="grid grid-cols-7 gap-px bg-gray-100 border border-gray-100 rounded-b-xl overflow-hidden">
@@ -237,18 +209,6 @@
 
                 <form action="{{ route('admin.appointments.store') }}" method="POST" class="p-6">
                     @csrf
-
-                    {{-- NIEUW: foutmeldingen bij het versturen van een voorstel (bijv. moment bezet, verkeerd project) --}}
-                    @if ($errors->any())
-                        <div class="mb-5 p-4 bg-red-50 border border-red-150 text-red-700 rounded-xl text-xs font-medium">
-                            <p class="font-bold mb-1">Het voorstel is niet verstuurd:</p>
-                            <ul class="list-disc pl-5 space-y-0.5">
-                                @foreach ($errors->all() as $error)
-                                    <li>{{ $error }}</li>
-                                @endforeach
-                            </ul>
-                        </div>
-                    @endif
                     
                     <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
                         
@@ -257,22 +217,20 @@
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label for="client_id" class="block text-xs font-bold text-[#011936] uppercase tracking-wider mb-1.5">Voor welke klant? *</label>
-                                    <select name="client_id" id="client_id" required onchange="filterProjectsForClient()" class="w-full rounded-xl border border-gray-200 text-xs text-gray-700 p-3 focus:border-[#011936] focus:ring-[#011936] bg-gray-50/50">
+                                    <select name="client_id" id="client_id" required class="w-full rounded-xl border border-gray-200 text-xs text-gray-700 p-3 focus:border-[#011936] focus:ring-[#011936] bg-gray-50/50">
                                         <option value="">-- Selecteer klant --</option>
                                         @foreach($clients as $client)
-                                            <option value="{{ $client->id }}" {{ (string) old('client_id') === (string) $client->id ? 'selected' : '' }}>{{ $client->name }}</option>
+                                            <option value="{{ $client->id }}">{{ $client->name }}</option>
                                         @endforeach
                                     </select>
                                 </div>
 
                                 <div>
                                     <label for="project_id" class="block text-xs font-bold text-[#011936] uppercase tracking-wider mb-1.5">Gekoppeld Project *</label>
-                                    {{-- AANGEPAST: elk project weet van welke klant het is (data-client), zodat alleen
-                                         de projecten van de gekozen klant te kiezen zijn. De server controleert dit ook. --}}
                                     <select name="project_id" id="project_id" required class="w-full rounded-xl border border-gray-200 text-xs text-gray-700 p-3 focus:border-[#011936] focus:ring-[#011936] bg-gray-50/50">
-                                        <option value="">-- Selecteer eerst een klant --</option>
+                                        <option value="">-- Selecteer project --</option>
                                         @foreach($projects as $proj)
-                                            <option value="{{ $proj->id }}" data-client="{{ $proj->user_id }}" {{ (string) old('project_id') === (string) $proj->id ? 'selected' : '' }}>{{ $proj->name }}</option>
+                                            <option value="{{ $proj->id }}">{{ $proj->name }}</option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -280,25 +238,24 @@
 
                       <div>
     <label class="block text-xs font-bold text-[#011936] uppercase tracking-wider mb-2">Afspraaktype *</label>
-    @php $oldType = old('type', 'online'); @endphp
     <div class="grid grid-cols-3 gap-3">
         
         <label class="relative flex flex-col items-center justify-center p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50/50 hover:border-[#011936]/30 transition bg-white text-center shadow-sm group">
-            <input type="radio" name="type" value="telefoon" required class="sr-only peer" {{ $oldType === 'telefoon' ? 'checked' : '' }}>
+            <input type="radio" name="type" value="telefoon" required class="sr-only peer">
             <div class="absolute inset-0 rounded-xl border-2 border-transparent peer-checked:border-[#011936] peer-checked:bg-slate-50/20 pointer-events-none transition-all duration-150"></div>
             <svg class="w-5 h-5 text-gray-500 mb-1 group-hover:text-[#011936] peer-checked:text-[#011936] relative z-10 transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.94.725l.548 2.2a1 1 0 01-.321.988l-1.305.98a10.582 10.582 0 004.872 4.872l.98-1.305a1 1 0 01.988-.321l2.2.548a1 1 0 01.725.94V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
             <span class="text-[11px] font-bold text-gray-700 peer-checked:text-[#011936] relative z-10 transition-colors">Telefoon</span>
         </label>
 
         <label class="relative flex flex-col items-center justify-center p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50/50 hover:border-[#011936]/30 transition bg-white text-center shadow-sm group">
-            <input type="radio" name="type" value="online" class="sr-only peer" {{ $oldType === 'online' ? 'checked' : '' }}>
+            <input type="radio" name="type" value="online" checked class="sr-only peer">
             <div class="absolute inset-0 rounded-xl border-2 border-transparent peer-checked:border-[#011936] peer-checked:bg-slate-50/20 pointer-events-none transition-all duration-150"></div>
             <svg class="w-5 h-5 text-gray-500 mb-1 group-hover:text-[#011936] peer-checked:text-[#011936] relative z-10 transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
             <span class="text-[11px] font-bold text-gray-700 peer-checked:text-[#011936] relative z-10 transition-colors">Online</span>
         </label>
 
         <label class="relative flex flex-col items-center justify-center p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50/50 hover:border-[#011936]/30 transition bg-white text-center shadow-sm group">
-            <input type="radio" name="type" value="fysiek" class="sr-only peer" {{ $oldType === 'fysiek' ? 'checked' : '' }}>
+            <input type="radio" name="type" value="fysiek" class="sr-only peer">
             <div class="absolute inset-0 rounded-xl border-2 border-transparent peer-checked:border-[#011936] peer-checked:bg-slate-50/20 pointer-events-none transition-all duration-150"></div>
             <svg class="w-5 h-5 text-gray-500 mb-1 group-hover:text-[#011936] peer-checked:text-[#011936] relative z-10 transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
             <span class="text-[11px] font-bold text-gray-700 peer-checked:text-[#011936] relative z-10 transition-colors">Fysiek</span>
@@ -311,7 +268,7 @@
                                 <label for="title" class="block text-xs font-bold text-[#011936] uppercase tracking-wider mb-1.5">Onderwerp *</label>
                                 <div class="relative">
                                     <svg class="w-4 h-4 text-gray-400 absolute left-4 top-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-                                    <input type="text" name="title" id="title" required maxlength="255" value="{{ old('title') }}" placeholder="Bijv. Maandelijkse begrotingsreview" class="w-full rounded-xl border border-gray-200 text-xs pl-10 p-3 focus:border-[#011936] focus:ring-[#011936]">
+                                    <input type="text" name="title" id="title" required placeholder="Bijv. Maandelijkse begrotingsreview" class="w-full rounded-xl border border-gray-200 text-xs pl-10 p-3 focus:border-[#011936] focus:ring-[#011936]">
                                 </div>
                             </div>
 
@@ -394,14 +351,13 @@
 
                         <div class="md:col-span-5 space-y-4 flex flex-col justify-between">
                             
-                            @php $oldEmployees = array_map('strval', (array) old('employees', [])); @endphp
                             <div class="space-y-4">
                                 <div>
                                     <label for="emp_primary" class="block text-xs font-bold text-[#011936] uppercase tracking-wider mb-1.5">Interne Deelnemer / Admin *</label>
                                     <select name="employees[]" id="emp_primary" onchange="checkAdminEmployeeRequirement()" class="w-full rounded-xl border border-gray-200 text-xs text-gray-700 p-3 focus:border-[#011936] focus:ring-[#011936] bg-gray-50/50">
                                         <option value="">-- Kies admin --</option>
                                         @foreach($gkrEmployees as $emp)
-                                            <option value="{{ $emp->id }}" {{ ($oldEmployees[0] ?? null) === (string) $emp->id ? 'selected' : '' }}>{{ $emp->name }}</option>
+                                            <option value="{{ $emp->id }}">{{ $emp->name }}</option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -411,7 +367,7 @@
                                     <select name="employees[]" id="emp_secondary" onchange="checkAdminEmployeeRequirement()" class="w-full rounded-xl border border-gray-200 text-xs text-gray-700 p-3 focus:border-[#011936] focus:ring-[#011936] bg-gray-50/50">
                                         <option value="">-- Kies admin --</option>
                                         @foreach($gkrEmployees as $emp)
-                                            <option value="{{ $emp->id }}" {{ ($oldEmployees[1] ?? null) === (string) $emp->id ? 'selected' : '' }}>{{ $emp->name }}</option>
+                                            <option value="{{ $emp->id }}">{{ $emp->name }}</option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -419,8 +375,8 @@
 
                             <div>
                                 <label for="description" class="block text-xs font-bold text-[#011936] uppercase tracking-wider mb-1.5">Interne opmerkingen</label>
-                                <textarea name="description" id="description" rows="3" maxlength="500" oninput="updateCharCount(this)" placeholder="Doel van de bijeenkomst of extra informatie..." class="w-full rounded-xl border border-gray-200 text-xs p-3 focus:border-[#011936] focus:ring-[#011936] bg-gray-50/20">{{ old('description') }}</textarea>
-                                <p class="text-right text-[10px] text-gray-400 mt-0.5"><span id="char-counter">{{ mb_strlen(old('description', '')) }}</span>/500</p>
+                                <textarea name="description" id="description" rows="3" maxlength="500" oninput="updateCharCount(this)" placeholder="Doel van de bijeenkomst of extra informatie..." class="w-full rounded-xl border border-gray-200 text-xs p-3 focus:border-[#011936] focus:ring-[#011936] bg-gray-50/20"></textarea>
+                                <p class="text-right text-[10px] text-gray-400 mt-0.5"><span id="char-counter">0</span>/500</p>
                             </div>
                         </div>
                     </div>
@@ -521,7 +477,7 @@
                 </div>
 
                 <div id="modal_detail_description_wrapper" class="border-t border-gray-100 pt-4 hidden">
-                    <span class="block text-gray-400 font-bold uppercase tracking-wider text-[10px] text-xs mb-1">Opmerking</span>
+                    <span class="block text-gray-400 font-bold uppercase tracking-wider text-[10px] text-xs mb-1">Interne Opmerking</span>
                     <p id="modal_detail_description" class="text-xs text-gray-600 bg-gray-50 p-3 rounded-xl italic border border-gray-100"></p>
                 </div>
             </div>
@@ -575,9 +531,8 @@
 </div>
 
     <script>
-        // AANGEPAST: alleen de velden die nodig zijn, al opgemaakt door de server (zie @php bovenaan)
-        const dbAppointments = @js($calendarItems);
-        const currentAdminId = {{ (int) auth()->id() }};
+        const dbAppointments = @json($appointments);
+        const currentAdminId = {{ auth()->id() }}; 
 
         let currentAdminDate = new Date();
         let pickerNavDate = new Date();
@@ -585,30 +540,28 @@
         let activeSlotIndex = 1; 
 
         const monthsNl = ["januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december"];
-        // Komt van de server, zodat het altijd gelijk is aan de controle in AppointmentAvailability
-        const standardSlots = @js(\App\Services\AppointmentAvailability::SLOTS);
+        const standardSlots = @json($standardSlots); // uit config/appointments.php (werktijden)
+
+        // Onthoud "Toon alleen mijn afspraken" per account, ook voor de app (ADR-011, stap 4c)
+        function saveAgendaScope(onlyMine) {
+            fetch("{{ route('admin.appointments.scope') }}", {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "X-CSRF-TOKEN": "{{ csrf_token() }}"
+                },
+                body: JSON.stringify({ agenda_scope: onlyMine ? 'mine' : 'all' })
+            }).catch(err => console.error("Voorkeur niet opgeslagen:", err));
+        }
 
         document.addEventListener('DOMContentLoaded', () => {
             renderAdminDashboardCalendar();
-            filterProjectsForClient();
             document.getElementById('adminPrevMonth').onclick = () => { currentAdminDate.setMonth(currentAdminDate.getMonth() - 1); renderAdminDashboardCalendar(); };
             document.getElementById('adminNextMonth').onclick = () => { currentAdminDate.setMonth(currentAdminDate.getMonth() + 1); renderAdminDashboardCalendar(); };
-
-            // NIEUW: bij een fout de modal weer openen, zodat de admin de melding ziet
-            @if ($errors->any())
-                openAdminCreateModal();
-            @endif
         });
 
-        // Initialen van een naam, bijv. "Stijn de Vries" -> "SDV"
-        function initialsOf(name) {
-            return String(name).split(' ').filter(Boolean).map(part => part[0]).join('').toUpperCase().slice(0, 3);
-        }
-
-        // 1. DASHBOARD OVERZICHTSAGENDA
-        // AANGEPAST (XSS-fix): de blokjes worden met createElement en textContent gebouwd.
-        // De titel typt de klant zelf in; met innerHTML kon een klant daarmee code laten
-        // uitvoeren in de browser van iedere admin die de kalender opent.
+        // 1. DASHBOARD OVERZICHTSAGENDA MOTOR
         function renderAdminDashboardCalendar() {
             const year = currentAdminDate.getFullYear();
             const month = currentAdminDate.getMonth();
@@ -617,66 +570,65 @@
             const firstDayIndex = (new Date(year, month, 1).getDay() + 6) % 7;
             const lastDay = new Date(year, month + 1, 0).getDate();
             const grid = document.getElementById('adminCalendarGrid');
-            grid.replaceChildren();
+            grid.innerHTML = "";
 
             const filterOn = document.getElementById('filterMyAppointments')?.checked;
 
             for (let i = 0; i < firstDayIndex; i++) {
-                const blank = document.createElement('div');
-                blank.className = "bg-gray-50/30 min-h-[110px] border-b border-r border-gray-100";
-                grid.appendChild(blank);
+                grid.innerHTML += `<div class="bg-gray-50/30 min-h-[110px] border-b border-r border-gray-100"></div>`;
             }
 
             for (let day = 1; day <= lastDay; day++) {
                 const currentDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-
                 const dayBox = document.createElement('div');
                 dayBox.className = "bg-white min-h-[110px] p-2 border-b border-r border-gray-100 flex flex-col justify-between";
+                
+                let dayHeader = `<span class="text-xs font-bold text-gray-700">${day}</span>`;
+                let appHtml = `<div class="space-y-1 mt-1 flex-1 overflow-y-auto max-h-[75px] pr-0.5">`;
 
-                const dayHeader = document.createElement('span');
-                dayHeader.className = "text-xs font-bold text-gray-700";
-                dayHeader.textContent = day;
+                dbAppointments.forEach(app => {
+                    if (app.start_time && app.start_time.split(/[\sT]+/)[0] === currentDateStr) {
+                        
+                        // FIX: VERBERG GEANNULEERDE RECORDS DIRECT VAN DE INTERACTIEVE MAANDKALENDER
+                        if (app.status === 'Geannuleerd') {
+                            return; 
+                        }
 
-                const list = document.createElement('div');
-                list.className = "space-y-1 mt-1 flex-1 overflow-y-auto max-h-[75px] pr-0.5";
-
-                dbAppointments
-                    .filter(app => app.date === currentDateStr)
-                    .forEach(app => {
-                        const isAttendee = app.attendees.some(att => att.id === currentAdminId);
+                        const isAttendee = (app.attendees && app.attendees.some(att => att.id === currentAdminId)) || 
+                                           (app.employees && app.employees.some(emp => emp.id === currentAdminId));
+                        
                         if (filterOn && !isAttendee) return;
 
+                        // SLIMMERE TIJDSWEERGAVE DIRECT UIT DE RAUWE STRING
+                        let timeDisplayStr = "";
+                        if (app.start_time) {
+                            const timePart = app.start_time.includes('T') ? app.start_time.split('T')[1] : app.start_time.split(' ')[1];
+                            timeDisplayStr = ` (${timePart.substring(0, 5)})`;
+                        }
+
                         let color = "bg-gray-150 text-gray-700";
-                        if (app.status === 'Bevestigd' || app.status === 'Bevestigd door klant') {
+                        if (app.status === 'Bevestigd' || app.status === 'Bevestigd door klant'){
                             color = isAttendee ? "bg-[#011936] text-white border-[#011936]" : "bg-slate-200 text-slate-700 border-slate-300 opacity-60";
                         }
-                        if (['In afwachting', 'Voorstel', 'Alternatief gekozen'].includes(app.status)) {
+                        if (app.status === 'In afwachting' || app.status === 'Voorstel') {
                             color = "bg-amber-50 text-amber-800 border-amber-200";
                         }
 
-                        const item = document.createElement('div');
-                        item.className = `text-[9px] p-1 rounded font-bold border truncate flex items-center justify-between cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all ${color}`;
-                        item.title = `Klik voor details: ${app.title}`; // als eigenschap: wordt nooit als HTML gelezen
-                        item.onclick = () => openAdminDetailModal(app.id);
-
-                        const label = document.createElement('span');
-                        label.className = "truncate";
-                        label.textContent = `${app.time} ${app.title}`;
-
-                        const badges = document.createElement('div');
-                        badges.className = "flex shrink-0 ml-1";
-                        app.attendees.forEach(att => {
-                            const badge = document.createElement('span');
-                            badge.className = "inline-block bg-white/25 text-[8px] px-1 rounded ml-1 font-mono";
-                            badge.textContent = initialsOf(att.name);
-                            badges.appendChild(badge);
+                        let attendeesBadges = "";
+                        const activeAttendees = app.attendees || app.employees || [];
+                        activeAttendees.forEach(att => {
+                            const initials = att.name.split(' ').map(n => n[0]).join('').toUpperCase();
+                            attendeesBadges += `<span class="inline-block bg-white/25 text-[8px] px-1 rounded ml-1 font-mono">${initials}</span>`;
                         });
 
-                        item.append(label, badges);
-                        list.appendChild(item);
-                    });
-
-                dayBox.append(dayHeader, list);
+                        appHtml += `
+    <div onclick="openAdminDetailModal(${app.id})" class="text-[9px] p-1 rounded font-bold border truncate flex items-center justify-between cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all ${color}" title="Klik voor details: ${app.title}">
+        <span class="truncate">${app.title}</span>
+        <div class="flex shrink-0 ml-1">${attendeesBadges}</div>
+    </div>`;
+                    }
+                });
+                dayBox.innerHTML = dayHeader + appHtml + `</div>`;
                 grid.appendChild(dayBox);
             }
         }
@@ -691,27 +643,6 @@
         function closeAdminCreateModal() { 
             document.getElementById('adminCreateModal').classList.add('hidden'); 
             document.body.classList.remove('overflow-hidden'); 
-        }
-
-        // NIEUW: alleen de projecten van de gekozen klant tonen
-        function filterProjectsForClient() {
-            const clientId = document.getElementById('client_id').value;
-            const select = document.getElementById('project_id');
-
-            Array.from(select.options).forEach(option => {
-                if (!option.value) {
-                    option.textContent = clientId ? '-- Selecteer project --' : '-- Selecteer eerst een klant --';
-                    return;
-                }
-                const belongsToClient = option.dataset.client === clientId;
-                option.hidden = !belongsToClient;
-                option.disabled = !belongsToClient;
-            });
-
-            // Was er een project van een andere klant gekozen? Dan de keuze leegmaken
-            if (select.selectedOptions[0]?.disabled) {
-                select.value = '';
-            }
         }
 
         function checkAdminEmployeeRequirement() {
@@ -816,6 +747,9 @@
             document.getElementById('adminDatePickerModal').classList.remove('flex');
         }
 
+        document.getElementById('adminPrevMonth').onclick = () => { currentAdminDate.setMonth(currentAdminDate.getMonth() - 1); renderAdminDashboardCalendar(); };
+        document.getElementById('adminNextMonth').onclick = () => { currentAdminDate.setMonth(currentAdminDate.getMonth() + 1); renderAdminDashboardCalendar(); };
+
         function updateCharCount(textarea) {
             document.getElementById('char-counter').innerText = textarea.value.length;
         }
@@ -903,9 +837,6 @@
                         method: "POST",
                         headers: {
                             "Content-Type": "application/json",
-                            // AANGEPAST: zonder deze regel stuurt Laravel bij een fout een
-                            // doorverwijzing in plaats van JSON, en bleef het slot op "Checken..." hangen
-                            "Accept": "application/json",
                             "X-CSRF-TOKEN": "{{ csrf_token() }}"
                         },
                         body: JSON.stringify({ employee_id: empId, date: dateStr, time_slot: slot })
@@ -987,23 +918,76 @@
             document.getElementById('add_proposal_slot_btn').classList.remove('hidden');
         }
 
-        // 5. DETAILPOPUP
-        // AANGEPAST: datum/tijd komt kant-en-klaar van de server, en alle tekst gaat via
-        // innerText/createTextNode (nooit als HTML).
+        // 5. DETAIL VIEW MODAL LOGICA (VOLLEDIGE SYMMETRISCHE REPARATIE TEGEN VERVERSINGEN)
         function openAdminDetailModal(appointmentId) {
             const app = dbAppointments.find(a => a.id === appointmentId);
             if (!app) return;
 
             document.getElementById('modal_detail_title').innerText = app.title;
-            document.getElementById('modal_detail_datetime').innerText = app.when ?? "Datum nog te bepalen door de klant";
-            document.getElementById('modal_detail_client').innerText = app.client ?? 'Onbekend';
-            document.getElementById('modal_detail_project').innerText = app.project ?? 'Geen gekoppeld project';
+            
+            // EXACT DEZELFDE TIJDZONE-PROOF LOGICA ALS DE CLIENTSIDE: RAUWE STRING INTERPRETATIE
+            if (app.status === 'Voorstel' && (!app.start_time || app.options_count > 1)) {
+                document.getElementById('modal_detail_datetime').innerText = "Datum nog te bepalen door de klant";
+            } else {
+                let dateObj = new Date(app.start_time);
+
+                let hoursStart = String(dateObj.getHours()).padStart(2, '0');
+                let minutesStart = String(dateObj.getMinutes()).padStart(2, '0');
+                
+                if (app.start_time.includes('Z') || app.start_time.includes('+')) {
+                    // Browser verwerkt ISO direct correct
+                } else if (app.start_time.includes('T')) {
+                    const timePart = app.start_time.split('T')[1];
+                    hoursStart = timePart.substring(0, 2);
+                    minutesStart = timePart.substring(3, 5);
+                } else if (app.start_time.includes(' ')) {
+                    const timePart = app.start_time.split(' ')[1];
+                    hoursStart = timePart.substring(0, 2);
+                    minutesStart = timePart.substring(3, 5);
+                }
+
+                let hoursEnd = '00';
+                let minutesEnd = '00';
+                if (app.end_time) {
+                    let endDateObj = new Date(app.end_time);
+                    hoursEnd = String(endDateObj.getHours()).padStart(2, '0');
+                    minutesEnd = String(endDateObj.getMinutes()).padStart(2, '0');
+                    
+                    if (!app.end_time.includes('Z') && !app.end_time.includes('+')) {
+                        if (app.end_time.includes('T')) {
+                            const endTimePart = app.end_time.split('T')[1];
+                            hoursEnd = endTimePart.substring(0, 2);
+                            minutesEnd = endTimePart.substring(3, 5);
+                        } else if (app.end_time.includes(' ')) {
+                            const endTimePart = app.end_time.split(' ')[1];
+                            hoursEnd = endTimePart.substring(0, 2);
+                            minutesEnd = endTimePart.substring(3, 5);
+                        }
+                    }
+                }
+
+                const pureDateStr = app.start_time.split(/[\sT]+/)[0];
+                const [year, month, day] = pureDateStr.split('-');
+                const localDate = new Date(year, month - 1, day);
+                
+                const humanDate = localDate.toLocaleDateString('nl-NL', { 
+                    weekday: 'long', 
+                    day: 'numeric', 
+                    month: 'long', 
+                    year: 'numeric' 
+                });
+
+                document.getElementById('modal_detail_datetime').innerText = `${humanDate} om ${hoursStart}:${minutesStart} - ${hoursEnd}:${minutesEnd} uur`;
+            }
+
+            document.getElementById('modal_detail_client').innerText = app.client ? app.client.name : 'Onbekend';
+            document.getElementById('modal_detail_project').innerText = app.project ? app.project.name : 'Geen gekoppeld project';
             document.getElementById('modal_detail_type').innerText = app.type || 'Online';
 
             const statusLabel = document.getElementById('modal_detail_status');
             statusLabel.innerText = app.status;
             statusLabel.className = "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ";
-            if (app.status === 'Bevestigd' || app.status === 'Bevestigd door klant') {
+           if (app.status === 'Bevestigd' || app.status === 'Bevestigd door klant') {
                 statusLabel.classList.add('bg-emerald-50', 'text-emerald-700', 'border-emerald-100');
             } else if (app.status === 'Voorstel') {
                 statusLabel.classList.add('bg-orange-50', 'text-orange-700', 'border-orange-100');
@@ -1020,23 +1004,19 @@
             }
 
             const attendeesContainer = document.getElementById('modal_detail_attendees');
-            attendeesContainer.replaceChildren();
+            attendeesContainer.innerHTML = "";
+            const activeAttendees = app.attendees || app.employees || [];
 
-            if (app.attendees.length > 0) {
-                app.attendees.forEach(att => {
-                    const chip = document.createElement('span');
-                    chip.className = "inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200";
-                    const dot = document.createElement('span');
-                    dot.className = "w-1.5 h-1.5 bg-[#011936] rounded-full mr-1.5";
-                    chip.appendChild(dot);
-                    chip.appendChild(document.createTextNode(att.name));
-                    attendeesContainer.appendChild(chip);
+            if (activeAttendees.length > 0) {
+                activeAttendees.forEach(att => {
+                    attendeesContainer.innerHTML += `
+                        <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200">
+                            <span class="w-1.5 h-1.5 bg-[#011936] rounded-full mr-1.5"></span>
+                            ${att.name}
+                        </span>`;
                 });
             } else {
-                const empty = document.createElement('span');
-                empty.className = "text-xs text-gray-400 italic";
-                empty.innerText = "Geen admins gekoppeld";
-                attendeesContainer.appendChild(empty);
+                attendeesContainer.innerHTML = `<span class="text-xs text-gray-400 italic">Geen admins gekoppeld</span>`;
             }
 
             const modal = document.getElementById('adminDetailModal');
@@ -1051,38 +1031,36 @@
         }
 
         function openCustomRejectModal(appointmentId) {
-            const modal = document.getElementById('customRejectModal');
-            const form = document.getElementById('customRejectForm');
+    const modal = document.getElementById('customRejectModal');
+    const form = document.getElementById('customRejectForm');
+    
+    // Bouw dynamisch de juiste Laravel URL op voor dit specifieke ID
+    form.action = `/admin/appointments/${appointmentId}/reject`;
+    
+    // Toon de modal
+    modal.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+}
 
-            // Bouw de juiste Laravel-URL op voor dit specifieke ID (Number(): altijd een getal)
-            form.action = `/admin/appointments/${Number(appointmentId)}/reject`;
-
-            modal.classList.remove('hidden');
-            document.body.classList.add('overflow-hidden');
-        }
-
-        function closeCustomRejectModal() {
-            const modal = document.getElementById('customRejectModal');
-            modal.classList.add('hidden');
-            document.body.classList.remove('overflow-hidden');
-        }
+function closeCustomRejectModal() {
+    const modal = document.getElementById('customRejectModal');
+    modal.classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
+}
     </script>
 
     <style>
         .calendar-day-btn:disabled { color: #d1d5db; cursor: not-allowed; background: transparent !important; }
         .calendar-day-btn.active { background-color: #011936 !important; color: white !important; border-radius: 9999px; }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-4px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+/* Voeg deze animatie toe onder je .active klasse */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+}
+.animate-pulse-slow { animation: pulseSlow 3s infinite ease-in-out; }
 
-        /* AANGEPAST: er stond hier een losse } en de animatie pulseSlow bestond niet */
-        @keyframes pulseSlow {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.6; }
-        }
-        .animate-pulse-slow { animation: pulseSlow 3s infinite ease-in-out; }
     </style>
 </x-app-layout>

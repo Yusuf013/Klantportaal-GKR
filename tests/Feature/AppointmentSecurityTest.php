@@ -10,9 +10,15 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
 
+/**
+ * Oorspronkelijk geschreven voor Yusufs afsprakenimplementatie (7 oktober 2026). Bij het samenvoegen
+ * met de Outlook-koppeling (ADR-011) is de afsprakenlogica van `feature/outlook-koppeling` de basis
+ * geworden; deze tests zijn behouden en aangepast aan het antwoordformaat daarvan (melding `error`
+ * i.p.v. een validatiefout, 409 bij een bezet moment, .ics achter login i.p.v. ondertekende link,
+ * mailinstelling `appointments.confirmation_mail`). Wat ze controleren is ongewijzigd.
+ */
 class AppointmentSecurityTest extends TestCase
 {
     use RefreshDatabase;
@@ -153,18 +159,20 @@ class AppointmentSecurityTest extends TestCase
             'date'       => $this->weekday(),
             'time_slot'  => '09:00 - 10:00',
             'employees'  => [$this->client()->id],
-        ])->assertSessionHasErrors('employees.0');
+        ])->assertSessionHas('error');
 
         $this->assertDatabaseCount('appointments', 0);
     }
 
     // ---------- 2. Agendabestand (.ics) ----------
 
-    public function test_ics_zonder_geldige_handtekening_wordt_geweigerd(): void
+    public function test_ics_zonder_inloggen_gaat_naar_de_loginpagina(): void
     {
+        // Geen ondertekende publieke link meer: het agendabestand staat achter de login en de
+        // AppointmentPolicy (ADR-011). De echte agenda-uitnodiging komt via Outlook.
         $appointment = $this->appointment($this->client(), 'Bevestigd', $this->weekday());
 
-        $this->get('/appointments/' . $appointment->id . '/ics')->assertForbidden();
+        $this->get('/appointments/' . $appointment->id . '/ics')->assertRedirect(route('login'));
     }
 
     public function test_ics_heeft_de_juiste_tijden_in_zomer_en_winter(): void
@@ -175,24 +183,25 @@ class AppointmentSecurityTest extends TestCase
         $summer = $this->appointment($client, 'Bevestigd', '2026-10-20', '09:00 - 10:00');
         $winter = $this->appointment($client, 'Bevestigd', '2026-12-01', '13:00 - 14:00');
 
-        $this->get(URL::signedRoute('appointments.ics', $summer, absolute: false))
+        $this->actingAs($client)->get(route('appointments.ics', $summer))
             ->assertOk()
             ->assertSee('DTSTART:20261020T070000Z', false)
             ->assertSee('DTEND:20261020T080000Z', false)
-            ->assertSee('UID:afspraak-' . $summer->id . '@gkr-klantportaal', false);
+            ->assertSee('UID:appointment-' . $summer->id . '@gkr-klantportaal.nl', false);
 
-        $this->get(URL::signedRoute('appointments.ics', $winter, absolute: false))
+        $this->actingAs($client)->get(route('appointments.ics', $winter))
             ->assertOk()
             ->assertSee('DTSTART:20261201T120000Z', false);
     }
 
     // ---------- 3. Dubbele boekingen ----------
 
-    public function test_dubbele_boeking_door_klant_wordt_geweigerd(): void
+    public function test_aanvraag_naast_een_openstaande_aanvraag_wordt_aangenomen(): void
     {
+        // ADR-011, besluit 6 (met York): een aanvraag of voorstel reserveert niets; de harde
+        // controle volgt bij het vastleggen (zie test_admin_kan_geen_dubbele_afspraak_goedkeuren).
         $employee = $this->admin();
         $date = $this->weekday();
-        // Al een aanvraag "In afwachting" bij dezelfde medewerker op hetzelfde moment
         $this->appointment($this->client(), 'In afwachting', $date, '09:00 - 10:00', [$employee]);
 
         $client = $this->client();
@@ -203,9 +212,9 @@ class AppointmentSecurityTest extends TestCase
             'date'       => $date,
             'time_slot'  => '09:00 - 10:00',
             'employees'  => [$employee->id],
-        ])->assertSessionHasErrors('time_slot');
+        ])->assertSessionHas('success');
 
-        $this->assertDatabaseCount('appointments', 1);
+        $this->assertDatabaseCount('appointments', 2);
     }
 
     public function test_beschikbaarheid_telt_ook_niet_definitieve_afspraken_mee(): void
@@ -234,7 +243,7 @@ class AppointmentSecurityTest extends TestCase
 
         $this->actingAs($client)
             ->postJson(route('client.appointments.confirmSlot', $appointment), ['option_id' => $option->id])
-            ->assertStatus(422);
+            ->assertStatus(409); // conflict: het moment is inmiddels bezet
 
         $this->assertSame('Voorstel', $appointment->fresh()->status);
     }
@@ -255,8 +264,11 @@ class AppointmentSecurityTest extends TestCase
         Mail::assertNothingSent();
     }
 
-    public function test_admin_kan_geen_bezet_moment_voorstellen(): void
+    public function test_voorstel_op_een_bezet_moment_reserveert_niets(): void
     {
+        // ADR-011, besluit 6: de admin ziet bij het plannen een waarschuwing, maar een voorstel
+        // wordt niet geweigerd. Bevestigen van een inmiddels bezet moment wel (409, zie
+        // test_bevestigen_van_inmiddels_bezet_moment_wordt_geweigerd).
         $employee = $this->admin();
         $date = $this->weekday();
         $client = $this->client();
@@ -269,9 +281,9 @@ class AppointmentSecurityTest extends TestCase
             'type'           => 'online',
             'employees'      => [$employee->id],
             'proposal_dates' => [['date' => $date, 'time_slot' => '13:00 - 14:00']],
-        ])->assertSessionHasErrors('proposal_dates');
+        ])->assertSessionHas('success');
 
-        $this->assertDatabaseCount('appointments', 1);
+        $this->assertDatabaseCount('appointments', 2);
     }
 
     // ---------- 4. Datum en tijd ----------
@@ -287,7 +299,9 @@ class AppointmentSecurityTest extends TestCase
             'date'       => now()->next(Carbon::SATURDAY)->format('Y-m-d'),
             'time_slot'  => '09:00 - 10:00',
             'employees'  => [$this->admin()->id],
-        ])->assertSessionHasErrors('date');
+        ])->assertSessionHas('error');
+
+        $this->assertDatabaseCount('appointments', 0);
     }
 
     public function test_onbekend_tijdslot_wordt_geweigerd(): void
@@ -301,7 +315,9 @@ class AppointmentSecurityTest extends TestCase
             'date'       => $this->weekday(),
             'time_slot'  => '07:00 - 08:00',
             'employees'  => [$this->admin()->id],
-        ])->assertSessionHasErrors('time_slot');
+        ])->assertSessionHas('error');
+
+        $this->assertDatabaseCount('appointments', 0);
     }
 
     // ---------- 5. Goedkeuren en mail ----------
@@ -317,12 +333,12 @@ class AppointmentSecurityTest extends TestCase
         $this->assertSame('Voorstel', $appointment->fresh()->status);
     }
 
-    public function test_mail_gaat_alleen_naar_testadres_zolang_dat_is_ingesteld(): void
+    public function test_mail_gaat_alleen_naar_het_ingestelde_adres(): void
     {
         Mail::fake();
         config([
-            'services.appointments.mail_everyone'       => false,
-            'services.appointments.mail_test_recipient' => 'test@example.com',
+            'appointments.confirmation_mail.enabled' => true,
+            'appointments.confirmation_mail.only_to' => 'test@example.com',
         ]);
 
         $client = User::factory()->create(['is_admin' => false, 'email' => 'test@example.com']);

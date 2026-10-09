@@ -119,4 +119,21 @@ return [
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Antwoordadres voor alle mails (Reply-To)
+    |--------------------------------------------------------------------------
+    |
+    | Het afzenderadres van het portaal is geen echte mailbox. Klikt een klant
+    | op "Beantwoorden", dan gaat het antwoord naar dit adres. Staat
+    | MAIL_REPLY_TO_ADDRESS niet in .env, dan krijgt de mail geen antwoordadres
+    | en verandert er niets.
+    |
+    */
+
+    'reply_to' => [
+        'address' => env('MAIL_REPLY_TO_ADDRESS'),
+        'name' => env('MAIL_REPLY_TO_NAME'),
+    ],
+
 ];

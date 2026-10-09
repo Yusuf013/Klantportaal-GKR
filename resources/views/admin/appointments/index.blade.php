@@ -239,7 +239,7 @@
                         Bevestigd, jij bent erbij
                     </span>
                     <span class="flex items-center">
-                        <span style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;background:#e2e8f0;border:1px solid #cbd5e1;"></span>
+                        <span style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;background:#dbeafe;border:1px solid #93c5fd;"></span>
                         Bevestigd, van een collega
                     </span>
                     <span class="flex items-center">
@@ -247,7 +247,7 @@
                         Wacht nog op een reactie
                     </span>
                     <span class="flex items-center">
-                        <span style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;background:#e2e8f0;border:1px dashed #94a3b8;"></span>
+                        <span style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;background:#ffffff;border:1px dashed #94a3b8;"></span>
                         Bezet in Outlook
                     </span>
                 </div>
@@ -685,9 +685,17 @@
                         const isAttendee = app.attendees.some(att => att.id === currentAdminId);
                         if (filterOn && !isAttendee) return;
 
+                        // Kleuren: blauw = bevestigd (donker = jij bent erbij, licht = van een collega),
+                        // geel = wacht nog op een reactie. Zelfde kleuren als in de legenda onder de kalender.
                         let color = "bg-gray-150 text-gray-700";
+                        let isColleagueConfirmed = false;
                         if (app.status === 'Bevestigd' || app.status === 'Bevestigd door klant') {
-                            color = isAttendee ? "bg-[#011936] text-white border-[#011936]" : "bg-slate-200 text-slate-700 border-slate-300 opacity-60";
+                            if (isAttendee) {
+                                color = "bg-[#011936] text-white border-[#011936]";
+                            } else {
+                                color = "";
+                                isColleagueConfirmed = true;
+                            }
                         }
                         if (['In afwachting', 'Voorstel', 'Alternatief gekozen'].includes(app.status)) {
                             color = "bg-amber-50 text-amber-800 border-amber-200";
@@ -695,6 +703,12 @@
 
                         const item = document.createElement('div');
                         item.className = `text-[9px] p-1 rounded font-bold border truncate flex items-center justify-between cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all ${color}`;
+                        if (isColleagueConfirmed) {
+                            // Lichtblauw, als vaste kleurwaarden (werkt zonder dat de opmaak opnieuw gebouwd hoeft te worden)
+                            item.style.backgroundColor = '#dbeafe';
+                            item.style.borderColor = '#93c5fd';
+                            item.style.color = '#1e3a8a';
+                        }
                         item.title = `Klik voor details: ${app.title}`; // als eigenschap: wordt nooit als HTML gelezen
                         item.onclick = () => openAdminDetailModal(app.id);
 
@@ -715,7 +729,8 @@
                         list.appendChild(item);
                     });
 
-                // Bezette tijden uit Outlook: grijs met een stippellijn, niet aanklikbaar.
+                // Bezette tijden uit Outlook: wit met een grijze stippellijn ("leeg" blokje), niet aanklikbaar.
+                // Zo zie je meteen dat dit geen afspraak uit het portaal is.
                 // Het vinkje "Toon alleen mijn afspraken" geldt hier ook.
                 outlookBlocks
                     .filter(block => block.date === currentDateStr)
@@ -723,8 +738,11 @@
                         if (filterOn && block.employee_id !== currentAdminId) return;
 
                         const item = document.createElement('div');
-                        item.className = "text-[9px] p-1 rounded font-bold border truncate flex items-center justify-between bg-slate-200 text-slate-700 border-slate-300 opacity-60";
+                        item.className = "text-[9px] p-1 rounded font-bold border truncate flex items-center justify-between";
+                        item.style.backgroundColor = '#ffffff';
                         item.style.borderStyle = 'dashed';
+                        item.style.borderColor = '#94a3b8';
+                        item.style.color = '#64748b';
                         item.title = `Bezet in Outlook: ${block.employee}, ${block.time}`; // als eigenschap: wordt nooit als HTML gelezen
 
                         const label = document.createElement('span');

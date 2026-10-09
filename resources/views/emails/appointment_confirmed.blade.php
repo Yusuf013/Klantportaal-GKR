@@ -46,6 +46,11 @@
             </tr>
         </table>
 
+        {{-- De Teams-link maakt Outlook zelf aan; die komt in een aparte uitnodiging van de medewerker --}}
+        @if($appointment->type === 'online')
+            <p style="margin: 16px 0 0 0; font-size: 13px; color: #4b5563;">Voor dit online gesprek ontvang je apart een Teams-uitnodiging van GKR. Daarin staat de link om deel te nemen.</p>
+        @endif
+
         <div style="margin-top: 24px; padding-top: 16px; border-top: 1px dashed #e2e8f0;">
             <p style="margin: 0 0 12px 0; font-size: 13px; color: #6b7280; font-weight: 600;">Afspraak toevoegen aan je agenda:</p>
             

@@ -460,7 +460,7 @@
                     </div>
                     <div>
                         <span class="block text-gray-400 font-bold uppercase tracking-wider text-[10px]">Type Gesprek</span>
-                        <span id="client_modal_type" class="text-gray-700 font-semibold capitalize"></span>
+                        <span id="client_modal_type" class="text-gray-700 font-semibold"></span>
                     </div>
                 </div>
 

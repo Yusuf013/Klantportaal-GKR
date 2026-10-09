@@ -35,6 +35,11 @@
             'when'        => $appointment->status === 'Voorstel'
                 ? null
                 : $appointment->start_time->translatedFormat('l j F Y') . ' om ' . $appointment->start_time->format('H:i') . ' - ' . $appointment->end_time->format('H:i') . ' uur',
+            // Link voor de knop "Zet in Outlook", alleen bij een definitieve afspraak.
+            // Deze pagina is alleen voor GKR: de link bevat het e-mailadres van de klant.
+            'outlook_url' => $appointment->status === 'Bevestigd'
+                ? \App\Services\OutlookInvite::composeUrl($appointment, auth()->user())
+                : null,
         ])->values();
     @endphp
 
@@ -44,7 +49,13 @@
             @if(session('success'))
                 <div class="p-4 bg-emerald-50 border border-emerald-150 text-emerald-700 rounded-xl text-sm font-medium flex items-center shadow-sm">
                     <svg class="w-5 h-5 mr-2 shrink-0 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    {{ session('success') }}
+                    <span>{{ session('success') }}</span>
+                    {{-- Direct na het goedkeuren: Outlook openen met de uitnodiging al ingevuld --}}
+                    @if(session('outlook_url'))
+                        <a href="{{ session('outlook_url') }}" target="_blank" rel="noopener noreferrer" class="ml-4 shrink-0 px-3 py-1.5 bg-[#011936] text-white text-[11px] font-bold rounded-lg hover:opacity-90 transition">
+                            Zet in Outlook
+                        </a>
+                    @endif
                 </div>
             @endif
 
@@ -512,7 +523,7 @@
                 <div class="grid grid-cols-2 gap-4 text-xs">
                     <div>
                         <span class="block text-gray-400 font-bold uppercase tracking-wider text-[10px]">Type Gesprek</span>
-                        <span id="modal_detail_type" class="text-gray-700 font-semibold capitalize"></span>
+                        <span id="modal_detail_type" class="text-gray-700 font-semibold"></span>
                     </div>
                 </div>
 
@@ -528,6 +539,8 @@
             </div>
 
             <div class="px-6 py-4 border-t border-gray-100 bg-gray-50/30 flex justify-end">
+                {{-- Alleen zichtbaar bij een definitieve afspraak (zie openAdminDetailModal) --}}
+                <a id="modal_detail_outlook" target="_blank" rel="noopener noreferrer" class="hidden mr-2 px-4 py-2 border border-gray-200 bg-white text-[#011936] text-xs font-bold rounded-xl shadow-sm hover:bg-gray-50 transition">Zet in Outlook</a>
                 <button type="button" onclick="closeAdminDetailModal()" class="px-4 py-2 bg-[#011936] text-white text-xs font-bold rounded-xl shadow-sm hover:bg-[#011936]/90 transition">Sluiten</button>
             </div>
         </div>
@@ -1019,6 +1032,16 @@
                 descWrapper.classList.remove('hidden');
             } else {
                 descWrapper.classList.add('hidden');
+            }
+
+            // Knop "Zet in Outlook": de link komt kant-en-klaar van de server
+            const outlookLink = document.getElementById('modal_detail_outlook');
+            if (app.outlook_url) {
+                outlookLink.href = app.outlook_url;
+                outlookLink.classList.remove('hidden');
+            } else {
+                outlookLink.removeAttribute('href');
+                outlookLink.classList.add('hidden');
             }
 
             const attendeesContainer = document.getElementById('modal_detail_attendees');

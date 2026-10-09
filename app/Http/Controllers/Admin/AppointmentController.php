@@ -9,6 +9,7 @@ use App\Models\AppointmentOption;
 use App\Models\Project;
 use App\Models\User;
 use App\Services\AppointmentAvailability;
+use App\Services\OutlookInvite;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -180,7 +181,11 @@ class AppointmentController extends Controller
                 . ' staat op dit moment al iets. Dat kan deze afspraak zelf zijn. Controleer het even.';
         }
 
-        return redirect()->back()->with('success', $message);
+        // De link voor de knop "Zet in Outlook" gaat mee, zodat de medewerker de
+        // uitnodiging (met Teams-link) meteen na het goedkeuren kan versturen
+        return redirect()->back()
+            ->with('success', $message)
+            ->with('outlook_url', OutlookInvite::composeUrl($appointment->fresh(['client', 'attendees']), auth()->user()));
     }
 
     /**

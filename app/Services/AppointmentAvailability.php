@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Appointment;
 use App\Models\User;
 use Carbon\Carbon;
+use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -65,6 +66,9 @@ class AppointmentAvailability
         'online'   => 'Online',
         'fysiek'   => 'Op kantoor bij GKR',
     ];
+
+    // Zo ver vooruit toont de adminkalender de bezette tijden uit Outlook (in dagen)
+    public const CALENDAR_DAYS_AHEAD = 90;
 
     // Zo lang slaan we Outlook over nadat het ophalen bij een medewerker is mislukt
     private const OUTLOOK_RETRY_SECONDS = 60;
@@ -213,31 +217,97 @@ class AppointmentAvailability
         $busy = [];
 
         foreach ($employees as $employee) {
-            // Net mislukt? Dan niet bij elk tijdslot opnieuw proberen (dat maakt de kalender traag)
-            $failedKey = "outlook_calendar:failed:{$employee->id}";
-
-            if (Cache::has($failedKey)) {
-                continue;
-            }
-
-            try {
-                if ($this->outlook->busyIntervals($employee->outlook_ics_url, $from, $to)) {
-                    $busy[] = $employee->name;
-                }
-            } catch (\Throwable $e) {
-                Cache::put($failedKey, true, now()->addSeconds(self::OUTLOOK_RETRY_SECONDS));
-
-                // Alleen onze eigen meldingen loggen: daar staat de link gegarandeerd niet in
-                Log::warning('Outlook-agenda kon niet worden gelezen, medewerker telt als vrij', [
-                    'user_id' => $employee->id,
-                    'reason'  => ($e instanceof RuntimeException || $e instanceof InvalidArgumentException)
-                        ? $e->getMessage()
-                        : get_class($e),
-                ]);
+            if ($this->outlookIntervals($employee, $from, $to)) {
+                $busy[] = $employee->name;
             }
         }
 
         return $busy;
+    }
+
+    /**
+     * Bezette tijden uit Outlook voor de adminkalender, per dag opgeknipt.
+     * Voor alle medewerkers met een gekoppelde agenda, van vandaag tot
+     * CALENDAR_DAYS_AHEAD dagen vooruit.
+     *
+     * Bevat alleen de medewerker en de tijden. Onderwerpen kent het portaal niet,
+     * want de agenda's zijn gepubliceerd met alleen vrij/bezet.
+     * ALLEEN voor pagina's van GKR: klanten zien uitsluitend BEZET of VRIJ.
+     *
+     * @return list<array{employee_id: int, employee: string, date: string, time: string}>
+     */
+    public function outlookCalendarBlocks(): array
+    {
+        $from = CarbonImmutable::today(self::TIMEZONE);
+        $to = $from->addDays(self::CALENDAR_DAYS_AHEAD);
+
+        $employees = User::query()
+            ->where('is_admin', true)
+            ->whereNotNull('outlook_ics_url')
+            ->orderBy('name')
+            ->get();
+
+        $blocks = [];
+
+        foreach ($employees as $employee) {
+            foreach ($this->outlookIntervals($employee, $from, $to) as $interval) {
+                // Een afspraak kan vandaag al bezig zijn of na de periode doorlopen
+                $start = $interval['start']->lt($from) ? $from : $interval['start'];
+                $end = $interval['end']->gt($to) ? $to : $interval['end'];
+
+                // Een afspraak van meerdere dagen (bijv. vakantie) krijgt op elke dag een blok
+                for ($day = $start->startOfDay(); $day->lt($end); $day = $day->addDay()) {
+                    $nextDay = $day->addDay();
+                    $blockStart = $start->gt($day) ? $start : $day;
+                    $blockEnd = $end->lt($nextDay) ? $end : $nextDay;
+                    $wholeDay = $blockStart->equalTo($day) && $blockEnd->equalTo($nextDay);
+
+                    $blocks[] = [
+                        'employee_id' => $employee->id,
+                        'employee'    => $employee->name,
+                        'date'        => $day->format('Y-m-d'),
+                        'time'        => $wholeDay ? 'Hele dag' : $blockStart->format('H:i') . ' - ' . $blockEnd->format('H:i'),
+                    ];
+                }
+            }
+        }
+
+        // Per dag op tijd gesorteerd; "Hele dag" komt bovenaan
+        usort($blocks, fn ($a, $b) => [$a['date'], $a['time'] === 'Hele dag' ? '' : $a['time']] <=> [$b['date'], $b['time'] === 'Hele dag' ? '' : $b['time']]);
+
+        return $blocks;
+    }
+
+    /**
+     * De bezette momenten uit de Outlook-agenda van één medewerker.
+     * Lukt het ophalen niet, dan komt er een lege lijst terug (zie outlookBusyNames).
+     *
+     * @return list<array{start: CarbonImmutable, end: CarbonImmutable}>
+     */
+    private function outlookIntervals(User $employee, DateTimeInterface $from, DateTimeInterface $to): array
+    {
+        // Net mislukt? Dan niet bij elk tijdslot opnieuw proberen (dat maakt de kalender traag)
+        $failedKey = "outlook_calendar:failed:{$employee->id}";
+
+        if (Cache::has($failedKey)) {
+            return [];
+        }
+
+        try {
+            return $this->outlook->busyIntervals($employee->outlook_ics_url, $from, $to);
+        } catch (\Throwable $e) {
+            Cache::put($failedKey, true, now()->addSeconds(self::OUTLOOK_RETRY_SECONDS));
+
+            // Alleen onze eigen meldingen loggen: daar staat de link gegarandeerd niet in
+            Log::warning('Outlook-agenda kon niet worden gelezen, medewerker telt als vrij', [
+                'user_id' => $employee->id,
+                'reason'  => ($e instanceof RuntimeException || $e instanceof InvalidArgumentException)
+                    ? $e->getMessage()
+                    : get_class($e),
+            ]);
+
+            return [];
+        }
     }
 
     /**

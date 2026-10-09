@@ -24,7 +24,7 @@ class AppointmentController extends Controller
     /**
      * Toon het grote admin kalender dashboard
      */
-    public function index()
+    public function index(AppointmentAvailability $availability)
     {
         // Geannuleerde afspraken worden niet getoond
         $appointments = Appointment::where('status', '!=', 'Geannuleerd')
@@ -35,7 +35,10 @@ class AppointmentController extends Controller
         $projects = Project::with('user')->get();
         $gkrEmployees = User::where('is_admin', true)->orderBy('name')->get();
 
-        return view('admin.appointments.index', compact('appointments', 'clients', 'projects', 'gkrEmployees'));
+        // Bezette tijden uit Outlook, als grijze blokken in de kalender (alleen voor GKR)
+        $outlookBlocks = $availability->outlookCalendarBlocks();
+
+        return view('admin.appointments.index', compact('appointments', 'clients', 'projects', 'gkrEmployees', 'outlookBlocks'));
     }
 
     /**

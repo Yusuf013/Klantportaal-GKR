@@ -229,6 +229,29 @@
 
                 <div id="adminCalendarGrid" class="grid grid-cols-7 gap-px bg-gray-100 border border-gray-100 rounded-b-xl overflow-hidden">
                 </div>
+
+                {{-- Legenda: wat de kleuren van de blokjes betekenen. De kleuren staan hier als vaste
+                     waarden en zijn gelijk aan wat renderAdminDashboardCalendar() tekent. Verander je
+                     daar een kleur, pas hem dan ook hier aan. --}}
+                <div class="flex flex-wrap items-center text-[11px] text-gray-500 mt-2" style="gap: 6px 16px;">
+                    <span class="flex items-center">
+                        <span style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;background:#011936;border:1px solid #011936;"></span>
+                        Bevestigd, jij bent erbij
+                    </span>
+                    <span class="flex items-center">
+                        <span style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;background:#e2e8f0;border:1px solid #cbd5e1;"></span>
+                        Bevestigd, van een collega
+                    </span>
+                    <span class="flex items-center">
+                        <span style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;background:#fffbeb;border:1px solid #fde68a;"></span>
+                        Wacht nog op een reactie
+                    </span>
+                    <span class="flex items-center">
+                        <span style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;background:#e2e8f0;border:1px dashed #94a3b8;"></span>
+                        Bezet in Outlook
+                    </span>
+                </div>
+                <p class="text-[11px] text-gray-400 mt-1">Van Outlook kent het portaal alleen de tijden, niet het onderwerp. Klanten zien geen kleuren of namen, alleen "Bezet" of "Vrij".</p>
             </div>
         </div>
     </div>
@@ -591,6 +614,8 @@
     <script>
         // AANGEPAST: alleen de velden die nodig zijn, al opgemaakt door de server (zie @php bovenaan)
         const dbAppointments = @js($calendarItems);
+        // Bezette tijden uit Outlook: alleen medewerker, datum en tijd (geen onderwerpen)
+        const outlookBlocks = @js($outlookBlocks);
         const currentAdminId = {{ (int) auth()->id() }};
 
         let currentAdminDate = new Date();
@@ -685,6 +710,33 @@
                             badge.textContent = initialsOf(att.name);
                             badges.appendChild(badge);
                         });
+
+                        item.append(label, badges);
+                        list.appendChild(item);
+                    });
+
+                // Bezette tijden uit Outlook: grijs met een stippellijn, niet aanklikbaar.
+                // Het vinkje "Toon alleen mijn afspraken" geldt hier ook.
+                outlookBlocks
+                    .filter(block => block.date === currentDateStr)
+                    .forEach(block => {
+                        if (filterOn && block.employee_id !== currentAdminId) return;
+
+                        const item = document.createElement('div');
+                        item.className = "text-[9px] p-1 rounded font-bold border truncate flex items-center justify-between bg-slate-200 text-slate-700 border-slate-300 opacity-60";
+                        item.style.borderStyle = 'dashed';
+                        item.title = `Bezet in Outlook: ${block.employee}, ${block.time}`; // als eigenschap: wordt nooit als HTML gelezen
+
+                        const label = document.createElement('span');
+                        label.className = "truncate";
+                        label.textContent = `${block.time} Bezet (Outlook)`;
+
+                        const badges = document.createElement('div');
+                        badges.className = "flex shrink-0 ml-1";
+                        const badge = document.createElement('span');
+                        badge.className = "inline-block bg-white/25 text-[8px] px-1 rounded ml-1 font-mono";
+                        badge.textContent = initialsOf(block.employee);
+                        badges.appendChild(badge);
 
                         item.append(label, badges);
                         list.appendChild(item);

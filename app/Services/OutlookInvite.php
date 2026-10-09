@@ -14,6 +14,7 @@ use Illuminate\Support\Str;
  * Teams-schakelaar aan. De medewerker klikt daarna zelf op Verzenden.
  *
  * Waarom zo: Outlook maakt de Teams-link zelf aan. Het portaal kan die link dus
+ * niet in een eigen uitnodiging zetten. Door Outlook de uitnodiging te laten
  * versturen krijgt de klant een echte uitnodiging met een unieke Teams-link,
  * en staat de afspraak meteen in de agenda van de medewerker.
  *

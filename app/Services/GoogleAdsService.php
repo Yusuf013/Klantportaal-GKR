@@ -4,7 +4,11 @@ namespace App\Services;
 
 use App\Models\AdAccount;
 use Carbon\CarbonImmutable;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use InvalidArgumentException;
 use Random\Engine\Mt19937;
 use Random\Randomizer;
@@ -13,13 +17,18 @@ use RuntimeException;
 /**
  * Haalt advertentiecijfers op voor één Google Ads-account.
  *
- * Voorlopig met nepdata (GOOGLE_ADS_FAKE=true). Later vervangen we alleen
- * fetchCampaignDailyRows() door een echte aanroep naar de Google Ads API;
- * de rest (periodes, totalen, trends, campagnes, cache) blijft hetzelfde.
+ * Met GOOGLE_ADS_FAKE=true komt er nepdata terug, met false de echte cijfers
+ * uit de Google Ads API. Alleen fetchCampaignDailyRows() verschilt tussen die
+ * twee; de rest (periodes, totalen, trends, campagnes, cache) is hetzelfde.
+ *
+ * Echte cijfers: het portaal logt in als het robotaccount (zelfde sleutel als
+ * Google Analytics). Dat account is bij elk Google Ads-account toegevoegd met
+ * alleen leesrechten. Er is geen developer token meer nodig: sinds september
+ * 2026 hangt de toegang aan het Google Cloud-project.
  *
  * Het rapport heeft bewust dezelfde opbouw als dat van MetaAdsService
- * (totals, previous, trends, series), zodat we later hetzelfde
- * weergaveblok kunnen gebruiken. Nieuw is 'campaigns': cijfers per campagne.
+ * (totals, previous, trends, series, campaigns), zodat beide hetzelfde
+ * weergaveblok gebruiken.
  */
 class GoogleAdsService
 {
@@ -28,7 +37,23 @@ class GoogleAdsService
 
     private const METRICS = ['impressions', 'clicks', 'conversions', 'spend'];
 
-    // Namen voor de nepdata. Echte campagnenamen komen later uit Google Ads.
+    // Het enige toegangsbereik dat Google Ads kent. Lezen of schrijven regel je niet hier,
+    // maar met de rol van het robotaccount in Google Ads (bij ons: Alleen lezen).
+    private const SCOPE = 'https://www.googleapis.com/auth/adwords';
+
+    private const API_URL = 'https://googleads.googleapis.com';
+
+    // Google geeft per keer hooguit 10.000 rijen. Meer pagina's dan dit verwachten we nooit.
+    private const MAX_PAGES = 20;
+
+    // De toegangscode van Google, onthouden zolang dit ene verzoek aan het portaal duurt
+    private ?string $token = null;
+
+    public function __construct(private GoogleAccessToken $accessToken)
+    {
+    }
+
+    // Namen voor de nepdata. Echte campagnenamen komen uit Google Ads.
     private const FAKE_CAMPAIGNS = [
         'Zoeken - Merknaam',
         'Zoeken - Producten',
@@ -91,10 +116,12 @@ class GoogleAdsService
 
         // Per dag optellen over alle campagnes = de cijfers van het hele account
         $daily = $this->sumPerDay($currentRows, $start, $end);
-        $previousDaily = $this->sumPerDay($previousRows, $previousStart, $previousEnd);
 
-        $totals = $this->totals($daily);
-        $previous = $this->totals($previousDaily);
+        // Totalen rekenen we uit met de losse rijen en niet met de afgeronde dagen.
+        // Google geeft conversies als kommagetal (bijv. 0,33): eerst per dag afronden
+        // en dan optellen zou een ander totaal geven dan Google Ads zelf laat zien.
+        $totals = $this->totals($currentRows);
+        $previous = $this->totals($previousRows);
 
         $trends = [];
         foreach ($totals as $metric => $value) {
@@ -125,9 +152,148 @@ class GoogleAdsService
             return $this->fakeCampaignDailyRows($accountId, $start, $end);
         }
 
-        // Volgt in stap 4: echte aanroep naar de Google Ads API.
-        // Let op voor dan: Google geeft kosten in micros (1.000.000 = € 1).
-        throw new RuntimeException('De echte Google Ads-koppeling is nog niet gebouwd. Zet GOOGLE_ADS_FAKE=true.');
+        return $this->liveCampaignDailyRows($accountId, $start, $end);
+    }
+
+    /**
+     * Echte cijfers uit de Google Ads API, per campagne per dag.
+     *
+     * We stellen één vraag in de vraagtaal van Google Ads (GAQL). Google geeft
+     * alleen rijen terug voor dagen waarop een campagne cijfers had.
+     */
+    private function liveCampaignDailyRows(string $accountId, CarbonImmutable $start, CarbonImmutable $end): array
+    {
+        // Het klantnummer komt in het adres van het verzoek: alleen precies 10 cijfers toestaan
+        if (! preg_match('/^\d{10}$/', $accountId)) {
+            throw new InvalidArgumentException('Een Google Ads-klantnummer bestaat uit 10 cijfers.');
+        }
+
+        $version = (string) config('services.google_ads.api_version', 'v25');
+
+        if (! preg_match('/^v\d+$/', $version)) {
+            throw new RuntimeException('GOOGLE_ADS_API_VERSION is ongeldig. Verwacht bijvoorbeeld v25.');
+        }
+
+        $url = self::API_URL . "/{$version}/customers/{$accountId}/googleAds:search";
+
+        $from = $start->toDateString();
+        $to = $end->toDateString();
+
+        // De datums maken we zelf (jaar-maand-dag). Er komt geen invoer van een gebruiker in de vraag.
+        $query = 'SELECT campaign.id, campaign.name, segments.date, '
+            . 'metrics.impressions, metrics.clicks, metrics.conversions, metrics.cost_micros '
+            . "FROM campaign WHERE segments.date BETWEEN '{$from}' AND '{$to}'";
+
+        $rows = [];
+        $pageToken = null;
+
+        for ($page = 1; $page <= self::MAX_PAGES; $page++) {
+            $body = ['query' => $query];
+
+            if ($pageToken) {
+                $body['pageToken'] = $pageToken;
+            }
+
+            try {
+                $response = $this->request()->post($url, $body);
+            } catch (ConnectionException) {
+                throw new RuntimeException('Google Ads is op dit moment niet bereikbaar.');
+            }
+
+            if ($response->failed()) {
+                throw $this->apiError($response);
+            }
+
+            foreach ((array) $response->json('results', []) as $result) {
+                $date = (string) data_get($result, 'segments.date');
+
+                // Veiligheid: een rij buiten de gevraagde periode tellen we niet mee
+                if ($date < $from || $date > $to) {
+                    continue;
+                }
+
+                $rows[] = [
+                    'date'          => $date,
+                    'campaign_id'   => (string) data_get($result, 'campaign.id'),
+                    'campaign_name' => (string) data_get($result, 'campaign.name', 'Campagne zonder naam'),
+                    // Google stuurt grote gehele getallen als tekst ("1200"), vandaar (int)
+                    'impressions'   => (int) data_get($result, 'metrics.impressions', 0),
+                    'clicks'        => (int) data_get($result, 'metrics.clicks', 0),
+                    'conversions'   => (float) data_get($result, 'metrics.conversions', 0),
+                    // Google geeft kosten in micros: 1.000.000 micros = € 1
+                    'spend'         => (int) data_get($result, 'metrics.costMicros', 0) / 1_000_000.0,
+                ];
+            }
+
+            $pageToken = $response->json('nextPageToken');
+
+            if (! $pageToken) {
+                return $rows;
+            }
+        }
+
+        // Liever een fout dan stilletjes onvolledige cijfers tonen
+        throw new RuntimeException('Google Ads gaf meer gegevens terug dan verwacht. Er is niets getoond.');
+    }
+
+    /**
+     * Een verzoek aan Google Ads, met de toegangscode van het robotaccount erin.
+     */
+    private function request(): PendingRequest
+    {
+        $this->token ??= $this->accessToken->forScope(self::SCOPE);
+
+        $request = Http::withToken($this->token)
+            ->timeout(20)
+            ->connectTimeout(5)
+            ->acceptJson()
+            ->asJson();
+
+        // Hangen de klantaccounts onder een beheeraccount van GKR? Dan wil Google
+        // bij elk verzoek weten via welk beheeraccount we binnenkomen.
+        $managerId = self::normalizeCustomerId((string) config('services.google_ads.login_customer_id'));
+
+        if ($managerId !== '') {
+            if (! preg_match('/^\d{10}$/', $managerId)) {
+                throw new RuntimeException('GOOGLE_ADS_LOGIN_CUSTOMER_ID is ongeldig. Verwacht 10 cijfers.');
+            }
+
+            $request = $request->withHeaders(['login-customer-id' => $managerId]);
+        }
+
+        return $request;
+    }
+
+    /**
+     * Maakt van een foutantwoord van Google een duidelijke melding voor de log.
+     * De toegangscode staat hier nooit in. Tussen haakjes staat de code van Google,
+     * handig om op te zoeken.
+     */
+    private function apiError(Response $response): RuntimeException
+    {
+        $status = $response->status();
+
+        // Google Ads zet de precieze reden diep in het antwoord, bijv. USER_PERMISSION_DENIED
+        $errorCode = data_get($response->json(), 'error.details.0.errors.0.errorCode');
+        $code = is_array($errorCode) && $errorCode ? (string) reset($errorCode) : (string) $response->json('error.status', '');
+        $code = preg_replace('/[^A-Z_]/', '', $code);
+
+        $message = match (true) {
+            $code === 'CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION'
+                => 'Het Google Cloud-project heeft nog geen toegang tot echte Google Ads-accounts.',
+            $code === 'CUSTOMER_NOT_ENABLED'
+                => 'Dit Google Ads-account is niet actief.',
+            $status === 401
+                => 'Google Ads accepteert de inlog van het robotaccount niet.',
+            $status === 403
+                => 'Het robotaccount heeft geen toegang tot dit Google Ads-account. Voeg het daar toe als gebruiker met Alleen lezen.',
+            $status === 429
+                => 'De daglimiet van Google Ads is bereikt. Probeer het later opnieuw.',
+            default
+                => 'Google Ads gaf een fout.',
+        };
+
+        return new RuntimeException($message . ' (' . trim("{$status} {$code}") . ')');
     }
 
     /**

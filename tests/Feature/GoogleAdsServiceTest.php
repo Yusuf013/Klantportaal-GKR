@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\AdAccount;
 use App\Services\GoogleAdsService;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use InvalidArgumentException;
 use RuntimeException;
 use Tests\TestCase;
@@ -94,14 +95,21 @@ class GoogleAdsServiceTest extends TestCase
         $this->assertSame(round($totals['clicks'] / $totals['impressions'] * 100, 2), $totals['ctr']);
     }
 
-    public function test_zonder_echte_koppeling_geeft_een_duidelijke_fout(): void
+    public function test_echte_koppeling_zonder_sleutel_geeft_een_duidelijke_fout(): void
     {
-        config(['services.google_ads.fake' => false]);
+        // Echte cijfers gevraagd, maar de sleutel van het robotaccount ontbreekt.
+        // Er gaat dan geen enkel verzoek naar Google.
+        config(['services.google_ads.fake' => false, 'services.google_analytics.credentials' => null]);
+        Http::fake();
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('nog niet gebouwd');
+        try {
+            $this->report();
+            $this->fail('Er had een fout moeten komen.');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('sleutel van het robotaccount is niet ingesteld', $e->getMessage());
+        }
 
-        $this->report();
+        Http::assertNothingSent();
     }
 
     public function test_klantnummer_met_streepjes_wordt_alleen_cijfers(): void

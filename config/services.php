@@ -35,9 +35,14 @@ return [
     ],
 
     'google_ads' => [
-    // true = nepdata, false = echte Google Ads-koppeling (komt in stap 4)
+    // true = nepdata, false = echte cijfers uit Google Ads
     'fake' => env('GOOGLE_ADS_FAKE', true),
     'cache_minutes' => env('GOOGLE_ADS_CACHE_MINUTES', 180),
+    // Versie van de Google Ads API. Google brengt een paar keer per jaar een nieuwe uit.
+    'api_version' => env('GOOGLE_ADS_API_VERSION', 'v25'),
+    // Alleen invullen als de klantaccounts onder één beheeraccount van GKR hangen
+    // en het robotaccount daar is toegevoegd: het klantnummer van dat beheeraccount.
+    'login_customer_id' => env('GOOGLE_ADS_LOGIN_CUSTOMER_ID'),
     ],
 
     'appointments' => [

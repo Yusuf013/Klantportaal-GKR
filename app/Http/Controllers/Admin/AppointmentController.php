@@ -248,21 +248,21 @@ class AppointmentController extends Controller
      */
     private function sendConfirmationMails(Appointment $appointment): void
     {
+        // We bewaren de hele gebruiker en niet alleen het e-mailadres: de mail moet
+        // weten voor wie hij is (klant of medewerker), want die krijgen elk een eigen tekst.
         $recipients = collect([$appointment->client])
             ->merge($appointment->attendees)
-            ->filter()
-            ->pluck('email')
-            ->filter()
-            ->unique(fn ($email) => strtolower($email));
+            ->filter(fn ($user) => $user && filled($user->email))
+            ->unique(fn ($user) => strtolower($user->email));
 
         if (! config('services.appointments.mail_everyone')) {
             $testRecipient = (string) config('services.appointments.mail_test_recipient');
-            $recipients = $recipients->filter(fn ($email) => $testRecipient !== '' && strcasecmp($email, $testRecipient) === 0);
+            $recipients = $recipients->filter(fn ($user) => $testRecipient !== '' && strcasecmp($user->email, $testRecipient) === 0);
         }
 
-        foreach ($recipients as $email) {
+        foreach ($recipients as $recipient) {
             try {
-                Mail::to($email)->send(new AppointmentConfirmed($appointment));
+                Mail::to($recipient->email)->send(new AppointmentConfirmed($appointment, $recipient));
             } catch (\Throwable $e) {
                 // Een mislukte mail mag de goedkeuring niet ongedaan maken
                 Log::error('Bevestigingsmail afspraak mislukt', [

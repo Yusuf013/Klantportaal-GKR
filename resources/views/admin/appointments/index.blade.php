@@ -705,7 +705,9 @@
                         // geel = wacht nog op een reactie. Zelfde kleuren als in de legenda onder de kalender.
                         let color = "bg-gray-150 text-gray-700";
                         let isColleagueConfirmed = false;
-                        if (app.status === 'Bevestigd' || app.status === 'Bevestigd door klant') {
+                        // "Bevestigd door klant" is nog niet rond: GKR moet nog op "Gezien & Sluiten" klikken.
+                        // Die hoort daarom bij geel (zie hieronder) en niet bij blauw.
+                        if (app.status === 'Bevestigd') {
                             if (isAttendee) {
                                 color = "bg-[#011936] text-white border-[#011936]";
                             } else {
@@ -713,7 +715,7 @@
                                 isColleagueConfirmed = true;
                             }
                         }
-                        if (['In afwachting', 'Voorstel', 'Alternatief gekozen'].includes(app.status)) {
+                        if (['In afwachting', 'Voorstel', 'Alternatief gekozen', 'Bevestigd door klant'].includes(app.status)) {
                             color = "bg-amber-50 text-amber-800 border-amber-200";
                         }
 
@@ -1104,7 +1106,8 @@
             const statusLabel = document.getElementById('modal_detail_status');
             statusLabel.innerText = app.status;
             statusLabel.className = "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ";
-            if (app.status === 'Bevestigd' || app.status === 'Bevestigd door klant') {
+            // Alleen een afspraak die helemaal rond is krijgt groen
+            if (app.status === 'Bevestigd') {
                 statusLabel.classList.add('bg-emerald-50', 'text-emerald-700', 'border-emerald-100');
             } else if (app.status === 'Voorstel') {
                 statusLabel.classList.add('bg-orange-50', 'text-orange-700', 'border-orange-100');

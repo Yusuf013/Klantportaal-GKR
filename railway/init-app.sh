@@ -21,7 +21,4 @@ php artisan config:cache
 php artisan route:cache
 php artisan view:cache
 
-echo "Marketingcijfers klaarzetten..."
-php artisan marketing:warm || true
-
 echo "Railway init script completed."

@@ -161,6 +161,19 @@ class MessageController extends Controller
     }
 
     /**
+     * Alleen het aantal ongelezen berichten, voor de rode teller in de zijbalk.
+     * Elke pagina van het portaal vraagt dit af en toe op, zodat de teller ook
+     * verschijnt als je niet op de chatpagina bent.
+     *
+     * Bewust zo klein mogelijk: alleen een getal, geen namen en geen berichten.
+     * Er wordt hier niets als gelezen gemarkeerd.
+     */
+    public function unread()
+    {
+        return response()->json(['unread_total' => Message::unreadCountFor(Auth::user())]);
+    }
+
+    /**
      * Maakt de opmaak van een reeks berichten, met een datum boven het eerste bericht van elke dag.
      */
     private function renderMessages($messages, ?string $previousDay): string

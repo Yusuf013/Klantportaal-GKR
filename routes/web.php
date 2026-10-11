@@ -49,6 +49,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/chat', [MessageController::class, 'index'])->name('chat.index');
     Route::post('/chat', [MessageController::class, 'store'])->name('chat.store');
     Route::get('/chat/berichten', [MessageController::class, 'messages'])->name('chat.messages');
+    Route::get('/chat/ongelezen', [MessageController::class, 'unread'])->name('chat.unread');
 
     // Bijlagen: alleen ingelogd; de controller controleert of het bericht van jou is
     Route::get('/chat/download/{message}', [MessageController::class, 'download'])->name('chat.download');

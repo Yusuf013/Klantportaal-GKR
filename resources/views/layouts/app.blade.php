@@ -48,5 +48,94 @@
                 </div>
             </div>
         </div>
+
+        {{-- De rode teller bij "Chat / Support" bijwerken zonder de pagina te herladen.
+             Zo zie je op elke pagina dat er een bericht is binnengekomen.
+             Niet op de chatpagina zelf: die werkt de teller al bij (elke 5 seconden). --}}
+        @auth
+            @unless(request()->routeIs('chat.*'))
+                @php
+                    // Alleen een adres en twee tijden, geen gegevens van gebruikers
+                    $unreadConfig = [
+                        'url'    => route('chat.unread'),
+                        // Zo vaak kijken we of er iets nieuws is: elke 20 seconden
+                        'pollMs' => 20 * 1000,
+                        // Na 30 minuten zonder muis of toetsenbord stoppen we met kijken
+                        'idleMs' => 30 * 60 * 1000,
+                    ];
+                @endphp
+                <script id="chat-unread-poll">
+                    (function () {
+                        const config = @js($unreadConfig);
+                        const badge = document.getElementById('chat-unread-badge');
+
+                        if (!badge) return;
+
+                        let lastActive = Date.now(); // laatste keer dat de gebruiker iets deed
+                        let busy = false;            // er loopt al een verzoek
+                        let stopped = false;         // niet meer ingelogd: stoppen
+
+                        function show(count) {
+                            if (typeof count !== 'number') return;
+
+                            badge.textContent = count > 99 ? '99+' : String(count);
+                            badge.style.display = count > 0 ? '' : 'none';
+                        }
+
+                        function idle() {
+                            return Date.now() - lastActive > config.idleMs;
+                        }
+
+                        async function check() {
+                            // Alleen als het tabblad in beeld is en er echt iemand achter zit.
+                            // Anders zou een vergeten, open tabblad de sessie eindeloos actief houden.
+                            if (stopped || busy || document.visibilityState !== 'visible' || idle()) return;
+
+                            busy = true;
+
+                            try {
+                                const response = await fetch(config.url, {
+                                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                                    credentials: 'same-origin',
+                                });
+
+                                // Niet meer ingelogd: stoppen. We herladen de pagina hier niet,
+                                // want iemand kan net een formulier aan het invullen zijn.
+                                if (response.status === 401 || response.status === 419) {
+                                    stopped = true;
+                                    return;
+                                }
+
+                                if (response.ok) {
+                                    const data = await response.json();
+                                    show(data.unread_total);
+                                }
+                            } catch (error) {
+                                // Even geen verbinding: de volgende ronde proberen we het opnieuw
+                            } finally {
+                                busy = false;
+                            }
+                        }
+
+                        // De gebruiker doet iets. Was het lang stil, dan meteen even kijken.
+                        function active() {
+                            const wasIdle = idle();
+                            lastActive = Date.now();
+
+                            if (wasIdle) check();
+                        }
+
+                        ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(function (name) {
+                            window.addEventListener(name, active, { passive: true, capture: true });
+                        });
+
+                        setInterval(check, Number(config.pollMs) || 20000);
+
+                        // Kom je terug op dit tabblad? Dan meteen bijwerken
+                        document.addEventListener('visibilitychange', check);
+                    })();
+                </script>
+            @endunless
+        @endauth
     </body>
 </html>

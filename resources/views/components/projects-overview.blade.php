@@ -1,19 +1,33 @@
 @props(['projects'])
 
-<div class="bg-white rounded-2xl shadow-sm border border-gray-150 overflow-hidden">
+@php
+    // De statussen die echt voorkomen, voor het filter (bijv. Strategie, Design, Development, Live)
+    $statuses = collect($projects)->pluck('status')->filter()->unique()->sort()->values();
+@endphp
+
+<div class="bg-white rounded-2xl shadow-sm border border-gray-150 overflow-hidden" data-dashboard="projects">
     <div class="p-6 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-            <h3 class="font-maven font-bold text-xl text-[#011936]">Alle Projecten</h3>
-            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mt-0.5">Gecureerde lijst van actieve dossiers</p>
+            <h3 class="font-maven font-bold text-xl text-[#011936]">Alle projecten</h3>
+            <p class="text-xs text-gray-400 font-medium mt-1">
+                <span id="project-filter-count">{{ count($projects) }}</span> van {{ count($projects) }} projecten
+            </p>
         </div>
-        
-        <div class="flex items-center space-x-2 bg-gray-50 border border-gray-200 px-4 py-2 rounded-2xl text-xs font-bold text-[#011936] w-fit">
-            <span class="text-gray-400 uppercase tracking-wider text-[10px]">Filter:</span>
-            <span>Status: Alle</span>
-            <svg class="w-4 h-4 text-gray-500 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"></path>
-            </svg>
-        </div>
+
+        {{-- Het filter werkt in de browser: het verbergt de rijen met een andere status.
+             Er gaat niets naar de server en er staat niets in de URL. --}}
+        @if($statuses->count() > 1)
+            <label class="flex items-center space-x-2 bg-gray-50 border border-gray-200 px-4 py-2 rounded-2xl text-xs font-bold text-[#011936] w-fit">
+                <span class="text-gray-400 uppercase tracking-wider text-[10px]">Status</span>
+                <select id="project-status-filter" class="text-xs font-bold text-[#011936] bg-gray-50 focus:outline-none"
+                        style="border: 0; padding: 0 24px 0 0; box-shadow: none;">
+                    <option value="">Alle</option>
+                    @foreach($statuses as $status)
+                        <option value="{{ $status }}">{{ $status }}</option>
+                    @endforeach
+                </select>
+            </label>
+        @endif
     </div>
 
     <div class="overflow-x-auto">
@@ -28,7 +42,7 @@
             </thead>
             <tbody class="divide-y divide-gray-100">
                 @forelse($projects as $project)
-                    <tr class="hover:bg-gray-50/60 transition duration-150 group">
+                    <tr class="hover:bg-gray-50/60 transition duration-150 group" data-project-row data-status="{{ $project->status }}">
                         <td class="p-4 pl-6">
                             <div class="flex items-center space-x-4">
                                 <div class="w-11 h-11 bg-blue-50/60 text-[#011936] rounded-xl flex items-center justify-center border border-blue-100/50 shrink-0 group-hover:bg-blue-50 transition-colors">
@@ -58,12 +72,13 @@
                         </td>
 
                         <td class="p-4 vertical-align-middle">
-                            @if($project->status === 'Actief' || $project->status === 'Strategie' || $project->status === 'Ontwikkeling')
-                                <span class="text-[10px] font-bold px-2.5 py-1 rounded-md bg-blue-50 text-blue-600 border border-blue-100 uppercase tracking-wider">
-                                    Actief
+                            {{-- De echte status van het project; afgeronde projecten zijn groen --}}
+                            @if($project->status === 'Live' || $project->status === 'Afgerond')
+                                <span class="text-[10px] font-bold px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-600 border border-emerald-100 uppercase tracking-wider">
+                                    {{ $project->status }}
                                 </span>
                             @else
-                                <span class="text-[10px] font-bold px-2.5 py-1 rounded-md bg-gray-100 text-gray-500 border border-gray-200 uppercase tracking-wider">
+                                <span class="text-[10px] font-bold px-2.5 py-1 rounded-md bg-blue-50 text-blue-600 border border-blue-100 uppercase tracking-wider">
                                     {{ $project->status }}
                                 </span>
                             @endif
@@ -98,7 +113,40 @@
                         </td>
                     </tr>
                 @endforelse
+
+                {{-- Verschijnt alleen als het filter geen enkel project overlaat --}}
+                <tr id="project-filter-empty" hidden>
+                    <td colspan="4" class="p-12 text-center text-sm text-gray-400 italic">
+                        Geen projecten met deze status.
+                    </td>
+                </tr>
             </tbody>
         </table>
     </div>
 </div>
+
+<script>
+    // Filter op status: rijen met een andere status verbergen
+    (function () {
+        const filter = document.getElementById('project-status-filter');
+        if (!filter) return;
+
+        const rows = Array.from(document.querySelectorAll('[data-project-row]'));
+        const empty = document.getElementById('project-filter-empty');
+        const count = document.getElementById('project-filter-count');
+
+        filter.addEventListener('change', function () {
+            let visible = 0;
+
+            rows.forEach(function (row) {
+                const show = filter.value === '' || row.getAttribute('data-status') === filter.value;
+
+                row.hidden = !show;
+                if (show) visible++;
+            });
+
+            if (empty) empty.hidden = visible > 0;
+            if (count) count.textContent = String(visible);
+        });
+    })();
+</script>

@@ -10,6 +10,14 @@ class CommentController extends Controller
 {
     public function store(Request $request, Document $document)
     {
+        // Veiligheid: alleen een medewerker van GKR of de klant van dit project mag reageren.
+        // Voorheen kon elke ingelogde klant een reactie plaatsen bij het document van een
+        // ander, door het nummer in de URL te veranderen. Ieder ander krijgt "niet gevonden".
+        $user = $request->user();
+        $isOwner = (int) ($document->project?->user_id ?? 0) === (int) $user->id;
+
+        abort_unless($user->isAdmin() || $isOwner, 404);
+
         // Validatie van de feedback
         $request->validate([
             'content' => 'required|string|max:1000',

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Project;
+use App\Services\AppointmentAvailability;
 use Illuminate\Http\Request;
 use \App\Models\User;
 
@@ -29,7 +30,7 @@ class DashboardController extends Controller
     /**
      * Toon het overzicht van alle admins en klanten (Gebruikersbeheer)
      */
-    public function usersIndex()
+    public function usersIndex(AppointmentAvailability $availability)
     {
         // Haal alle admins op, gesorteerd op naam
         $admins = User::where('is_admin', true)->orderBy('name')->get();
@@ -37,7 +38,10 @@ class DashboardController extends Controller
         // Haal alle klanten op, gesorteerd op naam
         $clients = User::where('is_admin', false)->with(['metaAdAccount', 'googleAdsAccount'])->orderBy('name')->get();
 
-        return view('admin.users.index', compact('admins', 'clients'));
+        // Bij welke medewerkers kon de Outlook-agenda de laatste keer niet gelezen worden?
+        $outlookProblems = $availability->outlookProblems();
+
+        return view('admin.users.index', compact('admins', 'clients', 'outlookProblems'));
     }
 
     /**

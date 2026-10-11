@@ -151,9 +151,15 @@
                                                 {{ $admin->hasOutlookCalendar() ? 'Vervangen' : 'Koppelen' }}
                                             </button>
                                         </form>
+                                        {{-- Kon het portaal deze agenda de laatste keer niet lezen? (bijv. link ingetrokken in Outlook) --}}
+                                        @php $outlookProblem = ($outlookProblems ?? [])[$admin->id] ?? null; @endphp
                                         <div class="mt-1.5 text-[11px] flex items-center gap-2">
                                             @if($admin->hasOutlookCalendar())
-                                                <span class="text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-md font-bold">Gekoppeld</span>
+                                                @if($outlookProblem)
+                                                    <span class="text-red-700 bg-red-50 border border-red-150 px-2 py-0.5 rounded-md font-bold">Link werkt niet</span>
+                                                @else
+                                                    <span class="text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-md font-bold">Gekoppeld</span>
+                                                @endif
                                                 <form method="POST" action="{{ route('admin.users.outlook-calendar.update', $admin) }}">
                                                     @csrf
                                                     @method('PATCH')
@@ -164,6 +170,15 @@
                                                 <span class="text-gray-400">Niet gekoppeld</span>
                                             @endif
                                         </div>
+                                        @if($admin->hasOutlookCalendar() && $outlookProblem)
+                                            <p class="mt-1 text-[11px] text-red-700">
+                                                Het lezen van deze agenda lukt niet sinds {{ $outlookProblem['since'] }}.
+                                                @if($outlookProblem['reason'])
+                                                    Melding: {{ $outlookProblem['reason'] }}
+                                                @endif
+                                                Vraag de medewerker om een nieuwe ICS-koppeling uit Outlook en klik op Vervangen.
+                                            </p>
+                                        @endif
                                     </td>
                                 </tr>
                             @endforeach

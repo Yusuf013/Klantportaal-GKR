@@ -7,6 +7,7 @@ use App\Models\User;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
@@ -72,6 +73,10 @@ class AppointmentAvailability
 
     // Zo lang slaan we Outlook over nadat het ophalen bij een medewerker is mislukt
     private const OUTLOOK_RETRY_SECONDS = 60;
+
+    // Zo lang onthouden we dat een agenda niet gelezen kon worden (voor de melding aan GKR).
+    // Zodra het lezen weer lukt, verdwijnt de melding meteen.
+    private const OUTLOOK_PROBLEM_DAYS = 30;
 
     public function __construct(private OutlookCalendar $outlook)
     {
@@ -279,35 +284,104 @@ class AppointmentAvailability
     }
 
     /**
+     * Bij welke medewerkers kon het portaal de Outlook-agenda de laatste keer niet lezen?
+     * Bijvoorbeeld omdat de link in Outlook is ingetrokken. Voor de melding aan GKR.
+     *
+     * Deze methode leest zelf geen agenda's: ze kijkt alleen naar wat er bij het
+     * laatste lezen is onthouden (zie outlookIntervals). De sleutel is het id van de
+     * medewerker. In 'reason' staat alleen een eigen melding, nooit de link.
+     * ALLEEN voor pagina's van GKR.
+     *
+     * @return array<int, array{employee: string, since: string, reason: ?string}>
+     */
+    public function outlookProblems(): array
+    {
+        $employees = User::query()
+            ->where('is_admin', true)
+            ->whereNotNull('outlook_ics_url')
+            ->orderBy('name')
+            ->get();
+
+        $problems = [];
+
+        foreach ($employees as $employee) {
+            $problem = Cache::get(self::outlookKey('problem', $employee));
+
+            if (is_array($problem)) {
+                $problems[$employee->id] = [
+                    'employee' => $employee->name,
+                    'since'    => $problem['since'] ?? '',
+                    'reason'   => $problem['reason'] ?? null,
+                ];
+            }
+        }
+
+        return $problems;
+    }
+
+    /**
      * De bezette momenten uit de Outlook-agenda van één medewerker.
-     * Lukt het ophalen niet, dan komt er een lege lijst terug (zie outlookBusyNames).
+     * Lukt het ophalen niet, dan komt er een lege lijst terug (zie outlookBusyNames)
+     * en onthouden we dat het misging, zodat GKR daar een melding van ziet.
      *
      * @return list<array{start: CarbonImmutable, end: CarbonImmutable}>
      */
     private function outlookIntervals(User $employee, DateTimeInterface $from, DateTimeInterface $to): array
     {
         // Net mislukt? Dan niet bij elk tijdslot opnieuw proberen (dat maakt de kalender traag)
-        $failedKey = "outlook_calendar:failed:{$employee->id}";
+        $failedKey = self::outlookKey('failed', $employee);
+        $problemKey = self::outlookKey('problem', $employee);
 
         if (Cache::has($failedKey)) {
             return [];
         }
 
         try {
-            return $this->outlook->busyIntervals($employee->outlook_ics_url, $from, $to);
+            $intervals = $this->outlook->busyIntervals($employee->outlook_ics_url, $from, $to);
         } catch (\Throwable $e) {
+            // Alleen meldingen bewaren en loggen waarvan we zeker weten dat de link er niet in staat:
+            // de eigen meldingen van OutlookCalendar (precies deze twee soorten fouten) en
+            // onze eigen tekst voor een link die niet meer te ontsleutelen is.
+            $reason = match (true) {
+                // Gebeurt als APP_KEY is veranderd: de opgeslagen link is dan onleesbaar geworden
+                $e instanceof DecryptException => 'De opgeslagen link is niet meer te lezen. Plak de link opnieuw.',
+                in_array(get_class($e), [RuntimeException::class, InvalidArgumentException::class], true) => $e->getMessage(),
+                default => null,
+            };
+
             Cache::put($failedKey, true, now()->addSeconds(self::OUTLOOK_RETRY_SECONDS));
 
-            // Alleen onze eigen meldingen loggen: daar staat de link gegarandeerd niet in
+            // Voor de melding aan GKR. 'since' blijft het moment waarop het voor het eerst misging.
+            Cache::put($problemKey, [
+                'since'  => Cache::get($problemKey)['since'] ?? now(self::TIMEZONE)->format('d-m-Y H:i'),
+                'reason' => $reason,
+            ], now()->addDays(self::OUTLOOK_PROBLEM_DAYS));
+
             Log::warning('Outlook-agenda kon niet worden gelezen, medewerker telt als vrij', [
                 'user_id' => $employee->id,
-                'reason'  => ($e instanceof RuntimeException || $e instanceof InvalidArgumentException)
-                    ? $e->getMessage()
-                    : get_class($e),
+                'reason'  => $reason ?? get_class($e),
             ]);
 
             return [];
         }
+
+        // Gelukt: een eerdere melding klopt dan niet meer
+        Cache::forget($problemKey);
+
+        return $intervals;
+    }
+
+    /**
+     * De naam waaronder we iets over de agenda van een medewerker onthouden.
+     *
+     * Achteraan staat een vingerafdruk van de opgeslagen (versleutelde) link.
+     * Wordt de link vervangen, dan verandert de vingerafdruk en begint de medewerker
+     * met een schone lei: een oude melding hoort niet bij een nieuwe link.
+     * De link zelf wordt hiervoor niet ontsleuteld en staat dus nergens leesbaar.
+     */
+    private static function outlookKey(string $kind, User $employee): string
+    {
+        return "outlook_calendar:{$kind}:{$employee->id}:" . sha1((string) $employee->getRawOriginal('outlook_ics_url'));
     }
 
     /**

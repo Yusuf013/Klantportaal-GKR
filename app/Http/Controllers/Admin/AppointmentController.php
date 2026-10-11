@@ -38,7 +38,11 @@ class AppointmentController extends Controller
         // Bezette tijden uit Outlook, als grijze blokken in de kalender (alleen voor GKR)
         $outlookBlocks = $availability->outlookCalendarBlocks();
 
-        return view('admin.appointments.index', compact('appointments', 'clients', 'projects', 'gkrEmployees', 'outlookBlocks'));
+        // Kon een agenda niet gelezen worden? Dan tonen we dat boven de kalender.
+        // Dit moet NA de regel hierboven staan: daar worden de agenda's gelezen.
+        $outlookProblems = $availability->outlookProblems();
+
+        return view('admin.appointments.index', compact('appointments', 'clients', 'projects', 'gkrEmployees', 'outlookBlocks', 'outlookProblems'));
     }
 
     /**

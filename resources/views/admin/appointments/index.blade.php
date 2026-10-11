@@ -67,6 +67,22 @@
                 </div>
             @endif
 
+            {{-- Waarschuwing als het portaal een Outlook-agenda niet kan lezen (bijv. link ingetrokken).
+                 Zonder deze melding merkt niemand dat de bezette tijden uit Outlook ontbreken. --}}
+            @if(! empty($outlookProblems ?? []))
+                <div class="p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-sm font-medium shadow-sm">
+                    <p class="font-bold">Let op: een Outlook-agenda kan niet gelezen worden</p>
+                    @foreach($outlookProblems as $outlookProblem)
+                        <p class="text-xs mt-1">{{ $outlookProblem['employee'] }}: lukt niet sinds {{ $outlookProblem['since'] }}.</p>
+                    @endforeach
+                    <p class="text-xs mt-1">
+                        De bezette tijden uit Outlook tellen voor deze medewerker nu niet mee. Kijk zelf in de agenda voordat je iets plant.
+                        Blijft deze melding staan, vraag dan een nieuwe ICS-koppeling en plak die bij
+                        <a href="{{ route('admin.users.index') }}" class="font-bold underline">Gebruikersbeheer</a>.
+                    </p>
+                </div>
+            @endif
+
             @php
     // 1. Filteren op afspraken waar de klant zelf een datum koos (Blauw)
     $alternativeAppointments = $appointments->where('status', 'Alternatief gekozen');

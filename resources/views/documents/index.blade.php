@@ -100,7 +100,7 @@
                                                 </svg>
                                             </a>
                                             
-                                            <a href="{{ asset('storage/' . $document->file_path) }}" target="_blank" class="p-1.5 text-gray-400 hover:text-[#011936] hover:bg-gray-100 rounded-lg transition" title="Download">
+                                            <a href="{{ route('documents.file', $document) }}" target="_blank" class="p-1.5 text-gray-400 hover:text-[#011936] hover:bg-gray-100 rounded-lg transition" title="Download">
                                                 <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                                 </svg>

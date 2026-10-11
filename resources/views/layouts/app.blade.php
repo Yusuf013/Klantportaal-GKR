@@ -8,7 +8,10 @@
         <title>{{ config('app.name', 'Laravel') }}</title>
 
         <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+        {{-- De lettertypen van de huisstijl: Maven Pro voor koppen (font-maven) en Inter (font-inter).
+             Voorheen werd hier Figtree geladen, dat nergens werd gebruikt; de koppen vielen
+             daardoor terug op het standaardlettertype van het apparaat. --}}
+        <link href="https://fonts.bunny.net/css?family=maven-pro:400,500,600,700|inter:400,500,600&display=swap" rel="stylesheet" />
 
         @vite(['resources/css/app.css', 'resources/js/app.js'])
         <style>

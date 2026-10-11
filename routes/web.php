@@ -101,6 +101,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/google-ads', [\App\Http\Controllers\GoogleAdsController::class, 'index'])
         ->name('google-ads.index');
 
+    Route::get('/documents/{document}/bestand', [\App\Http\Controllers\DocumentFileController::class, 'show'])->name('documents.file');
+
     
 
 });

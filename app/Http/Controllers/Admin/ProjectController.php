@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\DocumentFileController;
 use App\Models\Project;
 use App\Models\User;
 use App\Models\Document; // Netjes geïmporteerd voor je showDocument methode
@@ -66,7 +67,9 @@ public function store(Request $request)
             'file' => 'required|mimes:pdf,png,jpg,jpeg,webp|max:10240',
         ]);
 
-        $path = $request->file('file')->store('documents', 'public');
+        // Privéschijf: het bestand is niet via /storage/... bereikbaar, alleen via de
+        // beveiligde route (DocumentFileController) voor GKR en de klant van dit project
+        $path = $request->file('file')->store('documents', DocumentFileController::DISK);
 
         Document::create([
             'project_id' => $projectId,

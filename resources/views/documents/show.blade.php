@@ -28,14 +28,14 @@
                     <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                         <div class="bg-gray-100 p-4 border-b border-gray-200 flex justify-between items-center">
                             <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Voorbeeld weergave</span>
-                            <a href="{{ asset('storage/' . $document->file_path) }}" target="_blank" class="text-xs text-[#011936] hover:underline font-semibold flex items-center">
+                            <a href="{{ route('documents.file', $document) }}" target="_blank" class="text-xs text-[#011936] hover:underline font-semibold flex items-center">
                                 Open in nieuw tabblad &rarr;
                             </a>
                         </div>
                         
                         <div class="aspect-[4/3] w-full bg-gray-50">
                             <iframe 
-                                src="{{ asset('storage/' . $document->file_path) }}" 
+                                src="{{ route('documents.file', $document) }}" 
                                 class="w-full h-full border-0"
                                 style="min-height: 500px;">
                             </iframe>

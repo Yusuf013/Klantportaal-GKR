@@ -116,7 +116,7 @@
 
                     <div class="flex items-center space-x-6">
                         {{-- AANGEPAST (XSS-fix): namen en ID's via @js() in plaats van '{{ }}' binnen een onclick --}}
-                        <button type="button" onclick="openAlternativeDatePicker({{ $appointmentProposal->id }}, @js($appointmentProposal->attendees->pluck('id')->values()), @js($appointmentProposal->attendees->pluck('name')->join(' en ')))" class="text-xs font-bold text-gray-650 underline hover:text-[#011936] transition cursor-pointer">
+                        <button type="button" onclick="openAlternativeDatePicker({{ $appointmentProposal->id }}, @js($appointmentProposal->attendees->pluck('id')->values()), @js($appointmentProposal->attendees->pluck('name')->join(' en ')), @js($appointmentProposal->type))" class="text-xs font-bold text-gray-650 underline hover:text-[#011936] transition cursor-pointer">
                             Past geen van de tijden?
                         </button>
                         
@@ -148,7 +148,7 @@
                             <td class="p-4">
                                 <div class="font-medium text-gray-700">{{ $appointment->title }}</div>
                                 <div class="text-[11px] font-semibold text-gray-400 uppercase mt-0.5 tracking-wider">
-                                    {{ ucfirst($appointment->type) }}
+                                    {{ \App\Services\AppointmentAvailability::typeLabel($appointment->type) }}
                                 </div>
                             </td>
                             <td class="p-4 text-gray-650 font-medium">
@@ -190,7 +190,7 @@
                             <td class="p-4 pl-6 font-bold text-[#011936]">{{ $appointment->project->name ?? 'Geen project' }}</td>
                             <td class="p-4">
                                 <div class="font-medium text-gray-700">{{ $appointment->title }}</div>
-                                <div class="text-[11px] font-semibold text-gray-400 uppercase mt-0.5 tracking-wider">{{ ucfirst($appointment->type) }}</div>
+                                <div class="text-[11px] font-semibold text-gray-400 uppercase mt-0.5 tracking-wider">{{ \App\Services\AppointmentAvailability::typeLabel($appointment->type) }}</div>
                             </td>
                             <td class="p-4 text-gray-650 font-medium">
                                 @if($appointment->status === 'Voorstel')
@@ -922,13 +922,17 @@ let altSelectedSlotStr = "";
 let altProposalConfig = {
     appointmentId: null,
     employeeIds: [],
-    employeeNames: ""
+    employeeNames: "",
+    // Soort afspraak (telefoon, online of fysiek). Nodig voor de juiste regels:
+    // op kantoor kan bijvoorbeeld niet om 09:00 en heeft meer tijd ertussen nodig.
+    type: "online"
 };
 
-function openAlternativeDatePicker(appointmentId, employeeIds, employeeNames) {
+function openAlternativeDatePicker(appointmentId, employeeIds, employeeNames, appointmentType) {
     altProposalConfig.appointmentId = appointmentId;
     altProposalConfig.employeeIds = employeeIds;
     altProposalConfig.employeeNames = employeeNames;
+    altProposalConfig.type = appointmentType || "online";
 
     // Reset selecties
     altSelectedDateStr = "";
@@ -1040,7 +1044,8 @@ function fetchAltAvailableSlots(dateStr, formattedHuman) {
                     "Accept": "application/json",
                     "X-CSRF-TOKEN": document.querySelector('input[name="_token"]').value
                 },
-                body: JSON.stringify({ employee_id: empId, date: dateStr, time_slot: slot })
+                // Het soort afspraak gaat mee, zodat VRIJ/BEZET hier hetzelfde is als bij het versturen
+                body: JSON.stringify({ employee_id: empId, date: dateStr, time_slot: slot, type: altProposalConfig.type })
             })
             .then(res => res.json())
             .then(data => {

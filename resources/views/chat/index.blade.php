@@ -107,7 +107,8 @@
                     @forelse($messages as $message)
                         @php
                             $isMe = $message->sender_id === auth()->id();
-                            $senderName = $message->sender->name ?? 'Onbekend';
+                            // Geen afzender meer? Dan was het een medewerker van GKR die niet meer bestaat
+                            $senderName = $message->sender->name ?? 'GKR';
                             $senderInitials = mb_strtoupper(mb_substr($senderName, 0, 2));
                         @endphp
 
@@ -191,23 +192,34 @@
                         </div>
                     @empty
                         <div class="text-center text-slate-400 py-12 text-xs">
-                            Nog geen berichten. Typ hieronder om het gesprek te starten!
+                            @if(auth()->user()->isAdmin() && empty($selectedClient))
+                                Kies een klant om het gesprek te openen.
+                            @else
+                                Nog geen berichten. Typ hieronder om het gesprek te starten!
+                            @endif
                         </div>
                     @endforelse
                 </div>
 
                 {{-- Invoerformulier met Paperclip & Bestand-preview --}}
                 @php
-                    $receiverId = auth()->user()->isAdmin() ? ($selectedClient?->id) : ($mainAdmin?->id);
+                    // Een medewerker kan pas typen als er een klant gekozen is.
+                    // Een klant kan altijd typen: het bericht komt in het eigen gesprek met GKR.
+                    $isAdminUser = auth()->user()->isAdmin();
+                    $canSend = $isAdminUser ? ! empty($selectedClient) : true;
                 @endphp
 
-                @if($receiverId)
+                @if($canSend)
                     <div class="p-3 md:p-4 border-t border-slate-100 bg-white shrink-0">
                         
                         {{-- Formulier met enctype voor bestandsuploads --}}
                         <form action="{{ route('chat.store') }}" method="POST" enctype="multipart/form-data" class="flex flex-col gap-2">
                             @csrf
-                            <input type="hidden" name="receiver_id" value="{{ $receiverId }}">
+                            {{-- Alleen een medewerker geeft op voor welke klant het bericht is.
+                                 Bij een klant bepaalt de server het gesprek zelf. --}}
+                            @if($isAdminUser)
+                                <input type="hidden" name="receiver_id" value="{{ $selectedClient->id }}">
+                            @endif
                             
                             {{-- Verborgen File Input --}}
                             <input type="file" name="files[]" id="file-input" class="hidden" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.zip" onchange="showFilePreview(this)">

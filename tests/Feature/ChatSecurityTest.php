@@ -132,13 +132,20 @@ class ChatSecurityTest extends TestCase
         $client = $this->client();
         $other = $this->client();
 
-        // Ook al stuurt de klant een andere receiver_id mee, het bericht gaat naar GKR
+        // Ook al stuurt de klant een andere receiver_id mee, het bericht komt in het
+        // eigen gesprek met GKR terecht en nooit bij de andere klant
         $this->actingAs($client)->post(route('chat.store'), [
             'receiver_id' => $other->id,
             'body'        => 'Hallo',
         ]);
 
-        $this->assertSame($admin->id, (int) Message::first()->receiver_id);
+        $message = Message::first();
+
+        $this->assertSame($client->id, (int) $message->client_id);
+        $this->assertNull($message->receiver_id);
+
+        // De andere klant ziet het bericht niet
+        $this->actingAs($other)->get(route('chat.index'))->assertOk()->assertDontSee('Hallo');
     }
 
     public function test_admin_kan_alleen_naar_een_klant_sturen(): void

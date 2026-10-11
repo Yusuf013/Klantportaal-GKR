@@ -6,6 +6,7 @@ use App\Models\Message;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
@@ -18,6 +19,10 @@ class MessageController extends Controller
     // NIEUW: bijlagen staan op de privéschijf. Die is niet via /storage/... bereikbaar,
     // dus een bestand kan alleen nog via de beveiligde routes worden geopend.
     private const DISK = 'local';
+
+    // Rem op versturen, per gebruiker
+    private const MAX_SENDS_PER_MINUTE = 20;
+    private const MAX_FILES_PER_TEN_MINUTES = 20;
 
     /**
      * Mag dit bestand als voorbeeld in de browser worden getoond?
@@ -40,48 +45,48 @@ class MessageController extends Controller
         // --- ADMIN ZIJDE ---
         if ($authUser->isAdmin()) {
             $clients = User::where('is_admin', false)->orderBy('name')->get();
-            $selectedClientId = $request->query('client_id') ?? $clients->first()?->id;
 
-            // AANGEPAST: alleen klanten kunnen geselecteerd worden (niet een andere admin via de URL)
-            $selectedClient = $selectedClientId
-                ? User::where('is_admin', false)->find($selectedClientId)
+            // Alleen een klant die in de URL staat wordt geopend. Voorheen koos het portaal
+            // zelf de eerste klant uit de lijst en zette diens berichten op gelezen, ook
+            // als de medewerker dat gesprek helemaal niet had bekeken.
+            // Alleen klanten kunnen geselecteerd worden (niet een andere admin via de URL).
+            $clientId = $request->integer('client_id');
+            $selectedClient = $clientId > 0
+                ? User::where('is_admin', false)->find($clientId)
                 : null;
 
             $messages = collect();
 
             if ($selectedClient) {
-                // Berichten tussen deze specifieke klant en het GKR team
-                $messages = Message::where('sender_id', $selectedClient->id)
-                    ->orWhere('receiver_id', $selectedClient->id)
-                    ->with(['sender', 'receiver'])
-                    ->orderBy('created_at', 'asc')
-                    ->get();
+                $messages = $this->conversation($selectedClient->id);
 
-                // Markeer berichten van de klant als gelezen
-                Message::where('sender_id', $selectedClient->id)
-                    ->whereNull('read_at')
-                    ->update(['read_at' => now()]);
+                // De medewerker heeft dit gesprek nu echt open: berichten van de klant zijn gelezen
+                Message::markReadBy($authUser, $selectedClient->id);
             }
 
             return view('chat.index', compact('clients', 'selectedClient', 'messages'));
         }
 
         // --- KLANT ZIJDE ---
-        $messages = Message::where('sender_id', $authUser->id)
-            ->orWhere('receiver_id', $authUser->id)
-            ->with(['sender', 'receiver'])
-            ->orderBy('created_at', 'asc')
+        // Het gesprek komt altijd van de ingelogde klant zelf, nooit uit de URL
+        $messages = $this->conversation($authUser->id);
+
+        // De klant heeft het gesprek open: antwoorden van GKR zijn gelezen
+        Message::markReadBy($authUser, $authUser->id);
+
+        return view('chat.index', compact('messages'));
+    }
+
+    /**
+     * Alle berichten uit het gesprek van één klant, oudste eerst.
+     */
+    private function conversation(int $clientId)
+    {
+        return Message::inConversation($clientId)
+            ->with('sender')
+            ->orderBy('created_at')
+            ->orderBy('id')
             ->get();
-
-        // De hoofd-admin is de standaard ontvanger van nieuwe berichten
-        $mainAdmin = User::where('is_admin', true)->first();
-
-        // Markeer berichten van de admin aan de klant als gelezen
-        Message::where('receiver_id', $authUser->id)
-            ->whereNull('read_at')
-            ->update(['read_at' => now()]);
-
-        return view('chat.index', compact('messages', 'mainAdmin'));
     }
 
     /**
@@ -91,9 +96,21 @@ class MessageController extends Controller
     {
         $authUser = Auth::user();
 
+        // Rem op versturen, per gebruiker. Zonder rem kan iemand de schijf vol zetten
+        // of het gesprek volspammen.
+        $sendKey = 'chat-send:' . $authUser->id;
+
+        if (RateLimiter::tooManyAttempts($sendKey, self::MAX_SENDS_PER_MINUTE)) {
+            $seconds = RateLimiter::availableIn($sendKey);
+
+            return redirect()->back()->withErrors(['body' => "Je verstuurt berichten te snel achter elkaar. Probeer het over {$seconds} seconden opnieuw."]);
+        }
+
+        RateLimiter::hit($sendKey, 60);
+
         $request->validate([
-            // AANGEPAST: een admin stuurt altijd naar een KLANT. Een klant kiest zelf
-            // geen ontvanger; dat is altijd GKR (zie hieronder).
+            // Een admin stuurt altijd naar een KLANT. Een klant kiest zelf geen
+            // ontvanger: het bericht komt altijd in het eigen gesprek met GKR.
             // Let op: 0 en niet false (zie de les bij de afspraken).
             'receiver_id' => $authUser->isAdmin()
                 ? ['required', Rule::exists('users', 'id')->where('is_admin', 0)]
@@ -108,39 +125,47 @@ class MessageController extends Controller
             return redirect()->back()->withErrors(['body' => 'Vul een bericht in of kies ten minste één bestand.']);
         }
 
-        // Ontvanger bepalen
-        if ($authUser->isAdmin()) {
-            $receiverId = $request->receiver_id;
-        } else {
-            // AANGEPAST: een klant stuurt altijd naar GKR. Voorheen viel de code terug op
-            // receiver_id uit het formulier, en kon een klant zo een andere klant berichten.
-            $mainAdmin = User::where('is_admin', true)->first();
-            if (! $mainAdmin) {
-                return redirect()->back()->withErrors(['body' => 'Er is op dit moment geen medewerker beschikbaar om je bericht te ontvangen.']);
-            }
-            $receiverId = $mainAdmin->id;
+        $files = array_filter((array) $request->file('files', []), fn ($file) => $file && $file->isValid());
+
+        // Aparte, ruimere rem voor bijlagen
+        $filesKey = 'chat-files:' . $authUser->id;
+
+        if ($files && RateLimiter::remaining($filesKey, self::MAX_FILES_PER_TEN_MINUTES) < count($files)) {
+            $minutes = (int) ceil(RateLimiter::availableIn($filesKey) / 60);
+
+            return redirect()->back()->withErrors(['body' => "Je hebt in korte tijd veel bestanden verstuurd. Probeer het over {$minutes} minuten opnieuw."]);
         }
 
-        if ($request->hasFile('files')) {
-            foreach ($request->file('files') as $index => $file) {
-                if ($file->isValid()) {
-                    // AANGEPAST: privéschijf in plaats van 'public'
-                    $path = $file->store('chat-files', self::DISK);
+        // Bij welk gesprek hoort dit bericht?
+        // - Medewerker: het gesprek van de gekozen klant. Die klant is ook de ontvanger.
+        // - Klant: altijd het eigen gesprek. Er is geen vaste ontvanger: GKR leest als team.
+        //   (Voorheen ging het bericht naar "de eerste admin". Werd dat account
+        //   verwijderd, dan verdwenen de berichten van alle klanten.)
+        $clientId = $authUser->isAdmin() ? (int) $request->receiver_id : (int) $authUser->id;
+        $receiverId = $authUser->isAdmin() ? $clientId : null;
 
-                    Message::create([
-                        'sender_id'   => $authUser->id,
-                        'receiver_id' => $receiverId,
-                        // De tekst alleen bij het eerste bestand
-                        'body'        => ($index === 0) ? $request->body : null,
-                        'file_path'   => $path,
-                        'file_name'   => $file->getClientOriginalName(),
-                        'file_size'   => $file->getSize(),
-                        'file_type'   => strtolower($file->getClientOriginalExtension()),
-                    ]);
-                }
+        if ($files) {
+            foreach (array_values($files) as $index => $file) {
+                RateLimiter::hit($filesKey, 600);
+
+                // Privéschijf: niet bereikbaar via /storage/...
+                $path = $file->store('chat-files', self::DISK);
+
+                Message::create([
+                    'client_id'   => $clientId,
+                    'sender_id'   => $authUser->id,
+                    'receiver_id' => $receiverId,
+                    // De tekst alleen bij het eerste bestand
+                    'body'        => ($index === 0) ? $request->body : null,
+                    'file_path'   => $path,
+                    'file_name'   => $file->getClientOriginalName(),
+                    'file_size'   => $file->getSize(),
+                    'file_type'   => strtolower($file->getClientOriginalExtension()),
+                ]);
             }
         } else {
             Message::create([
+                'client_id'   => $clientId,
                 'sender_id'   => $authUser->id,
                 'receiver_id' => $receiverId,
                 'body'        => $request->body,
@@ -186,11 +211,17 @@ class MessageController extends Controller
     {
         $user = Auth::user();
 
-        // Alleen afzender, ontvanger of een admin
-        $isParticipant = (int) $message->sender_id === (int) $user->id
-            || (int) $message->receiver_id === (int) $user->id;
+        // Wie mag bij een bijlage?
+        // - een medewerker van GKR;
+        // - de klant van wie het gesprek is;
+        // - bij een oud bericht zonder gesprek: de afzender of de ontvanger.
+        $isOwnConversation = $message->client_id !== null
+            && (int) $message->client_id === (int) $user->id;
 
-        abort_unless($user->isAdmin() || $isParticipant, 403, 'Geen toegang tot dit bestand.');
+        $isOldParticipant = $message->client_id === null
+            && ((int) $message->sender_id === (int) $user->id || (int) $message->receiver_id === (int) $user->id);
+
+        abort_unless($user->isAdmin() || $isOwnConversation || $isOldParticipant, 403, 'Geen toegang tot dit bestand.');
         abort_unless($message->file_path, 404, 'Bestand niet gevonden.');
 
         // Nieuwe bijlagen staan op de privéschijf, oude nog op 'public'

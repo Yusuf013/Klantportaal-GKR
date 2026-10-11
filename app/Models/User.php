@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 
 #[Fillable(['name', 'email', 'password', 'role', 'is_admin'])]
 // outlook_ics_url is geheim: hij komt hierdoor nooit mee als een gebruiker naar JSON of JavaScript gaat
@@ -19,6 +20,37 @@ class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
+
+    protected static function booted(): void
+    {
+        // Wat er met de chat gebeurt als een account wordt verwijderd.
+        static::deleting(function (User $user) {
+            // 1. Antwoorden die deze gebruiker als medewerker schreef in het gesprek van een
+            //    klant blijven staan, maar zonder afzender. Zonder deze stap zou de database
+            //    ze automatisch weggooien en mist de klant een deel van het gesprek.
+            Message::where('sender_id', $user->id)
+                ->whereNotNull('client_id')
+                ->where('client_id', '!=', $user->id)
+                ->update(['sender_id' => null]);
+
+            Message::where('receiver_id', $user->id)
+                ->whereNotNull('client_id')
+                ->where('client_id', '!=', $user->id)
+                ->update(['receiver_id' => null]);
+
+            // 2. Het eigen gesprek van deze gebruiker (als klant) verdwijnt helemaal,
+            //    inclusief de bijlagen op de schijf.
+            $paths = Message::where('client_id', $user->id)->whereNotNull('file_path')->pluck('file_path');
+
+            foreach ($paths as $path) {
+                foreach (['local', 'public'] as $disk) {
+                    Storage::disk($disk)->delete($path);
+                }
+            }
+
+            Message::where('client_id', $user->id)->delete();
+        });
+    }
 
     /**
      * Get the attributes that should be cast.

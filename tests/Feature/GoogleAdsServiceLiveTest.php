@@ -312,7 +312,7 @@ class GoogleAdsServiceLiveTest extends TestCase
         Http::assertSentCount(2); // geen nieuwe verzoeken bij de tweede keer
     }
 
-    public function test_een_fout_wordt_niet_onthouden(): void
+    public function test_een_fout_wordt_een_minuut_onthouden_en_daarna_opnieuw_geprobeerd(): void
     {
         Http::fake([
             'googleads.googleapis.com/*' => Http::sequence()
@@ -321,15 +321,70 @@ class GoogleAdsServiceLiveTest extends TestCase
                 ->push(['results' => []]),
         ]);
 
+        // 1. Google geeft een fout
         try {
             $this->report();
             $this->fail('Er had een fout moeten komen.');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('Google Ads gaf een fout', $e->getMessage());
+        }
+
+        Http::assertSentCount(1);
+
+        // 2. Meteen daarna: het portaal wacht niet opnieuw op Google, maar meldt direct dat het misging
+        try {
+            $this->report();
+            $this->fail('Er had een fout moeten komen.');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('zojuist mislukt', $e->getMessage());
+        }
+
+        Http::assertSentCount(1); // geen nieuw verzoek
+
+        // 3. Een minuut later werkt Google weer: het portaal probeert het opnieuw
+        $this->travel(61)->seconds();
+
+        $this->assertSame(3500, $this->report()['totals']['impressions']);
+    }
+
+    public function test_er_wordt_geen_rapport_bewaard_als_het_ophalen_mislukt(): void
+    {
+        $this->fakeGoogleAdsError(500, 'INTERNAL');
+
+        try {
+            $this->report();
         } catch (RuntimeException) {
             // verwacht
         }
 
-        // Daarna werkt Google weer: het portaal probeert het gewoon opnieuw
-        $this->assertSame(3500, $this->report()['totals']['impressions']);
+        $this->assertNull(Cache::get('google_ads:live:1234567890:7:2026-10-09'));
+    }
+
+    public function test_verversen_haalt_altijd_opnieuw_op_en_vervangt_het_oude_rapport(): void
+    {
+        // Google geeft elke keer de cijfers die op dat moment in $impressions staan
+        $impressions = 1000;
+
+        Http::fake(function () use (&$impressions) {
+            return Http::response(['results' => [
+                $this->row('2026-10-09', '111', 'Zoeken - Merknaam', $impressions, 10, 1.0, 1_000_000),
+            ]]);
+        });
+
+        $service = app(GoogleAdsService::class);
+
+        $this->assertSame(1000, $service->getInsights($this->account(), 7)['totals']['impressions']);
+
+        // Bij Google zijn de cijfers bijgewerkt. De pagina merkt daar niets van: die leest het bewaarde rapport
+        $impressions = 1500;
+        $this->assertSame(1000, $service->getInsights($this->account(), 7)['totals']['impressions']);
+
+        // Verversen (wat de server op de achtergrond doet) haalt wel opnieuw op...
+        $this->assertSame(1500, $service->refresh($this->account(), 7)['totals']['impressions']);
+
+        // ...en daarna krijgt de pagina het nieuwe rapport, zonder zelf iets op te halen
+        $this->assertSame(1500, $service->getInsights($this->account(), 7)['totals']['impressions']);
+        Http::assertSentCount(4); // twee keer opgehaald, elke keer 2 verzoeken
     }
 
     // ---------- 4. Fouten ----------
@@ -346,6 +401,33 @@ class GoogleAdsServiceLiveTest extends TestCase
             $this->assertStringContainsString('(403 USER_PERMISSION_DENIED)', $e->getMessage());
             // De toegangscode mag nooit in een melding of log terechtkomen
             $this->assertStringNotContainsString('test-token', $e->getMessage());
+        }
+    }
+
+    public function test_onbekend_klantnummer_geeft_een_eigen_melding(): void
+    {
+        // Google geeft hier status 401, maar het ligt niet aan de inlog: het nummer klopt niet
+        $this->fakeGoogleAdsError(401, 'UNAUTHENTICATED', ['authenticationError' => 'CUSTOMER_NOT_FOUND']);
+
+        try {
+            $this->report();
+            $this->fail('Er had een fout moeten komen.');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('klantnummer is bij Google niet bekend', $e->getMessage());
+            $this->assertStringContainsString('(401 CUSTOMER_NOT_FOUND)', $e->getMessage());
+            $this->assertStringNotContainsString('inlog van het robotaccount', $e->getMessage());
+        }
+    }
+
+    public function test_geweigerde_inlog_geeft_nog_steeds_de_melding_over_het_robotaccount(): void
+    {
+        $this->fakeGoogleAdsError(401, 'UNAUTHENTICATED');
+
+        try {
+            $this->report();
+            $this->fail('Er had een fout moeten komen.');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('accepteert de inlog van het robotaccount niet', $e->getMessage());
         }
     }
 

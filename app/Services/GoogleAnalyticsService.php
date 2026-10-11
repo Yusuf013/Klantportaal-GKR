@@ -13,6 +13,8 @@ use Google\Analytics\Data\V1beta\RunReportRequest;
 use Google\Analytics\Data\V1beta\RunReportResponse;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use RuntimeException;
+use Throwable;
 
 /**
  * Haalt de websitecijfers van GKR op uit Google Analytics (GA4).
@@ -37,6 +39,11 @@ class GoogleAnalyticsService
 
     public const DEFAULT_PERIOD = 28;
 
+    // Mislukt het ophalen, dan proberen we het zo lang niet opnieuw (in seconden)
+    private const RETRY_SECONDS = 60;
+
+    private const RECENTLY_FAILED = 'Het ophalen bij Google Analytics is zojuist mislukt. Het portaal probeert het over een minuut opnieuw.';
+
     private ?BetaAnalyticsDataClient $client = null;
 
     public function isConfigured(): bool
@@ -46,31 +53,70 @@ class GoogleAnalyticsService
     }
 
     /**
-     * Alle gegevens voor de analytics-pagina, uit de cache als die er is.
-     * Gaat het ophalen mis, dan wordt er niets gecachet en komt de fout
-     * bij de controller terecht.
+     * Alle gegevens voor de analytics-pagina. Ligt er een rapport klaar, dan komt dat
+     * direct terug en hoeft de bezoeker niet te wachten. Alleen als er niets klaarligt,
+     * halen we het nu op. Gaat dat mis, dan wordt er geen rapport bewaard en komt de
+     * fout bij de controller terecht.
      */
     public function getDashboard(int $days = self::DEFAULT_PERIOD): array
     {
-        if (! array_key_exists($days, self::PERIODS)) {
-            $days = self::DEFAULT_PERIOD;
+        $days = $this->validPeriod($days);
+        $key = $this->cacheKey($days);
+
+        // 1. Ligt er een rapport klaar? Dan zijn we meteen klaar.
+        $data = Cache::get($key);
+
+        if (is_array($data)) {
+            return $data;
         }
 
-        $minutes = (int) config('services.google_analytics.cache_minutes', 180);
+        // 2. Ging het ophalen zojuist mis? Dan laten we de bezoeker niet bij elke
+        //    paginaweergave opnieuw op Google wachten. Over een minuut proberen we het weer.
+        if (Cache::has($key . ':failed')) {
+            throw new RuntimeException(self::RECENTLY_FAILED);
+        }
 
-        return Cache::remember(
-            $this->cacheKey($days),
-            now()->addMinutes($minutes),
-            fn () => $this->fetchDashboard($days)
-        );
+        // 3. Anders nu ophalen
+        return $this->refreshDashboard($days);
     }
 
-    /** Leegt de cache voor alle periodes. */
+    /**
+     * Haalt de gegevens ALTIJD opnieuw op en zet ze klaar, ook als er nog een rapport ligt.
+     * Dit gebruikt het commando marketing:warm, dat de server op de achtergrond draait.
+     */
+    public function refreshDashboard(int $days = self::DEFAULT_PERIOD): array
+    {
+        $days = $this->validPeriod($days);
+        $key = $this->cacheKey($days);
+
+        try {
+            $data = $this->fetchDashboard($days);
+        } catch (Throwable $e) {
+            // Kort onthouden dat het misging (er wordt geen rapport bewaard)
+            Cache::put($key . ':failed', true, self::RETRY_SECONDS);
+
+            throw $e;
+        }
+
+        Cache::put($key, $data, now()->addMinutes((int) config('services.google_analytics.cache_minutes', 180)));
+        Cache::forget($key . ':failed');
+
+        return $data;
+    }
+
+    /** Leegt de cache voor alle periodes (ook het geheugensteuntje "zojuist mislukt"). */
     public function clearCache(): void
     {
         foreach (array_keys(self::PERIODS) as $days) {
             Cache::forget($this->cacheKey($days));
+            Cache::forget($this->cacheKey($days) . ':failed');
         }
+    }
+
+    /** Onbekende periode? Dan de standaardperiode. */
+    private function validPeriod(int $days): int
+    {
+        return array_key_exists($days, self::PERIODS) ? $days : self::DEFAULT_PERIOD;
     }
 
     private function cacheKey(int $days): string
@@ -90,7 +136,11 @@ class GoogleAnalyticsService
         ];
     }
 
-    private function fetchDashboard(int $days): array
+    /**
+     * Het echte ophalen bij Google. "protected" (en niet "private"), zodat een test dit
+     * stuk kan vervangen: de tests praten nooit echt met Google.
+     */
+    protected function fetchDashboard(int $days): array
     {
         $ranges = $this->ranges($days);
 

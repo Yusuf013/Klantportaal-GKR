@@ -11,6 +11,7 @@ use InvalidArgumentException;
 use Random\Engine\Mt19937;
 use Random\Randomizer;
 use RuntimeException;
+use Throwable;
 
 /**
  * Haalt advertentiecijfers op voor één Meta-advertentieaccount.
@@ -39,6 +40,11 @@ class MetaAdsService
     // Veiligheidsgrens: nooit eindeloos doorbladeren
     private const MAX_PAGES = 10;
 
+    // Mislukt het ophalen, dan proberen we het zo lang niet opnieuw (in seconden)
+    private const RETRY_SECONDS = 60;
+
+    private const RECENTLY_FAILED = 'Het ophalen bij Meta is zojuist mislukt. Het portaal probeert het over een minuut opnieuw.';
+
     // Namen voor de nepdata. Echte campagnenamen komen uit Meta.
     private const FAKE_CAMPAIGNS = [
         'Leads - Nieuwe doelgroep',
@@ -49,11 +55,52 @@ class MetaAdsService
     ];
 
     /**
+     * Het rapport voor een pagina. Ligt er een rapport klaar, dan komt dat direct terug
+     * en hoeft de bezoeker niet te wachten. Alleen als er niets klaarligt, halen we het nu op.
+     *
      * Let op: deze methode vraagt bewust een AdAccount-model en geen los nummer.
      * Zo moet de aanroeper het account altijd uit de database halen
      * (bijv. via auth()->user()->metaAdAccount) en nooit uit de URL.
      */
     public function getInsights(AdAccount $account, int $days): array
+    {
+        [$days, $end, $cacheKey] = $this->prepare($account, $days);
+
+        // 1. Ligt er een rapport klaar? Dan zijn we meteen klaar.
+        $report = Cache::get($cacheKey);
+
+        if (is_array($report)) {
+            return $report;
+        }
+
+        // 2. Ging het ophalen zojuist mis? Dan laten we de bezoeker niet bij elke
+        //    paginaweergave opnieuw op Meta wachten. Over een minuut proberen we het weer.
+        if (Cache::has($cacheKey . ':failed')) {
+            throw new RuntimeException(self::RECENTLY_FAILED);
+        }
+
+        // 3. Anders nu ophalen
+        return $this->fetchAndStore($account->account_id, $days, $end, $cacheKey);
+    }
+
+    /**
+     * Haalt het rapport ALTIJD opnieuw op en zet het klaar, ook als er nog een rapport ligt.
+     * Dit gebruikt het commando marketing:warm, dat de server op de achtergrond draait.
+     * Zo ligt er steeds een vers rapport klaar voordat iemand de pagina opent.
+     */
+    public function refresh(AdAccount $account, int $days): array
+    {
+        [$days, $end, $cacheKey] = $this->prepare($account, $days);
+
+        return $this->fetchAndStore($account->account_id, $days, $end, $cacheKey);
+    }
+
+    /**
+     * Controleert het account en de periode en bepaalt onder welke naam het rapport wordt bewaard.
+     *
+     * @return array{0: int, 1: CarbonImmutable, 2: string}
+     */
+    private function prepare(AdAccount $account, int $days): array
     {
         if ($account->platform !== AdAccount::PLATFORM_META) {
             throw new InvalidArgumentException('Dit is geen Meta-advertentieaccount.');
@@ -70,13 +117,28 @@ class MetaAdsService
         // "v2": sinds de campagnes erbij zitten heeft het rapport een extra onderdeel.
         // Door het versienummer worden oude rapporten (zonder campagnes) niet meer gebruikt.
         $mode = $this->usesFakeData() ? 'fake' : 'live';
-        $cacheKey = "meta_ads:v2:{$mode}:{$account->account_id}:{$days}:{$end->toDateString()}";
 
-        return Cache::remember(
-            $cacheKey,
-            now()->addMinutes((int) config('services.meta_ads.cache_minutes', 180)),
-            fn () => $this->buildReport($account->account_id, $days, $end)
-        );
+        return [$days, $end, "meta_ads:v2:{$mode}:{$account->account_id}:{$days}:{$end->toDateString()}"];
+    }
+
+    /**
+     * Haalt het rapport op en bewaart het. Mislukt het, dan onthouden we dat kort
+     * (en bewaren we geen rapport), zodat de fout bij de aanroeper terechtkomt.
+     */
+    private function fetchAndStore(string $accountId, int $days, CarbonImmutable $end, string $cacheKey): array
+    {
+        try {
+            $report = $this->buildReport($accountId, $days, $end);
+        } catch (Throwable $e) {
+            Cache::put($cacheKey . ':failed', true, self::RETRY_SECONDS);
+
+            throw $e;
+        }
+
+        Cache::put($cacheKey, $report, now()->addMinutes((int) config('services.meta_ads.cache_minutes', 180)));
+        Cache::forget($cacheKey . ':failed');
+
+        return $report;
     }
 
     public function usesFakeData(): bool

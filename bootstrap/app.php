@@ -27,6 +27,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->web(append: [
             \App\Http\Middleware\SitePasswordProtection::class,
+            // Pagina's achter de inlog niet laten bewaren door de browser (terugknop na uitloggen)
+            \App\Http\Middleware\PreventBrowserCaching::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

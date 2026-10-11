@@ -14,7 +14,17 @@
         <style>
         [x-cloak] { display: none !important; }
     </style>
-</head>
+
+        {{-- Extra vangnet bij de terugknop. Sommige browsers halen een pagina in zijn geheel
+             uit het geheugen terug, zonder de server iets te vragen. Gebeurt dat, dan laden
+             we de pagina opnieuw, zodat de server beslist wie er is ingelogd. --}}
+        <script>
+            window.addEventListener('pageshow', function (event) {
+                if (event.persisted) {
+                    window.location.reload();
+                }
+            });
+        </script>
     </head>
     <body class="font-sans antialiased bg-gray-100 overflow-x-hidden">
         <div class="min-h-screen flex flex-col">

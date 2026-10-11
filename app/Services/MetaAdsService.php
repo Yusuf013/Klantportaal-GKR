@@ -96,6 +96,26 @@ class MetaAdsService
     }
 
     /**
+     * Het rapport als het al klaarligt, anders niets (null). Deze functie wacht NOOIT op Meta.
+     * Gebruikt op het dashboard: dat moet altijd direct laden, ook als er nog geen rapport is.
+     * (Met nepdata maakt het portaal het rapport zelf, zonder wachttijd.)
+     */
+    public function readyInsights(AdAccount $account, int $days): ?array
+    {
+        [$days, $end, $cacheKey] = $this->prepare($account, $days);
+
+        $report = Cache::get($cacheKey);
+
+        if (is_array($report)) {
+            return $report;
+        }
+
+        return $this->usesFakeData()
+            ? $this->fetchAndStore($account->account_id, $days, $end, $cacheKey)
+            : null;
+    }
+
+    /**
      * Controleert het account en de periode en bepaalt onder welke naam het rapport wordt bewaard.
      *
      * @return array{0: int, 1: CarbonImmutable, 2: string}

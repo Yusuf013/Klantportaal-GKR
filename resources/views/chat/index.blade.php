@@ -15,7 +15,7 @@
                             <svg class="w-4 h-4 absolute left-3.5 top-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                             </svg>
-                            <input type="text" placeholder="Zoek gesprekken..." class="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs text-slate-700 focus:outline-none focus:border-slate-400 transition-colors">
+                            <input type="text" id="chat-search" autocomplete="off" placeholder="Zoek op naam of e-mail..." class="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs text-slate-700 focus:outline-none focus:border-slate-400 transition-colors">
                         </div>
                     </div>
 
@@ -23,46 +23,10 @@
                     <div class="flex-1 overflow-y-auto p-2 space-y-1 no-scrollbar">
                         <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 my-2">Directe Berichten</p>
                         
-                        <ul class="space-y-1">
-                            @forelse($clients as $client)
-                                @php
-                                    $isSelected = isset($selectedClient) && $selectedClient && $selectedClient->id === $client->id;
-                                    // mb_substr: knipt niet midden in een letter als é
-                                    $initials = mb_strtoupper(mb_substr($client->name, 0, 2));
-                                    // Ongelezen berichten en het laatste bericht van dit gesprek (komt uit de controller)
-                                    $summary = ($overview ?? [])[$client->id] ?? null;
-                                    $unread = $summary['unread'] ?? 0;
-                                @endphp
-                                <li data-client-id="{{ $client->id }}" data-unread="{{ $unread }}">
-                                    <a href="{{ route('chat.index', ['client_id' => $client->id]) }}" 
-                                       class="flex items-center gap-3 p-3 rounded-xl transition-all duration-150 {{ $isSelected ? 'bg-slate-100/80 shadow-sm' : 'hover:bg-slate-50' }}">
-                                        
-                                        <div class="w-9 h-9 rounded-full bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center shrink-0">
-                                            {{ $initials }}
-                                        </div>
-
-                                        <div class="flex-1 min-w-0">
-                                            <div class="flex items-center justify-between gap-2">
-                                                <h4 class="text-xs font-bold text-slate-900 truncate">{{ $client->name }}</h4>
-                                                @if($summary)
-                                                    <span class="text-[10px] text-slate-400 shrink-0">{{ $summary['last_time'] }}</span>
-                                                @endif
-                                            </div>
-                                            <div class="flex items-center justify-between gap-2 mt-0.5">
-                                                {{-- Laatste bericht; nog geen berichten? Dan het e-mailadres --}}
-                                                <p class="text-[11px] truncate {{ $unread > 0 ? 'text-slate-900 font-semibold' : 'text-slate-400' }}">{{ $summary['preview'] ?? $client->email }}</p>
-                                                @if($unread > 0)
-                                                    {{-- Zelfde rode teller als in de zijbalk, maar dan per klant --}}
-                                                    <span class="inline-flex items-center justify-center px-2 py-0.5 text-[10px] font-bold leading-none text-white bg-red-500 rounded-full shrink-0" title="Ongelezen berichten">{{ $unread > 99 ? '99+' : $unread }}</span>
-                                                @endif
-                                            </div>
-                                        </div>
-                                    </a>
-                                </li>
-                            @empty
-                                <li class="p-4 text-xs text-slate-400 text-center">Geen klanten gevonden.</li>
-                            @endforelse
-                        </ul>
+                        {{-- De lijst staat in chat/_clients. De chat ververst dit vak tussendoor. --}}
+                        <div id="chat-client-list">
+                            @include('chat._clients')
+                        </div>
                     </div>
                 </div>
             @endif
@@ -92,9 +56,7 @@
                             <h3 class="text-xs md:text-sm font-bold text-slate-900">
                                 {{ auth()->user()->isAdmin() ? ($selectedClient ? $selectedClient->name : 'Selecteer een klant') : 'GKR Digital Agency' }}
                             </h3>
-                            <p class="text-[10px] text-emerald-500 font-medium flex items-center gap-1">
-                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Online
-                            </p>
+                            {{-- Hier stond altijd "Online", ook als er niemand online was. Dat is weggehaald. --}}
                         </div>
                     </div>
                 </div>
@@ -108,103 +70,21 @@
                     </div>
                 @endif
 
+                {{-- Foutmelding bij versturen zonder herladen. De tekst wordt met textContent gezet. --}}
+                <div id="chat-error" role="alert" class="hidden mx-4 mt-3 p-3 bg-red-50 border border-red-150 text-red-700 rounded-xl text-xs font-medium"></div>
+
                 {{-- Berichtenstroom --}}
                 <div class="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 bg-[#F8FAFC] no-scrollbar" id="message-container">
                     
-                    <div class="text-center my-1">
-                        <span class="text-[9px] font-bold tracking-wider text-slate-400 uppercase bg-slate-100/80 px-2.5 py-0.5 rounded-full">
-                            Berichtenverloop
-                        </span>
-                    </div>
+                    @php $previousDay = null; @endphp
 
                     @forelse($messages as $message)
-                        @php
-                            $isMe = $message->sender_id === auth()->id();
-                            // Geen afzender meer? Dan was het een medewerker van GKR die niet meer bestaat
-                            $senderName = $message->sender->name ?? 'GKR';
-                            $senderInitials = mb_strtoupper(mb_substr($senderName, 0, 2));
-                        @endphp
-
-                        <div class="flex gap-2.5 {{ $isMe ? 'flex-row-reverse' : 'flex-row' }} items-end">
-                            
-                            <div class="w-7 h-7 rounded-full {{ $isMe ? 'bg-[#011936] text-white' : 'bg-slate-200 text-slate-700' }} font-bold text-[9px] flex items-center justify-center shrink-0">
-                                {{ $isMe ? 'ME' : $senderInitials }}
-                            </div>
-
-                            <div class="flex flex-col {{ $isMe ? 'items-end' : 'items-start' }} max-w-[85%] md:max-w-xl">
-                                
-                                @if(!$isMe)
-                                    <span class="text-[10px] font-bold text-slate-600 mb-0.5 pl-1">
-                                        {{ $senderName }} <span class="text-[9px] font-normal text-slate-400 ml-1">{{ $message->created_at->format('H:i') }}</span>
-                                    </span>
-                                @endif
-
-                                {{-- Bericht Bubble --}}
-                                <div class="px-4 py-3 rounded-2xl text-xs leading-relaxed {{ $isMe ? 'bg-[#011936] text-white rounded-br-none shadow-sm' : 'bg-white border border-slate-200/80 text-slate-800 rounded-bl-none shadow-sm' }}">
-                                    
-                                    {{-- Tekstgedeelte --}}
-                                    @if($message->body)
-                                        <p class="{{ $message->file_path ? 'mb-2.5' : '' }}">{{ $message->body }}</p>
-                                    @endif
-
-                                    {{-- Bijlage-kaart die de modal opent --}}
-                                    @if($message->file_path)
-                                        @php
-                                            // Type van het OPGESLAGEN bestand (bepaald door Laravel), niet de naam van de gebruiker
-                                            $storedType = strtolower(pathinfo($message->file_path, PATHINFO_EXTENSION));
-                                            $previewUrl = \App\Http\Controllers\MessageController::canPreview($message->file_path)
-                                                ? route('chat.preview', $message)
-                                                : null;
-                                        @endphp
-                                        {{-- AANGEPAST (XSS-fix): alle waarden via @js() in plaats van '{{ }}'.
-                                             De bestandsnaam en de naam van de afzender kiest de gebruiker zelf;
-                                             met een apostrof erin kon je uit de JavaScript-tekst breken.
-                                             Het voorbeeld gaat nu via de beveiligde route, niet meer via /storage/... --}}
-                                        <div onclick="openDocumentModal(@js($message->file_name ?? 'Document'), @js($message->formatted_file_size), @js($senderName), @js($message->created_at->format('d M')), @js(route('chat.download', $message)), @js($previewUrl), @js($storedType), @js($message->body))" 
-                                             class="flex items-center justify-between gap-4 p-3 bg-white rounded-xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all cursor-pointer group my-0.5">
-                                            
-                                            <div class="flex items-center gap-3 min-w-0">
-                                                <div class="w-10 h-10 rounded-lg bg-red-50 text-red-500 flex items-center justify-center shrink-0">
-                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
-                                                    </svg>
-                                                </div>
-
-                                                <div class="min-w-0">
-                                                    <p class="text-xs font-bold text-slate-800 truncate group-hover:text-indigo-600 transition-colors">
-                                                        {{ $message->file_name ?? 'Document' }}
-                                                    </p>
-                                                    <p class="text-[10px] text-slate-400 mt-0.5">
-                                                        {{ $message->formatted_file_size }} • {{ strtoupper($storedType ?: 'bestand') }}
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            <div class="text-slate-400 group-hover:text-slate-700 transition-colors shrink-0">
-                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                                                </svg>
-                                            </div>
-                                        </div>
-                                    @endif
-
-                                </div>
-
-                                {{-- Tijd + Gelezen status voor eigen berichten --}}
-                                @if($isMe)
-                                    <div class="flex items-center gap-1 text-[9px] text-slate-400 mt-0.5 pr-1">
-                                        <span>{{ $message->created_at->format('H:i') }}</span>
-                                        <span>•</span>
-                                        <span class="{{ $message->read_at ? 'text-slate-600 font-semibold' : 'text-slate-400' }}">
-                                            {{ $message->read_at ? 'Gelezen' : 'Verzonden' }}
-                                        </span>
-                                    </div>
-                                @endif
-                            </div>
-                        </div>
+                        @php $day = $message->created_at->toDateString(); @endphp
+                        @include('chat._message', ['message' => $message, 'showDate' => $day !== $previousDay])
+                        @php $previousDay = $day; @endphp
                     @empty
-                        <div class="text-center text-slate-400 py-12 text-xs">
+                        {{-- id: de chat haalt deze tekst weg zodra het eerste bericht binnenkomt --}}
+                        <div id="chat-empty" class="text-center text-slate-400 py-12 text-xs">
                             @if(auth()->user()->isAdmin() && empty($selectedClient))
                                 Kies een klant om het gesprek te openen.
                             @else
@@ -226,7 +106,7 @@
                     <div class="p-3 md:p-4 border-t border-slate-100 bg-white shrink-0">
                         
                         {{-- Formulier met enctype voor bestandsuploads --}}
-                        <form action="{{ route('chat.store') }}" method="POST" enctype="multipart/form-data" class="flex flex-col gap-2">
+                        <form id="chat-form" action="{{ route('chat.store') }}" method="POST" enctype="multipart/form-data" class="flex flex-col gap-2">
                             @csrf
                             {{-- Alleen een medewerker geeft op voor welke klant het bericht is.
                                  Bij een klant bepaalt de server het gesprek zelf. --}}
@@ -264,13 +144,14 @@
                                 {{-- Tekst Invoer --}}
                                 <input type="text" 
                                        name="body" 
+                                       id="chat-body"
                                        maxlength="2000"
                                        placeholder="Typ een bericht..." 
                                        autocomplete="off"
                                        class="flex-1 bg-transparent border-0 px-2 text-xs text-slate-800 focus:outline-none focus:ring-0 placeholder:text-slate-400">
                                 
                                 {{-- Verzendknop --}}
-                                <button type="submit" class="bg-[#011936] hover:bg-slate-800 text-white p-2.5 rounded-lg transition-all flex items-center justify-center shrink-0">
+                                <button type="submit" id="chat-send" class="bg-[#011936] hover:bg-slate-800 text-white p-2.5 rounded-lg transition-all flex items-center justify-center shrink-0">
                                     <svg class="w-4 h-4 transform rotate-90" fill="currentColor" viewBox="0 0 20 20">
                                         <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/>
                                     </svg>
@@ -361,13 +242,271 @@
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 
+    @php
+        // Instellingen voor de chat zonder herladen. Alleen adressen en nummers, geen teksten van gebruikers.
+        $chatConfig = [
+            'messagesUrl'      => route('chat.messages'),
+            // Alleen bij een medewerker: van welke klant het gesprek open staat
+            'clientId'         => auth()->user()->isAdmin() ? ($selectedClient->id ?? null) : null,
+            'conversationOpen' => $canSend,
+            // Het hoogste berichtnummer dat al op de pagina staat
+            'lastId'           => (int) ($messages->max('id') ?? 0),
+            // Zo vaak kijkt de chat of er iets nieuws is (in milliseconden)
+            'pollMs'           => 5000,
+        ];
+    @endphp
+
     <script>
-        document.addEventListener("DOMContentLoaded", function() {
+        // ------------------------------------------------------------------
+        // CHAT ZONDER HERLADEN
+        // De pagina vraagt om de paar seconden aan de server of er iets nieuws is.
+        // De server stuurt de opmaak van nieuwe berichten kant-en-klaar terug
+        // (gemaakt met chat/_message, dus met dezelfde beveiliging als de pagina zelf).
+        // Werkt JavaScript niet? Dan werkt het formulier nog gewoon met herladen.
+        // ------------------------------------------------------------------
+        (function () {
+            const config = @js($chatConfig);
+
             const container = document.getElementById('message-container');
-            if(container) {
+            const form = document.getElementById('chat-form');
+            const errorBox = document.getElementById('chat-error');
+            const clientList = document.getElementById('chat-client-list');
+            const search = document.getElementById('chat-search');
+
+            if (!container) return;
+
+            let lastId = Number(config.lastId) || 0;
+            let busy = false;      // er loopt al een verzoek
+            let again = false;     // tijdens dat verzoek kwam er nog een vraag bij
+
+            function scrollToBottom() {
                 container.scrollTop = container.scrollHeight;
             }
-        });
+
+            // Staat de gebruiker (bijna) onderaan? Alleen dan schuiven we mee bij een nieuw bericht.
+            // Wie omhoog heeft gescrold om iets terug te lezen, laten we met rust.
+            function nearBottom() {
+                return container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+            }
+
+            function showError(text) {
+                if (!errorBox) return;
+                errorBox.textContent = text; // textContent: wordt nooit als HTML gelezen
+                errorBox.classList.remove('hidden');
+            }
+
+            function hideError() {
+                if (!errorBox) return;
+                errorBox.textContent = '';
+                errorBox.classList.add('hidden');
+            }
+
+            // Zoekbalk: laat alleen klanten zien waarvan naam of e-mail de zoektekst bevat
+            function applySearch() {
+                if (!clientList) return;
+                const query = (search ? search.value : '').trim().toLowerCase();
+
+                clientList.querySelectorAll('li[data-client-id]').forEach(function (item) {
+                    const text = item.getAttribute('data-search') || '';
+                    item.classList.toggle('hidden', query !== '' && !text.includes(query));
+                });
+            }
+
+            // De rode teller in de zijbalk
+            function updateBadge(count) {
+                const badge = document.getElementById('chat-unread-badge');
+                if (!badge || typeof count !== 'number') return;
+
+                badge.textContent = count > 99 ? '99+' : String(count);
+                badge.style.display = count > 0 ? '' : 'none';
+            }
+
+            // Nieuwe berichten onderaan toevoegen. Een bericht dat er al staat slaan we over.
+            function addMessages(html) {
+                if (!html) return false;
+
+                const template = document.createElement('template');
+                template.innerHTML = html; // opmaak van onze eigen server, gemaakt door Blade
+
+                let added = false;
+
+                template.content.querySelectorAll('[data-message-id]').forEach(function (node) {
+                    const id = node.getAttribute('data-message-id');
+
+                    if (container.querySelector('[data-message-id="' + id + '"]')) {
+                        node.remove();
+                    } else {
+                        added = true;
+                    }
+                });
+
+                if (added) {
+                    const empty = document.getElementById('chat-empty');
+                    if (empty) empty.remove();
+
+                    container.appendChild(template.content);
+                }
+
+                return added;
+            }
+
+            // Eigen berichten die de ander heeft geopend krijgen "Gelezen"
+            function markRead(upTo) {
+                if (!upTo) return;
+
+                container.querySelectorAll('[data-mine="1"]').forEach(function (node) {
+                    if (Number(node.getAttribute('data-message-id')) > upTo) return;
+
+                    const status = node.querySelector('[data-read-status]');
+
+                    if (status && status.textContent.trim() !== 'Gelezen') {
+                        status.textContent = 'Gelezen';
+                        status.className = 'text-slate-600 font-semibold';
+                    }
+                });
+            }
+
+            function apply(data) {
+                const wasNearBottom = nearBottom();
+
+                if (addMessages(data.html) && wasNearBottom) {
+                    scrollToBottom();
+                }
+
+                if (Number(data.last_id) > lastId) {
+                    lastId = Number(data.last_id);
+                }
+
+                markRead(Number(data.read_up_to) || 0);
+
+                if (clientList && typeof data.clients_html === 'string') {
+                    clientList.innerHTML = data.clients_html; // opmaak van onze eigen server
+                    applySearch();
+                }
+
+                updateBadge(data.unread_total);
+            }
+
+            // Vraag de server of er iets nieuws is
+            async function refresh() {
+                if (busy) {
+                    again = true;
+                    return;
+                }
+
+                busy = true;
+
+                try {
+                    const params = new URLSearchParams();
+                    params.set('after', String(lastId));
+                    // Alleen als de pagina echt in beeld is, telt een nieuw bericht als gelezen
+                    params.set('seen', document.visibilityState === 'visible' && config.conversationOpen ? '1' : '0');
+
+                    if (config.clientId) {
+                        params.set('client_id', String(config.clientId));
+                    }
+
+                    const response = await fetch(config.messagesUrl + '?' + params.toString(), {
+                        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                        credentials: 'same-origin',
+                    });
+
+                    // Niet meer ingelogd of sessie verlopen: pagina herladen, dan volgt het inlogscherm
+                    if (response.status === 401 || response.status === 419) {
+                        window.location.reload();
+                        return;
+                    }
+
+                    if (response.ok) {
+                        apply(await response.json());
+                    }
+                } catch (error) {
+                    // Even geen verbinding: de volgende ronde proberen we het opnieuw
+                } finally {
+                    busy = false;
+
+                    if (again) {
+                        again = false;
+                        refresh();
+                    }
+                }
+            }
+
+            // Versturen zonder herladen
+            if (form) {
+                form.addEventListener('submit', async function (event) {
+                    event.preventDefault();
+                    hideError();
+
+                    const button = document.getElementById('chat-send');
+                    const body = document.getElementById('chat-body');
+
+                    if (button) button.disabled = true;
+
+                    try {
+                        const response = await fetch(form.action, {
+                            method: 'POST',
+                            body: new FormData(form), // bevat ook de beveiligingscode (_token) en de bestanden
+                            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                            credentials: 'same-origin',
+                        });
+
+                        if (response.status === 401 || response.status === 419) {
+                            window.location.reload();
+                            return;
+                        }
+
+                        // De server weigert het verzoek omdat het in totaal te groot is
+                        if (response.status === 413) {
+                            showError('De bestanden zijn samen te groot om te versturen. Verstuur ze los of kies kleinere bestanden.');
+                            return;
+                        }
+
+                        let data = {};
+                        try { data = await response.json(); } catch (error) { data = {}; }
+
+                        if (!response.ok) {
+                            const firstError = data.errors ? Object.values(data.errors)[0] : null;
+
+                            showError((firstError && firstError[0]) || data.message || 'Het bericht kon niet worden verstuurd. Probeer het opnieuw.');
+                            return;
+                        }
+
+                        if (body) body.value = '';
+                        if (typeof clearFile === 'function') clearFile();
+
+                        await refresh();
+                        scrollToBottom();
+                    } catch (error) {
+                        showError('Geen verbinding. Controleer je internet en probeer het opnieuw.');
+                    } finally {
+                        if (button) button.disabled = false;
+                        if (body) body.focus();
+                    }
+                });
+            }
+
+            if (search) {
+                search.addEventListener('input', applySearch);
+            }
+
+            // Bij het openen: naar het laatste bericht
+            scrollToBottom();
+
+            // Om de paar seconden kijken, maar alleen als de pagina in beeld is
+            setInterval(function () {
+                if (document.visibilityState === 'visible') {
+                    refresh();
+                }
+            }, Number(config.pollMs) || 5000);
+
+            // Kom je terug op dit tabblad? Dan meteen bijwerken
+            document.addEventListener('visibilitychange', function () {
+                if (document.visibilityState === 'visible') {
+                    refresh();
+                }
+            });
+        })();
 
         function showFilePreview(input) {
             const previewContainer = document.getElementById('file-preview');

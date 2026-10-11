@@ -293,12 +293,9 @@
 
     <span>{{ __('Chat / Support') }}</span>
 
-    {{-- Unread Badge --}}
-    @if($badgeCount > 0)
-        <span class="ml-auto inline-flex items-center justify-center px-2 py-0.5 text-[10px] font-bold leading-none text-white bg-red-500 rounded-full animate-pulse shadow-sm">
-            {{ $badgeCount > 99 ? '99+' : $badgeCount }}
-        </span>
-    @endif
+    {{-- Unread Badge. Staat er altijd, maar is verborgen bij 0: zo kan de chatpagina
+         de teller bijwerken zonder de pagina te herladen. --}}
+    <span id="chat-unread-badge" @if($badgeCount < 1) style="display:none" @endif class="ml-auto inline-flex items-center justify-center px-2 py-0.5 text-[10px] font-bold leading-none text-white bg-red-500 rounded-full animate-pulse shadow-sm">{{ $badgeCount > 99 ? '99+' : $badgeCount }}</span>
 </x-nav-link>
         </div>
     </div>

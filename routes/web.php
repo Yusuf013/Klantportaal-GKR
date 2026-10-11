@@ -48,6 +48,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/chat', [MessageController::class, 'index'])->name('chat.index');
     Route::post('/chat', [MessageController::class, 'store'])->name('chat.store');
+    Route::get('/chat/berichten', [MessageController::class, 'messages'])->name('chat.messages');
+
     // Bijlagen: alleen ingelogd; de controller controleert of het bericht van jou is
     Route::get('/chat/download/{message}', [MessageController::class, 'download'])->name('chat.download');
     Route::get('/chat/voorbeeld/{message}', [MessageController::class, 'preview'])->name('chat.preview');
@@ -98,7 +100,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/google-ads', [\App\Http\Controllers\GoogleAdsController::class, 'index'])
         ->name('google-ads.index');
 
-
+    
 
 });
 

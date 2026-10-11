@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class MessageController extends Controller
@@ -64,7 +65,19 @@ class MessageController extends Controller
                 Message::markReadBy($authUser, $selectedClient->id);
             }
 
-            return view('chat.index', compact('clients', 'selectedClient', 'messages'));
+            // Per klant: hoeveel ongelezen, en wat het laatste bericht was.
+            // Dit moet NA het markeren hierboven: het gesprek dat nu open staat is gelezen.
+            $overview = $this->overview();
+
+            // Gesprekken met ongelezen berichten bovenaan, daarna het meest recente gesprek.
+            // Klanten zonder berichten staan onderaan, op naam.
+            $clients = $clients->sortBy(fn (User $client) => [
+                ($overview[$client->id]['unread'] ?? 0) > 0 ? 0 : 1,
+                -($overview[$client->id]['last_at'] ?? 0),
+                mb_strtolower($client->name),
+            ])->values();
+
+            return view('chat.index', compact('clients', 'selectedClient', 'messages', 'overview'));
         }
 
         // --- KLANT ZIJDE ---
@@ -75,6 +88,53 @@ class MessageController extends Controller
         Message::markReadBy($authUser, $authUser->id);
 
         return view('chat.index', compact('messages'));
+    }
+
+    /**
+     * Overzicht voor de lijst met gesprekken van de medewerker.
+     * Per klant: het aantal ongelezen berichten, het laatste bericht en wanneer dat was.
+     *
+     * @return array<int, array{unread: int, last_at: int, last_time: string, preview: string}>
+     */
+    private function overview(): array
+    {
+        // Eén vraag aan de database voor alle klanten samen (niet één per klant)
+        $rows = Message::query()
+            ->whereNotNull('client_id')
+            ->selectRaw('client_id, MAX(id) as last_id')
+            // Ongelezen = geschreven door de klant zelf en nog niet door GKR geopend
+            ->selectRaw('SUM(CASE WHEN read_at IS NULL AND sender_id = client_id THEN 1 ELSE 0 END) as unread')
+            ->groupBy('client_id')
+            ->get();
+
+        $lastMessages = Message::whereIn('id', $rows->pluck('last_id'))->get()->keyBy('id');
+
+        $overview = [];
+
+        foreach ($rows as $row) {
+            $last = $lastMessages->get($row->last_id);
+
+            if (! $last) {
+                continue;
+            }
+
+            // Korte tekst van het laatste bericht. Alleen een bijlage? Dan de bestandsnaam.
+            $text = filled($last->body)
+                ? Str::limit(trim((string) $last->body), 60)
+                : 'Bijlage: ' . Str::limit((string) ($last->file_name ?? 'bestand'), 45);
+
+            // Zo zie je meteen of de klant of GKR als laatste iets schreef
+            $fromClient = $last->sender_id !== null && (int) $last->sender_id === (int) $last->client_id;
+
+            $overview[(int) $row->client_id] = [
+                'unread'    => (int) $row->unread,
+                'last_at'   => $last->created_at->getTimestamp(),
+                'last_time' => $last->created_at->isToday() ? $last->created_at->format('H:i') : $last->created_at->format('d-m'),
+                'preview'   => ($fromClient ? '' : 'GKR: ') . $text,
+            ];
+        }
+
+        return $overview;
     }
 
     /**

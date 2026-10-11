@@ -144,12 +144,20 @@ class ChatConversationTest extends TestCase
         $bram = $this->client();
 
         $this->clientSends($anna, 'Bericht van Anna');
-        $this->clientSends($bram, 'Bericht van Bram');
+        $this->clientSends($bram, 'Eerste bericht van Bram');
+        $this->clientSends($bram, 'Laatste bericht van Bram');
 
-        $this->actingAs($admin)->get(route('chat.index', ['client_id' => $anna->id]))
+        $response = $this->actingAs($admin)->get(route('chat.index', ['client_id' => $anna->id]))
             ->assertOk()
-            ->assertSee('Bericht van Anna')
-            ->assertDontSee('Bericht van Bram');
+            ->assertSee('Bericht van Anna');
+
+        // In de lijst links staat van elke klant alleen het begin van het LAATSTE bericht.
+        // Een ouder bericht van Bram kan dus alleen op de pagina staan als het gesprek
+        // van Bram getoond wordt, en dat mag hier niet: het gesprek van Anna staat open.
+        $response->assertDontSee('Eerste bericht van Bram');
+
+        // Het laatste bericht van Bram staat precies één keer op de pagina: in de lijst
+        $this->assertSame(1, substr_count($response->getContent(), 'Laatste bericht van Bram'));
     }
 
     public function test_een_medewerker_in_de_url_wordt_niet_als_klant_geopend(): void
@@ -170,11 +178,11 @@ class ChatConversationTest extends TestCase
         $client = $this->client();
         $this->clientSends($client, 'Nog niet gelezen');
 
-        // Alleen op "Chat" klikken: er is nog geen gesprek geopend
+        // Alleen op "Chat" klikken: er is nog geen gesprek geopend.
+        // (De medewerker ziet in de lijst wel het begin van het bericht, maar dat telt niet als gelezen.)
         $this->actingAs($admin)->get(route('chat.index'))
             ->assertOk()
-            ->assertSee('Kies een klant om het gesprek te openen.')
-            ->assertDontSee('Nog niet gelezen');
+            ->assertSee('Kies een klant om het gesprek te openen.');
 
         $this->assertNull($this->messageWith('Nog niet gelezen')->read_at);
     }

@@ -51,6 +51,12 @@ return [
     'mail_test_recipient' => env('APPOINTMENT_MAIL_TEST_RECIPIENT'),
 ],
 
+    'chat' => [
+        // Schrijft een klant in de chat, dan gaat de e-mailmelding naar dit ene adres van GKR
+        // (niet naar elke medewerker apart). Leeg = geen melding naar GKR.
+        'gkr_address' => env('CHAT_MAIL_GKR_ADDRESS'),
+    ],
+
     'outlook' => [
         // Zo lang onthoudt het portaal een opgehaalde agenda (in minuten)
         'cache_minutes' => env('OUTLOOK_CACHE_MINUTES', 5),

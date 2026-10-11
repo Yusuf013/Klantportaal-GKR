@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Message;
 use App\Models\User;
+use App\Services\ChatNotifier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
@@ -28,6 +29,11 @@ class MessageController extends Controller
     // Zoveel nieuwe berichten stuurt de server hooguit per keer naar de browser
     private const MAX_LIVE_MESSAGES = 100;
 
+    // Bepaalt of er een e-mailmelding gaat bij een nieuw bericht (zie ChatNotifier voor de regels)
+    public function __construct(private ChatNotifier $notifier)
+    {
+    }
+
     /**
      * Mag dit bestand als voorbeeld in de browser worden getoond?
      * We kijken naar de extensie van het OPGESLAGEN bestand. Die bepaalt Laravel
@@ -46,6 +52,9 @@ class MessageController extends Controller
     {
         $authUser = Auth::user();
 
+        // Deze gebruiker heeft het portaal open: er hoeft nu geen e-mailmelding naartoe
+        $this->notifier->markPresent($authUser);
+
         // --- ADMIN ZIJDE ---
         if ($authUser->isAdmin()) {
             // Alleen een klant die in de URL staat wordt geopend. Voorheen koos het portaal
@@ -63,7 +72,7 @@ class MessageController extends Controller
                 $messages = $this->conversation($selectedClient->id);
 
                 // De medewerker heeft dit gesprek nu echt open: berichten van de klant zijn gelezen
-                Message::markReadBy($authUser, $selectedClient->id);
+                $this->markRead($authUser, $selectedClient->id);
             }
 
             // De lijst met klanten, met per klant de teller en het laatste bericht.
@@ -78,7 +87,7 @@ class MessageController extends Controller
         $messages = $this->conversation($authUser->id);
 
         // De klant heeft het gesprek open: antwoorden van GKR zijn gelezen
-        Message::markReadBy($authUser, $authUser->id);
+        $this->markRead($authUser, (int) $authUser->id);
 
         return view('chat.index', compact('messages'));
     }
@@ -97,6 +106,9 @@ class MessageController extends Controller
     {
         $authUser = Auth::user();
         $after = max(0, $request->integer('after'));
+
+        // De chatpagina staat open en in beeld: er hoeft nu geen e-mailmelding naartoe
+        $this->notifier->markPresent($authUser);
 
         if ($authUser->isAdmin()) {
             $clientId = $request->integer('client_id');
@@ -118,7 +130,7 @@ class MessageController extends Controller
         if ($conversationId) {
             // Staat het gesprek echt in beeld? Dan zijn de berichten van de andere kant gelezen.
             if ($request->boolean('seen')) {
-                Message::markReadBy($authUser, $conversationId);
+                $this->markRead($authUser, $conversationId);
             }
 
             $new = Message::inConversation($conversationId)
@@ -170,7 +182,22 @@ class MessageController extends Controller
      */
     public function unread()
     {
+        // Een pagina van het portaal staat open: deze gebruiker ziet de rode teller,
+        // dus er hoeft nu geen e-mailmelding naartoe
+        $this->notifier->markPresent(Auth::user());
+
         return response()->json(['unread_total' => Message::unreadCountFor(Auth::user())]);
+    }
+
+    /**
+     * Zet de berichten van de andere kant op gelezen. Daarmee is de stapel ongelezen
+     * berichten weg, dus een volgend bericht mag weer een e-mailmelding geven.
+     */
+    private function markRead(User $reader, int $clientId): void
+    {
+        Message::markReadBy($reader, $clientId);
+
+        $this->notifier->conversationRead($reader, $clientId);
     }
 
     /**
@@ -363,6 +390,10 @@ class MessageController extends Controller
                 'body'        => $request->body,
             ]);
         }
+
+        // E-mailmelding voor de andere kant, als dat volgens de regels nodig is.
+        // Eén keer per verzending, ook als er meerdere bijlagen tegelijk zijn verstuurd.
+        $this->notifier->messageSent($authUser, $clientId);
 
         // De chat in de browser verstuurt zonder herladen en haalt het nieuwe bericht daarna zelf op
         if ($request->expectsJson()) {

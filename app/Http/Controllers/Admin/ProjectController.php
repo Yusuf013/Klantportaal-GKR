@@ -7,7 +7,9 @@ use App\Http\Controllers\DocumentFileController;
 use App\Models\Project;
 use App\Models\User;
 use App\Models\Document; // Netjes geïmporteerd voor je showDocument methode
+use App\Models\DocumentVersion;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ProjectController extends Controller
 {
@@ -71,21 +73,33 @@ public function store(Request $request)
         // beveiligde route (DocumentFileController) voor GKR en de klant van dit project
         $path = $request->file('file')->store('documents', DocumentFileController::DISK);
 
-        Document::create([
-            'project_id' => $projectId,
-            'name' => $request->document_name,
-            'file_path' => $path,
-            'status' => 'Verzonden',
-        ]);
-        
+        DB::transaction(function () use ($request, $projectId, $path) {
+            $document = Document::create([
+                'project_id' => $projectId,
+                'name' => $request->document_name,
+                'file_path' => $path,
+                'status' => 'Verzonden',
+            ]);
+
+            // Versiebeheer: de eerste upload is versie 1
+            $version = new DocumentVersion();
+            $version->forceFill([
+                'document_id'    => $document->id,
+                'version_number' => 1,
+                'file_path'      => $path,
+                'uploaded_by'    => $request->user()->id,
+            ])->save();
+        });
+
         return back()->with('success', 'Document is succesvol geüpload en zichtbaar voor de klant.');
     }
 
     // NIEUW: De ontbrekende methode voor de split-screen documenten- & feedbackpagina
     public function showDocument(Document $document)
     {
-        // Eager load de feedback en de bijbehorende gebruikers (klant en admin)
-        $document->load('comments.user');
+        // Eager load de feedback en de bijbehorende gebruikers (klant en admin),
+        // de versie waarbij elke reactie hoort, en alle versies met wie ze uploadde
+        $document->load(['comments.user', 'comments.version', 'versions.uploader', 'currentVersion']);
 
         return view('admin.documents.show', compact('document'));
     }

@@ -11,7 +11,12 @@
                 </h2>
             </div>
             
-            <div>
+            <div class="flex items-center gap-2">
+                @if($document->currentVersion)
+                    <span class="text-sm font-medium px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-100">
+                        Versie {{ $document->currentVersion->version_number }}
+                    </span>
+                @endif
                 <span class="text-sm font-medium px-3 py-1.5 rounded-lg {{ $document->status == 'Akkoord' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-orange-50 text-orange-700 border border-orange-200' }}">
                     Status: {{ $document->status }}
                 </span>
@@ -19,9 +24,26 @@
         </div>
     </x-slot>
 
+    @php
+        $current = $document->currentVersion;
+        // De laatste oudere versie die de klant al eens goedkeurde (voor de melding hieronder)
+        $earlierApproved = $document->versions->first(fn ($v) => $v->approved_at && $v->id !== $current?->id);
+    @endphp
+
     <div class="py-8">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            
+
+            @if(session('success'))
+                <div class="p-4 mb-6 bg-emerald-50 border border-emerald-150 text-emerald-700 rounded-xl text-sm font-medium flex items-center shadow-sm">
+                    {{ session('success') }}
+                </div>
+            @endif
+            @if(session('error'))
+                <div class="p-4 mb-6 bg-red-50 border border-red-150 text-red-700 rounded-xl text-sm font-medium flex items-center shadow-sm">
+                    {{ session('error') }}
+                </div>
+            @endif
+
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
                 
                 <div class="lg:col-span-2 space-y-6">
@@ -42,10 +64,20 @@
                         </div>
                     </div>
 
+                    @if($current && $current->version_number > 1 && $current->change_note)
+                        <div class="bg-blue-50 p-5 rounded-2xl border border-blue-100">
+                            <h3 class="font-bold text-[#011936] text-sm">Wat is er veranderd in versie {{ $current->version_number }}?</h3>
+                            <p class="text-sm text-gray-700 mt-1" style="white-space: pre-line; overflow-wrap: anywhere;">{{ $current->change_note }}</p>
+                        </div>
+                    @endif
+
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex justify-between items-center">
                         <div>
                             <h3 class="font-bold text-gray-900 text-lg">Voldoet het ontwerp aan de wensen?</h3>
                             <p class="text-sm text-gray-500">Geef direct digitaal akkoord of laat rechts je aanpassingen achter.</p>
+                            @if($document->status !== 'Akkoord' && $earlierApproved)
+                                <p class="text-xs text-gray-400 mt-1">Je gaf eerder akkoord op versie {{ $earlierApproved->version_number }}. Dit is een nieuwe versie.</p>
+                            @endif
                         </div>
 
                         <div>
@@ -76,7 +108,7 @@
                                                             <h3 class="text-xl font-bold leading-6 text-gray-900">Document goedkeuren</h3>
                                                             <div class="mt-3">
                                                                 <p class="text-sm text-gray-500">
-                                                                    Weet je zeker dat je akkoord gaat met dit document? Je bevestiging wordt officieel vastgelegd met de datum en tijd van nu.
+                                                                    Weet je zeker dat je akkoord gaat met {{ $current ? 'versie ' . $current->version_number . ' van' : '' }} dit document? Je bevestiging wordt officieel vastgelegd met de datum en tijd van nu.
                                                                 </p>
                                                             </div>
                                                         </div>
@@ -85,6 +117,10 @@
                                                 <div class="px-6 py-4 bg-gray-50 sm:px-10 sm:flex sm:flex-row-reverse">
                                                     <form action="{{ route('documents.approve', $document->id) }}" method="POST">
                                                         @csrf
+                                                        {{-- Welke versie de klant heeft bekeken. Is er intussen een nieuwere, dan weigert de server. --}}
+                                                        @if($current)
+                                                            <input type="hidden" name="version_id" value="{{ $current->id }}">
+                                                        @endif
                                                         <button type="submit" class="inline-flex justify-center w-full px-6 py-2.5 text-base font-bold text-white bg-green-600 border border-transparent rounded-xl shadow-sm hover:bg-green-700 sm:ml-3 sm:w-auto sm:text-sm">
                                                             Ja, ik ga akkoord
                                                         </button>
@@ -102,11 +138,13 @@
                                     <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
                                         <path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"></path>
                                     </svg>
-                                    Digitaal goedgekeurd op {{ $document->approved_at->translatedFormat('d F Y \o\m H:i') }}
+                                    Digitaal goedgekeurd op {{ ($document->approved_at ?? $document->updated_at)->translatedFormat('d F Y \o\m H:i') }}{{ $current ? ' (versie ' . $current->version_number . ')' : '' }}
                                 </span>
                             @endif
                         </div>
                     </div>
+
+                    @include('documents._versions', ['document' => $document, 'forAdmin' => false])
                 </div>
 
                 <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sticky top-24">
@@ -130,6 +168,9 @@
                                         @endif
                                     </span>
                                     <span class="text-[10px] text-gray-400">
+                                        @if($comment->version)
+                                            bij versie {{ $comment->version->version_number }} ·
+                                        @endif
                                         {{ $comment->created_at->diffForHumans() }}
                                     </span>
                                 </div>

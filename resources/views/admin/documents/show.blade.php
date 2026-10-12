@@ -11,7 +11,12 @@
                 </h2>
             </div>
             
-            <div>
+            <div class="flex items-center gap-2">
+                @if($document->currentVersion)
+                    <span class="text-sm font-medium px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-100">
+                        Versie {{ $document->currentVersion->version_number }}
+                    </span>
+                @endif
                 <span class="text-sm font-medium px-3 py-1.5 rounded-lg {{ $document->status == 'Akkoord' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-orange-50 text-orange-700 border border-orange-200' }}">
                     Klant Status: {{ $document->status }}
                 </span>
@@ -19,9 +24,20 @@
         </div>
     </x-slot>
 
+    @php
+        $current = $document->currentVersion;
+        $maxNote = \App\Http\Controllers\Admin\DocumentVersionController::MAX_NOTE_LENGTH;
+    @endphp
+
     <div class="py-8">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            
+
+            @if(session('success'))
+                <div class="p-4 mb-6 bg-emerald-50 border border-emerald-150 text-emerald-700 rounded-xl text-sm font-medium flex items-center shadow-sm">
+                    {{ session('success') }}
+                </div>
+            @endif
+
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
                 
                 <div class="lg:col-span-2 space-y-6">
@@ -55,7 +71,7 @@
                                         <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
                                             <path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"></path>
                                         </svg>
-                                        Goedgekeurd op {{ $document->approved_at ? $document->approved_at->translatedFormat('d F Y \o\m H:i') : $document->updated_at->translatedFormat('d F Y \o\m H:i') }}
+                                        Goedgekeurd op {{ $document->approved_at ? $document->approved_at->translatedFormat('d F Y \o\m H:i') : $document->updated_at->translatedFormat('d F Y \o\m H:i') }}{{ $current ? ' (versie ' . $current->version_number . ')' : '' }}
                                     </span>
                                 @else
                                     <span class="text-orange-600 font-bold flex items-center bg-orange-50 px-4 py-2.5 rounded-xl border border-orange-200 shadow-sm text-sm">
@@ -68,6 +84,41 @@
                             </div>
                         </div>
                     </div>
+
+                    {{-- Nieuwe versie uploaden (alleen GKR) --}}
+                    <div id="nieuwe-versie" class="bg-gray-50 p-6 rounded-2xl border border-dashed border-gray-300">
+                        <h3 class="font-bold text-gray-900 text-lg">Nieuwe versie uploaden</h3>
+                        <p class="text-sm text-gray-500 mb-4">
+                            Het huidige bestand blijft bewaard als oude versie. De klant ziet daarna de nieuwe versie en moet opnieuw akkoord geven.
+                        </p>
+
+                        <form action="{{ route('admin.documents.versions.store', $document) }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+                            @csrf
+                            <div>
+                                <label for="version_file" class="block text-xs font-bold text-gray-600 mb-1">Bestand (pdf, png, jpg of webp, max. 10 MB)</label>
+                                <input id="version_file" type="file" name="file" required accept=".pdf,.png,.jpg,.jpeg,.webp" class="block w-full text-sm text-gray-500">
+                                @if($errors->version->has('file'))
+                                    <p class="text-xs text-red-600 mt-1">{{ $errors->version->first('file') }}</p>
+                                @endif
+                            </div>
+
+                            <div>
+                                <label for="change_note" class="block text-xs font-bold text-gray-600 mb-1">Wat is er veranderd? (optioneel, de klant ziet dit)</label>
+                                <textarea id="change_note" name="change_note" rows="2" maxlength="{{ $maxNote }}"
+                                    placeholder="bijv. Logo groter gemaakt en de kleur van de knoppen aangepast."
+                                    class="block w-full rounded-xl border-gray-300 shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">{{ old('change_note') }}</textarea>
+                                @if($errors->version->has('change_note'))
+                                    <p class="text-xs text-red-600 mt-1">{{ $errors->version->first('change_note') }}</p>
+                                @endif
+                            </div>
+
+                            <button type="submit" class="bg-[#011936] text-white px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-black transition shadow-sm">
+                                Versie {{ ($current?->version_number ?? 1) + 1 }} uploaden
+                            </button>
+                        </form>
+                    </div>
+
+                    @include('documents._versions', ['document' => $document, 'forAdmin' => true])
                 </div>
 
                 <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sticky top-24">
@@ -91,6 +142,9 @@
                                         @endif
                                     </span>
                                     <span class="text-[10px] text-gray-400">
+                                        @if($comment->version)
+                                            bij versie {{ $comment->version->version_number }} ·
+                                        @endif
                                         {{ $comment->created_at->diffForHumans() }}
                                     </span>
                                 </div>

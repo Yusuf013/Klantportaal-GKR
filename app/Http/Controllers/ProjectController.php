@@ -5,15 +5,15 @@ namespace App\Http\Controllers;
 use App\Models\Project;
 use App\Models\Document;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ProjectController extends Controller
 {
     public function show(Project $project)
     {
-        // Beveiliging
-        if ($project->user_id !== auth()->id()) {
-            abort(403);
-        }
+        // Beveiliging: alleen je eigen project. Anders "niet gevonden" (404) en niet
+        // "geen toegang" (403), zodat je niet kunt raden welke projecten bestaan.
+        abort_unless($this->ownsProject($project), 404);
 
         // Haal alleen de documenten op (zonder de zware comments, want die gaan naar de nieuwe pagina!)
         $project->load('documents');
@@ -23,28 +23,50 @@ class ProjectController extends Controller
 
     public function showDocument(Document $document)
     {
-        // Veiligheid: check of de ingelogde klant wel eigenaar is van dit project
-        if ($document->project->user_id !== auth()->id()) {
-            abort(403);
-        }
+        // Veiligheid: alleen een document uit je eigen project (anders 404)
+        abort_unless($this->ownsProject($document->project), 404);
 
-        // Eager load de feedback en de bijbehorende gebruikers
-        $document->load('comments.user');
+        // Eager load de feedback (met de versie waarbij die hoort) en alle versies
+        $document->load(['comments.user', 'comments.version', 'versions', 'currentVersion']);
 
         return view('documents.show', compact('document'));
     }
 
-    public function approveDocument(Document $document)
+    public function approveDocument(Request $request, Document $document)
     {
-        // Veiligheid: check of de ingelogde klant wel eigenaar is van dit project
-        if ($document->project->user_id !== auth()->id()) {
-            abort(403);
-        }
+        // Veiligheid: alleen een document uit je eigen project (anders 404)
+        abort_unless($this->ownsProject($document->project), 404);
 
-        $document->update([
-            'status' => 'Akkoord',
-            'approved_at' => now(), // De 'digitale handtekening'
-        ]);
+        $result = DB::transaction(function () use ($request, $document) {
+            // Vergrendel het document, zodat er niet tegelijk een nieuwe versie bij kan komen
+            $document = Document::whereKey($document->id)->lockForUpdate()->firstOrFail();
+            $current = $document->currentVersion()->first();
+
+            // Het formulier zegt welke versie de klant heeft bekeken. Is er intussen een
+            // nieuwere versie, dan keuren we niets goed: de klant moet die eerst zien.
+            if ($current && (int) $request->input('version_id') !== (int) $current->id) {
+                return 'outdated';
+            }
+
+            $now = now();
+
+            $document->update([
+                'status' => 'Akkoord',
+                'approved_at' => $now, // De 'digitale handtekening'
+            ]);
+
+            // Het akkoord hoort bij precies deze versie
+            $current?->forceFill([
+                'approved_at' => $now,
+                'approved_by' => $request->user()->id,
+            ])->save();
+
+            return 'approved';
+        });
+
+        if ($result === 'outdated') {
+            return back()->with('error', 'Er is intussen een nieuwe versie van dit document. Bekijk die eerst voordat je akkoord geeft.');
+        }
 
         return back()->with('success', 'Document succesvol goedgekeurd!');
     }
@@ -71,5 +93,12 @@ public function allProjects()
     return view('projects.index', compact('projects'));
 }
 
+    /**
+     * Is dit project van de ingelogde klant?
+     */
+    private function ownsProject(?Project $project): bool
+    {
+        return $project !== null && (int) $project->user_id === (int) auth()->id();
+    }
 
 }

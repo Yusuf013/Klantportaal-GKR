@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Document extends Model
 {
@@ -30,5 +32,22 @@ public function comments(): \Illuminate\Database\Eloquent\Relations\HasMany
 {
     return $this->hasMany(Comment::class)->latest();
 }
+
+    /**
+     * Alle versies van dit document, nieuwste eerst (versie 3, 2, 1).
+     */
+    public function versions(): HasMany
+    {
+        return $this->hasMany(DocumentVersion::class)->orderByDesc('version_number');
+    }
+
+    /**
+     * De huidige versie: die met het hoogste versienummer.
+     * Leeg bij een document dat nog geen versies heeft (van voor het versiebeheer).
+     */
+    public function currentVersion(): HasOne
+    {
+        return $this->hasOne(DocumentVersion::class)->ofMany('version_number', 'max');
+    }
 
 }

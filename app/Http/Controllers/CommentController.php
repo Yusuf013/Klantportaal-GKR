@@ -25,6 +25,9 @@ class CommentController extends Controller
 
         // Sla de opmerking op gekoppeld aan het document en de huidige user
         $document->comments()->create([
+            // Bij welke versie hoort deze reactie? Altijd de huidige versie (leeg bij een
+            // document van voor het versiebeheer). Dit komt nooit uit het formulier.
+            'document_version_id' => $document->currentVersion()->value('document_versions.id'),
             'user_id' => auth()->id(),
             'content' => $request->content,
             'is_resolved' => false,

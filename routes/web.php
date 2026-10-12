@@ -103,6 +103,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/documents/{document}/bestand', [\App\Http\Controllers\DocumentFileController::class, 'show'])->name('documents.file');
 
+    Route::get('/documents/{document}/versies/{version}/bestand', [\App\Http\Controllers\DocumentFileController::class, 'version'])->name('documents.version.file');
     
 
 });
@@ -189,6 +190,8 @@ Route::middleware(['auth', 'verified', 'admin'])
 
         Route::post('/gebruikers', [\App\Http\Controllers\Admin\ClientAccountController::class, 'store'])->name('users.store');
 Route::post('/gebruikers/{user}/uitnodigen', [\App\Http\Controllers\Admin\ClientAccountController::class, 'resend'])->name('users.invite');
+
+        Route::post('/documents/{document}/versies', [\App\Http\Controllers\Admin\DocumentVersionController::class, 'store'])->name('documents.versions.store');
 
 });
 

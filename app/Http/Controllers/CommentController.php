@@ -4,11 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\Document;
 use App\Models\Comment;
+use App\Services\DocumentFeedbackNotifier;
 use Illuminate\Http\Request;
 
 class CommentController extends Controller
 {
-    public function store(Request $request, Document $document)
+    public function store(Request $request, Document $document, DocumentFeedbackNotifier $notifier)
     {
         // Veiligheid: alleen een medewerker van GKR of de klant van dit project mag reageren.
         // Voorheen kon elke ingelogde klant een reactie plaatsen bij het document van een
@@ -32,6 +33,9 @@ class CommentController extends Controller
             'content' => $request->content,
             'is_resolved' => false,
         ]);
+
+        // E-mail aan GKR als de klant reageert (hooguit één per document tot GKR reageert)
+        $notifier->commentPlaced($document, $user);
 
         // Stuur de gebruiker terug met een succesmelding
         return back()->with('success', 'Je feedback is succesvol geplaatst!');

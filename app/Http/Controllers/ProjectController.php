@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Project;
 use App\Models\Document;
+use App\Services\DocumentFeedbackNotifier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -32,7 +33,7 @@ class ProjectController extends Controller
         return view('documents.show', compact('document'));
     }
 
-    public function approveDocument(Request $request, Document $document)
+    public function approveDocument(Request $request, Document $document, DocumentFeedbackNotifier $notifier)
     {
         // Veiligheid: alleen een document uit je eigen project (anders 404)
         abort_unless($this->ownsProject($document->project), 404);
@@ -61,12 +62,15 @@ class ProjectController extends Controller
                 'approved_by' => $request->user()->id,
             ])->save();
 
-            return 'approved';
+            return $current ? $current->version_number : 'approved';
         });
 
         if ($result === 'outdated') {
             return back()->with('error', 'Er is intussen een nieuwe versie van dit document. Bekijk die eerst voordat je akkoord geeft.');
         }
+
+        // E-mail aan GKR: de klant heeft akkoord gegeven (met het versienummer, als dat er is)
+        $notifier->approved($document, $request->user(), is_int($result) ? $result : null);
 
         return back()->with('success', 'Document succesvol goedgekeurd!');
     }

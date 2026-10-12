@@ -8,6 +8,7 @@ use App\Models\Project;
 use App\Models\User;
 use App\Models\Document; // Netjes geïmporteerd voor je showDocument methode
 use App\Models\DocumentVersion;
+use App\Services\DocumentNotifier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -62,7 +63,7 @@ public function store(Request $request)
     }
 
     // Wijziging: Hernoemd naar upload zodat deze exact matcht met je route 'admin.projects.upload'
-    public function uploadDocument(Request $request, $projectId)
+    public function uploadDocument(Request $request, $projectId, DocumentNotifier $notifier)
     {
         $request->validate([
             'document_name' => 'required|string|max:255',
@@ -73,7 +74,7 @@ public function store(Request $request)
         // beveiligde route (DocumentFileController) voor GKR en de klant van dit project
         $path = $request->file('file')->store('documents', DocumentFileController::DISK);
 
-        DB::transaction(function () use ($request, $projectId, $path) {
+        $document = DB::transaction(function () use ($request, $projectId, $path) {
             $document = Document::create([
                 'project_id' => $projectId,
                 'name' => $request->document_name,
@@ -89,7 +90,12 @@ public function store(Request $request)
                 'file_path'      => $path,
                 'uploaded_by'    => $request->user()->id,
             ])->save();
+
+            return $document;
         });
+
+        // E-mail aan de klant: er staat een nieuw document klaar (pas na het opslaan)
+        $notifier->documentReady($document, 1);
 
         return back()->with('success', 'Document is succesvol geüpload en zichtbaar voor de klant.');
     }

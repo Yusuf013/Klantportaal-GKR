@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\DocumentFileController;
 use App\Models\Document;
 use App\Models\DocumentVersion;
+use App\Services\DocumentNotifier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -26,7 +27,7 @@ class DocumentVersionController extends Controller
     // Maximale lengte van "wat is er veranderd" (in tekens)
     public const MAX_NOTE_LENGTH = 1000;
 
-    public function store(Request $request, Document $document)
+    public function store(Request $request, Document $document, DocumentNotifier $notifier)
     {
         // Eigen "bag": zo komen de foutmeldingen alleen bij het formulier "Nieuwe versie"
         $validated = $request->validateWithBag('version', [
@@ -85,6 +86,9 @@ class DocumentVersionController extends Controller
 
             throw $e;
         }
+
+        // E-mail aan de klant: er staat een nieuwe versie klaar (pas na het opslaan)
+        $notifier->documentReady($document->fresh(), $number);
 
         return redirect()->route('admin.documents.show', $document)
             ->with('success', "Versie {$number} is geüpload. De klant ziet nu deze versie en kan opnieuw akkoord geven.");

@@ -7,6 +7,10 @@
 
         <title>{{ config('app.name', 'Laravel') }}</title>
 
+        {{-- Het icoon in het tabblad van de browser --}}
+        <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
+        <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('favicon-32x32.png') }}">
+
         <link rel="preconnect" href="https://fonts.bunny.net">
         {{-- De lettertypen van de huisstijl: Maven Pro voor koppen (font-maven) en Inter (font-inter).
              Voorheen werd hier Figtree geladen, dat nergens werd gebruikt; de koppen vielen

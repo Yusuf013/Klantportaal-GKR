@@ -43,7 +43,8 @@
         ])->values();
     @endphp
 
-    <div class="py-12">
+    {{-- py-6 in plaats van py-12: minder witruimte, zodat de maandkalender op het scherm past --}}
+    <div class="py-6">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-8">
             
             @if(session('success'))
@@ -781,7 +782,51 @@
                 dayBox.append(dayHeader, list);
                 grid.appendChild(dayBox);
             }
+
+            fitAdminCalendar();
         }
+
+        // NIEUW: laat de maandkalender op het scherm passen, zodat je niet hoeft te scrollen.
+        // Vroeger was elk dagvak vast 110px hoog: zes weken passen dan niet op een laptopscherm.
+        // Nu rekenen we uit hoeveel ruimte er is: de hoogte van het venster, min alles boven de
+        // kalender (balk, titel, meldingen) en alles eronder (legenda en witruimte).
+        // Die ruimte verdelen we over het aantal weken. Een vak wordt nooit kleiner dan 64px
+        // (dan blijft het leesbaar) en nooit groter dan 110px (de oude hoogte).
+        // Staan er bovenaan aanvragen of meldingen, dan is er minder ruimte; dan worden de vakken
+        // 64px en scrol je een klein stukje. Dat is bewust: die aanvragen wil je eerst zien.
+        const ADMIN_DAY_MIN = 64;
+        const ADMIN_DAY_MAX = 110;
+
+        function fitAdminCalendar() {
+            const grid = document.getElementById('adminCalendarGrid');
+            if (!grid || grid.children.length === 0) return;
+
+            const rows = Math.ceil(grid.children.length / 7);
+            const rect = grid.getBoundingClientRect();
+            const gridTop = rect.top + window.scrollY;
+            const below = document.documentElement.scrollHeight - (rect.bottom + window.scrollY);
+            const available = window.innerHeight - gridTop - below;
+
+            const perRow = Math.floor((available - rows) / rows); // 1px lijn tussen de weken
+            const height = Math.max(ADMIN_DAY_MIN, Math.min(ADMIN_DAY_MAX, perRow));
+
+            Array.from(grid.children).forEach(cell => {
+                cell.style.minHeight = height + 'px';
+                // De lijst met afspraken in een vak schaalt mee (dagnummer en witruimte eraf)
+                const list = cell.querySelector('div');
+                if (list) list.style.maxHeight = Math.max(30, height - 35) + 'px';
+            });
+        }
+
+        // Opnieuw passend maken als het venster groter of kleiner wordt, of als de
+        // lettertypes klaar zijn met laden (dan verschuift de pagina soms een paar pixels)
+        let adminCalendarFitPending = false;
+        window.addEventListener('resize', () => {
+            if (adminCalendarFitPending) return;
+            adminCalendarFitPending = true;
+            requestAnimationFrame(() => { adminCalendarFitPending = false; fitAdminCalendar(); });
+        });
+        window.addEventListener('load', fitAdminCalendar);
 
         // 2. MODAL CONTROLS & SECURITY LOCK ENGINE
         function openAdminCreateModal() { 

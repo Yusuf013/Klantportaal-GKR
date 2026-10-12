@@ -187,6 +187,9 @@ Route::middleware(['auth', 'verified', 'admin'])
         Route::patch('/gebruikers/{user}/outlook-agenda', [\App\Http\Controllers\Admin\OutlookCalendarController::class, 'update'])
             ->name('users.outlook-calendar.update');
 
+        Route::post('/gebruikers', [\App\Http\Controllers\Admin\ClientAccountController::class, 'store'])->name('users.store');
+Route::post('/gebruikers/{user}/uitnodigen', [\App\Http\Controllers\Admin\ClientAccountController::class, 'resend'])->name('users.invite');
+
 });
 
 

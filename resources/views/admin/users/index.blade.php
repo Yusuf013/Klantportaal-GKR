@@ -33,6 +33,39 @@
                 @endif
             @endforeach
 
+            {{-- Klant toevoegen. De klant krijgt een welkomstmail en kiest zelf een wachtwoord. --}}
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-150 overflow-hidden" id="klant-toevoegen">
+                <div class="px-6 py-4 bg-gray-50/50 border-b border-gray-100">
+                    <h3 class="text-xs font-bold text-[#011936] uppercase tracking-wider flex items-center">
+                        <span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                        Klant toevoegen
+                    </h3>
+                    <p class="text-[11px] text-gray-400 mt-1">Klanten kunnen zich niet zelf registreren. Na het toevoegen krijgt de klant een mail met een link om zelf een wachtwoord te kiezen. De link is 7 dagen geldig.</p>
+                </div>
+                <form method="POST" action="{{ route('admin.users.store') }}" class="p-6 flex flex-col md:flex-row md:items-end gap-4">
+                    @csrf
+                    <div class="flex-1">
+                        <label for="invite_name" class="block text-xs font-bold text-gray-600 mb-1">Naam</label>
+                        <input id="invite_name" type="text" name="name" value="{{ old('name') }}" required maxlength="255" autocomplete="off"
+                               class="w-full rounded-lg border-gray-300 text-sm focus:border-[#011936] focus:ring-[#011936]">
+                        @if($errors->invite->has('name'))
+                            <p class="text-xs text-red-600 mt-1">{{ $errors->invite->first('name') }}</p>
+                        @endif
+                    </div>
+                    <div class="flex-1">
+                        <label for="invite_email" class="block text-xs font-bold text-gray-600 mb-1">E-mailadres</label>
+                        <input id="invite_email" type="email" name="email" value="{{ old('email') }}" required maxlength="255" autocomplete="off"
+                               class="w-full rounded-lg border-gray-300 text-sm focus:border-[#011936] focus:ring-[#011936]">
+                        @if($errors->invite->has('email'))
+                            <p class="text-xs text-red-600 mt-1">{{ $errors->invite->first('email') }}</p>
+                        @endif
+                    </div>
+                    <button type="submit" class="bg-[#011936] hover:bg-black text-white text-xs font-bold px-4 py-2.5 rounded-lg transition shrink-0">
+                        Toevoegen en uitnodigen
+                    </button>
+                </form>
+            </div>
+
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 
                 <div class="bg-white rounded-2xl shadow-sm border border-gray-150 overflow-hidden">
@@ -97,6 +130,11 @@
                                         <td class="p-3 font-semibold text-gray-800">{{ $client->name }}</td>
                                         <td class="p-3 text-gray-400 text-xs">{{ $client->email }}</td>
                                         <td class="p-3 text-right">
+                                            {{-- Nieuwe link sturen, bijvoorbeeld als de vorige verlopen is --}}
+                                            <form method="POST" action="{{ route('admin.users.invite', $client) }}" style="display: inline;">
+                                                @csrf
+                                                <button type="submit" class="text-xs font-bold text-gray-500 hover:text-[#011936] underline mr-2">Uitnodiging sturen</button>
+                                            </form>
                                             {{-- AANGEPAST: @js() zet de naam veilig om naar JavaScript (XSS-fix) --}}
                                             <button type="button" onclick="openConfirmAdminModal({{ $client->id }}, @js($client->name), 'toewijzen')" class="inline-flex items-center px-2.5 py-1 border border-gray-200 text-[11px] font-bold rounded-lg text-gray-600 hover:bg-[#011936] hover:text-white hover:border-[#011936] transition shadow-2xs">
                                                 Maak Admin +
@@ -105,7 +143,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="3" class="p-6 text-center text-xs text-gray-400 italic">Er zijn nog geen klanten geregistreerd in het portaal.</td>
+                                        <td colspan="3" class="p-6 text-center text-xs text-gray-400 italic">Er zijn nog geen klanten. Voeg hierboven een klant toe.</td>
                                     </tr>
                                 @endforelse
                             </tbody>

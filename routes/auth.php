@@ -7,15 +7,19 @@ use App\Http\Controllers\Auth\EmailVerificationPromptController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
-use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\VerifyEmailController;
+use App\Http\Controllers\InvitationController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
-    Route::get('register', [RegisteredUserController::class, 'create'])
-        ->name('register');
+    // Zelf registreren kan niet meer: GKR maakt de accounts aan (Gebruikersbeheer > Klant toevoegen).
+    // De klant kiest daarna een wachtwoord via de link in de welkomstmail.
+    Route::get('welkom/{user}', [InvitationController::class, 'show'])
+        ->name('invitation.show');
 
-    Route::post('register', [RegisteredUserController::class, 'store']);
+    Route::post('welkom/{user}', [InvitationController::class, 'store'])
+        ->middleware('throttle:6,1')
+        ->name('invitation.store');
 
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');

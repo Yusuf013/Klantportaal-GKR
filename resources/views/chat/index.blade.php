@@ -1,6 +1,12 @@
 <x-app-layout>
-    {{-- Wrapper die de volledige hoogte van het venster benut --}}
-    <div class="h-[calc(100vh-65px)] w-full p-3 md:p-5 flex flex-col overflow-hidden bg-[#F8FAFC]">
+    {{-- Wrapper die precies de beschikbare hoogte van het venster vult, zodat de typbalk
+         altijd zichtbaar is zonder te scrollen. Van de schermhoogte gaat af:
+         de navigatiebalk bovenin (4rem = 64px) en de ruimte van <main> erboven en eronder
+         (p-6 = 2 x 1,5rem = 3rem). Samen 7rem.
+         100dvh is de hoogte die echt zichtbaar is op een telefoon (zonder de adresbalk);
+         browsers die dat niet kennen, gebruiken de regel met 100vh ervoor. --}}
+    <div class="w-full p-3 md:p-5 flex flex-col overflow-hidden bg-[#F8FAFC]"
+         style="height: calc(100vh - 7rem); height: calc(100dvh - 7rem); min-height: 420px;">
 
         {{-- Eén grote naadloze witte kaart --}}
         <div class="flex-1 w-full flex overflow-hidden bg-white rounded-2xl border border-slate-200/80 shadow-sm">

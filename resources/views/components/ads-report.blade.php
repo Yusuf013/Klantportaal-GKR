@@ -141,6 +141,16 @@
             @if($report)
                 {{ \Carbon\Carbon::parse($report['start'])->format('d-m-Y') }} t/m {{ \Carbon\Carbon::parse($report['end'])->format('d-m-Y') }}
             @endif
+            {{-- Wanneer de cijfers zijn opgehaald. Oudere rapporten (van voor deze functie)
+                 hebben dit nog niet; dan laten we het weg tot het volgende ophalen. --}}
+            @if(! empty($report['fetched_at']))
+                @php
+                    $fetchedAt = \Carbon\Carbon::parse($report['fetched_at'])->timezone(config('app.timezone'));
+                @endphp
+                <span class="ml-2">
+                    · Opgehaald {{ $fetchedAt->isToday() ? 'om ' . $fetchedAt->format('H:i') : 'op ' . $fetchedAt->format('d-m') . ' om ' . $fetchedAt->format('H:i') }}
+                </span>
+            @endif
             @if($report['is_fake'] ?? false)
                 <span class="ml-2 bg-amber-50 text-amber-700 border border-amber-100 px-2 py-0.5 rounded-md font-bold">Testgegevens</span>
             @endif

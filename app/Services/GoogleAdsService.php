@@ -221,6 +221,8 @@ class GoogleAdsService
             // Bij 12 maanden per maand, anders per dag (net als bij GA en Meta)
             'series'    => $days === 365 ? $this->groupByMonth($daily) : $daily,
             'campaigns' => $this->campaignTotals($currentRows),
+            // Wanneer deze cijfers zijn opgehaald (voor "Opgehaald om ..." op de pagina)
+            'fetched_at' => now()->toIso8601String(),
         ];
     }
 

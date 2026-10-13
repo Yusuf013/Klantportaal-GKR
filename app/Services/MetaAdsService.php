@@ -196,6 +196,8 @@ class MetaAdsService
             'series'   => $days === 365 ? $this->groupByMonth($currentRows) : $currentRows,
             // Cijfers per campagne over de huidige periode, hoogste besteding bovenaan
             'campaigns' => $this->fetchCampaigns($accountId, $start, $end, $totals),
+            // Wanneer deze cijfers zijn opgehaald (voor "Opgehaald om ..." op de pagina)
+            'fetched_at' => now()->toIso8601String(),
         ];
     }
 
